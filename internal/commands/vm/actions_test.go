@@ -134,7 +134,10 @@ func runVM(t *testing.T, args ...string) (string, error) {
 
 // --- get --------------------------------------------------------------------
 
-func TestVMGetTable(t *testing.T) {
+// TestVMGetDetail checks the human (default) view of `vm get`: it is now a
+// detail sheet, not the one-row table shared with `vm list`. The action server
+// does not serve hosts or pools, so the container falls back to its raw id.
+func TestVMGetDetail(t *testing.T) {
 	server := newActionServer(t)
 	defer server.Close()
 	isolateVM(t, server.URL)
@@ -143,9 +146,20 @@ func TestVMGetTable(t *testing.T) {
 	if err != nil {
 		t.Fatalf("vm get: %v", err)
 	}
-	for _, expected := range []string{"NAME", "POWER STATE", "web-01", "Halted", "2.147GB"} {
+	for _, expected := range []string{
+		"VM web-01  (Halted)",
+		field("Memory", "2.147GB"),
+		field("CPUs", "2"),
+		field("Container", "aaaaaaaa-bbbb-cccc-dddd-000000000001"),
+	} {
 		if !strings.Contains(out, expected) {
 			t.Errorf("get output missing %q:\n%s", expected, out)
+		}
+	}
+	// The old one-row table columns must be gone from the detail sheet.
+	for _, gone := range []string{"NAME", "POWER STATE", "HOST/POOL"} {
+		if strings.Contains(out, gone) {
+			t.Errorf("get output must not contain the old table column %q:\n%s", gone, out)
 		}
 	}
 }

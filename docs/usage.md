@@ -236,7 +236,7 @@ xo vm list --output json            # machine readable
 xo vm list --power-state Running    # filter by power state
 xo vm list --limit 10               # cap the number of results
 xo vm list --query '[].name_label'  # project a single field
-xo vm get <id>                      # one VM (table/json/yaml)
+xo vm get <id>                      # one VM, as a detail view
 
 # Create
 xo vm create web-02 --pool <pool-id> --template <template-id>
@@ -279,6 +279,33 @@ xo vm delete <id> --yes             # skip confirmation (automation)
 ```
 
 `--memory` accepts bytes or human-readable sizes (`2G`, `512M`).
+
+`vm get` shows a single VM as a **detail view** (distinct from `vm list`,
+which is the one-line-per-VM table used to pick a VM). It shows identity
+(IP, description, tags), location, resources and configuration, and it
+resolves the relationships to names: the **container** (the host or pool the
+VM runs on) and the **template**. The resolution uses a constant number of
+extra lookups (at most one host and one pool, plus the template) and falls
+back to the raw id if a reference cannot be resolved, so the view is always
+complete. `--output json` / `yaml` / `text` and `--query` still emit the raw
+object, unchanged.
+
+```
+$ xo vm get 550e8400-e29b-41d4-a716-446655440001
+VM web-01  (Running)
+IP:          10.0.0.12
+Description: primary web server
+Tags:        production, web
+Container:   host-02
+Template:    Oracle Linux 8
+Memory:      4.295GB
+CPUs:        2 (max 4)
+Disks:       1  (xo vm vdis 550e8400-…)
+Networks:    1
+Boot:        hvm, order cda
+Flags:       hvm auto-poweron
+Created:     2026-01-02T10:00:00Z by admin
+```
 
 The lifecycle actions (`start`, `stop`, `reboot`, `pause`, `unpause`,
 `suspend`, `resume`, `snapshot`) are asynchronous: they return a task id. Add
@@ -628,7 +655,8 @@ underlying JMESPath engine uses single quotes.
 
 Format behavior:
 
-- `table` (default): aligned columns for humans; for `get` a single-row table.
+- `table` (default): aligned columns for humans; for `get` a detail view
+  (`vm get` is a key/value sheet — see the `xo vm` section).
 - `json` / `yaml`: the full structured data (or the `--query` projection).
   Machine-readable output is the only thing on stdout; errors go to stderr, so
   `xo vm list --output json | jq '.[].name_label'` always works.
