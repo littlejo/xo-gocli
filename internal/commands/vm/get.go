@@ -12,7 +12,6 @@ import (
 	"github.com/vatesfr/xenorchestra-go-sdk/pkg/payloads"
 
 	"github.com/littlejo/xo-gocli/internal/cli"
-	"github.com/littlejo/xo-gocli/internal/config"
 	"github.com/littlejo/xo-gocli/internal/output"
 	"github.com/littlejo/xo-gocli/internal/resolve"
 )
@@ -72,7 +71,7 @@ Examples:
 				return renderVMRaw(cmd.OutOrStdout(), format, vm, query)
 			}
 
-			resolver, err := newResolver(cmd, cfg)
+			resolver, err := cli.NewResolver(cmd, cfg)
 			if err != nil {
 				return err
 			}
@@ -82,21 +81,6 @@ Examples:
 
 	cmd.Flags().StringVarP(&query, flagQuery, "q", "", "JMESPath expression applied to the result, e.g. 'name_label'")
 	return cmd
-}
-
-// newResolver builds the shared name resolver on top of the SDK v2 client. It
-// needs the raw REST client in addition to the typed library because VM
-// templates are not yet wrapped by a typed service (a known SDK gap).
-func newResolver(cmd *cobra.Command, cfg *config.ClientConfig) (*resolve.Client, error) {
-	httpClient, err := cli.NewHTTPClient(cmd, cfg)
-	if err != nil {
-		return nil, err
-	}
-	lib, err := cli.NewClient(cmd, cfg)
-	if err != nil {
-		return nil, err
-	}
-	return resolve.New(lib, httpClient), nil
 }
 
 // renderVMRaw renders the VM in the structured formats (json/yaml/text) or as
@@ -136,47 +120,47 @@ func renderVMDetail(w io.Writer, ctx context.Context, vm *payloads.VM, r *resolv
 
 	// Identity
 	if vm.MainIpAddress != "" {
-		lines = append(lines, field("IP", vm.MainIpAddress))
+		lines = append(lines, output.DetailField("IP", vm.MainIpAddress))
 	}
 	if vm.NameDescription != "" {
-		lines = append(lines, field("Description", vm.NameDescription))
+		lines = append(lines, output.DetailField("Description", vm.NameDescription))
 	}
 	if len(vm.Tags) > 0 {
-		lines = append(lines, field("Tags", strings.Join(vm.Tags, ", ")))
+		lines = append(lines, output.DetailField("Tags", strings.Join(vm.Tags, ", ")))
 	}
 
 	// Location (resolved by name; the helper falls back to the raw id when a
 	// reference cannot be resolved, so the view is always complete).
 	if name, err := r.ResolveContainer(ctx, vm.Container); err == nil {
-		lines = append(lines, field("Container", name))
+		lines = append(lines, output.DetailField("Container", name))
 	} else {
-		lines = append(lines, field("Container", vm.Container.String()))
+		lines = append(lines, output.DetailField("Container", vm.Container.String()))
 	}
 	// The template's REST id is composite ("poolId-templateUuid"); it is built
 	// from the VM's own pool and template uuids. If it cannot be resolved the
 	// raw composite id is shown, which is what 'xo template get' accepts.
 	if !vm.Template.IsNil() && !vm.PoolID.IsNil() {
 		name, _ := r.Template(ctx, templateID(vm))
-		lines = append(lines, field("Template", orDash(name)))
+		lines = append(lines, output.DetailField("Template", output.OrDash(name)))
 	}
 
 	// Resources
-	lines = append(lines, field("Memory", orDash(memoryText(vm))))
-	lines = append(lines, field("CPUs", cpuText(vm)))
+	lines = append(lines, output.DetailField("Memory", output.OrDash(memoryText(vm))))
+	lines = append(lines, output.DetailField("CPUs", cpuText(vm)))
 	if len(vm.VBDs) > 0 {
-		lines = append(lines, field("Disks", fmt.Sprintf("%d  (xo vm vdis %s)", len(vm.VBDs), vm.ID)))
+		lines = append(lines, output.DetailField("Disks", fmt.Sprintf("%d  (xo vm vdis %s)", len(vm.VBDs), vm.ID)))
 	}
 	if len(vm.VIFs) > 0 {
-		lines = append(lines, field("Networks", fmt.Sprintf("%d", len(vm.VIFs))))
+		lines = append(lines, output.DetailField("Networks", fmt.Sprintf("%d", len(vm.VIFs))))
 	}
 	if len(vm.Snapshots) > 0 {
-		lines = append(lines, field("Snapshots", fmt.Sprintf("%d", len(vm.Snapshots))))
+		lines = append(lines, output.DetailField("Snapshots", fmt.Sprintf("%d", len(vm.Snapshots))))
 	}
 
 	// Configuration
-	lines = append(lines, field("Boot", bootText(vm)))
+	lines = append(lines, output.DetailField("Boot", bootText(vm)))
 	flags := vmFlags(vm)
-	lines = append(lines, field("Flags", orDash(flags)))
+	lines = append(lines, output.DetailField("Flags", output.OrDash(flags)))
 
 	// Status
 	if len(vm.BlockedOperations) > 0 {
@@ -189,10 +173,10 @@ func renderVMDetail(w io.Writer, ctx context.Context, vm *payloads.VM, r *resolv
 			}
 		}
 		sortStrings(keys)
-		lines = append(lines, field("Blocked", strings.Join(keys, ", ")))
+		lines = append(lines, output.DetailField("Blocked", strings.Join(keys, ", ")))
 	}
 	if d := createdText(vm.Creation); d != "" {
-		lines = append(lines, field("Created", d))
+		lines = append(lines, output.DetailField("Created", d))
 	}
 
 	_, err := fmt.Fprintln(w, strings.Join(lines, "\n"))
@@ -204,19 +188,6 @@ func renderVMDetail(w io.Writer, ctx context.Context, vm *payloads.VM, r *resolv
 // get' and the vm-templates endpoint use.
 func templateID(vm *payloads.VM) string {
 	return vm.PoolID.String() + "-" + vm.Template.String()
-}
-
-// field renders a "Label: value" line with the label column aligned.
-func field(label, value string) string {
-	return fmt.Sprintf("%-13s%s", label+":", value)
-}
-
-// orDash renders an empty value as "-" so the detail sheet stays complete.
-func orDash(s string) string {
-	if s == "" {
-		return "-"
-	}
-	return s
 }
 
 // cpuText renders "n" or "n (max m)" when a cap is set.
@@ -236,7 +207,7 @@ func bootText(vm *payloads.VM) string {
 	if vm.Boot.Order != "" {
 		parts = append(parts, "order "+vm.Boot.Order)
 	}
-	return orDash(strings.Join(parts, ", "))
+	return output.OrDash(strings.Join(parts, ", "))
 }
 
 // vmFlags renders the non-default configuration as a compact, space separated

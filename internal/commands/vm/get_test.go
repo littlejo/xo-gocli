@@ -11,6 +11,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/littlejo/xo-gocli/internal/cli"
+	"github.com/littlejo/xo-gocli/internal/output"
 )
 
 const (
@@ -152,17 +153,17 @@ func TestVMGetDetailResolved(t *testing.T) {
 	}
 	for _, expected := range []string{
 		"VM web-01  (Running)",
-		field("IP", "10.0.0.12"),
-		field("Description", "primary web server"),
-		field("Tags", "production, web"),
-		field("Container", "host-02"),
-		field("Template", "Oracle Linux 8"),
-		field("Memory", "4.295GB"),
-		field("CPUs", "2 (max 4)"),
-		field("Disks", "1  (xo vm vdis "+detailVMID+")"),
-		field("Boot", "hvm, order cda"),
-		field("Flags", "hvm auto-poweron"),
-		field("Created", "2026-01-02T10:00:00Z by admin"),
+		output.DetailField("IP", "10.0.0.12"),
+		output.DetailField("Description", "primary web server"),
+		output.DetailField("Tags", "production, web"),
+		output.DetailField("Container", "host-02"),
+		output.DetailField("Template", "Oracle Linux 8"),
+		output.DetailField("Memory", "4.295GB"),
+		output.DetailField("CPUs", "2 (max 4)"),
+		output.DetailField("Disks", "1  (xo vm vdis "+detailVMID+")"),
+		output.DetailField("Boot", "hvm, order cda"),
+		output.DetailField("Flags", "hvm auto-poweron"),
+		output.DetailField("Created", "2026-01-02T10:00:00Z by admin"),
 	} {
 		if !strings.Contains(out, expected) {
 			t.Errorf("get output missing %q:\n%s", expected, out)
@@ -225,7 +226,7 @@ func TestVMGetDetailContainerIsPool(t *testing.T) {
 	if err != nil {
 		t.Fatalf("vm get: %v", err)
 	}
-	if !strings.Contains(out, field("Container", "prod-pool")) {
+	if !strings.Contains(out, output.DetailField("Container", "prod-pool")) {
 		t.Fatalf("expected the container to resolve to the pool name:\n%s", out)
 	}
 }
@@ -240,7 +241,7 @@ func TestVMGetDetailTemplateMissingFallsBack(t *testing.T) {
 	if err != nil {
 		t.Fatalf("vm get must succeed even when the template is missing: %v", err)
 	}
-	if !strings.Contains(out, field("Template", detailTemplateID)) {
+	if !strings.Contains(out, output.DetailField("Template", detailTemplateID)) {
 		t.Fatalf("expected the raw template id as fallback:\n%s", out)
 	}
 }

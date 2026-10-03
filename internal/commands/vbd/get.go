@@ -1,9 +1,12 @@
 package vbd
 
 import (
+	"context"
 	"fmt"
 	"io"
+	"strings"
 
+	"github.com/docker/go-units"
 	"github.com/gofrs/uuid"
 	"github.com/spf13/cobra"
 
@@ -11,8 +14,8 @@ import (
 	"github.com/vatesfr/xenorchestra-go-sdk/pkg/services/library"
 
 	"github.com/littlejo/xo-gocli/internal/cli"
-	"github.com/littlejo/xo-gocli/internal/config"
 	"github.com/littlejo/xo-gocli/internal/output"
+	"github.com/littlejo/xo-gocli/internal/resolve"
 )
 
 const flagQuery = "query"
@@ -23,11 +26,19 @@ func newGetCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "get <id>",
 		Short: "Get a virtual block device (VBD)",
-		Long: `Get a virtual block device (VBD) from Xen Orchestra.
+		Long: `Get a virtual block device (VBD) from Xen Orchestra, as a detailed,
+human readable view.
 
-A VBD is the attachment point between a VM and a VDI (virtual disk). The VBD
-is referenced by its UUID; it can be found in the VM's 'other_config' or by
-listing VBDs and matching on the VM.
+A VBD is the attachment point between a VM and a VDI (virtual disk). The
+VBD is referenced by its UUID, as returned by 'xo vbd list'.
+
+The human (default) view is a detail sheet that resolves the relationships
+by name: the VM the VBD belongs to, and the VDI it points at (with its
+size). If a reference cannot be resolved, the raw id is shown instead and
+the command still succeeds.
+
+--output json / yaml / text and --query still emit the raw object, so the
+machine readable behavior of 'xo vbd get <id> --output json' is unchanged.
 
 Examples:
   xo vbd get 33333333-3333-4333-8333-333333333333
@@ -57,7 +68,18 @@ Examples:
 				return notFound(args[0], err, cfg.Insecure)
 			}
 
-			return renderVBD(cmd.OutOrStdout(), format, vbd, query)
+			// The structured formats (json/yaml/text) and --query are served
+			// straight from the raw object, exactly as before; only the default
+			// human view is the new detail sheet, which resolves relationships.
+			if format != output.FormatTable || query != "" {
+				return renderVBDRaw(cmd.OutOrStdout(), format, vbd, query)
+			}
+
+			resolver, err := cli.NewResolver(cmd, cfg)
+			if err != nil {
+				return err
+			}
+			return renderVBDDetail(cmd.OutOrStdout(), cmd.Context(), xo, vbd, resolver)
 		},
 	}
 
@@ -65,55 +87,10 @@ Examples:
 	return cmd
 }
 
-// parseID converts a positional VBD identifier into a UUID.
-func parseID(id string) (uuid.UUID, error) {
-	u, err := uuid.FromString(id)
-	if err != nil {
-		return uuid.UUID{}, fmt.Errorf("invalid VBD id %q (expected a UUID)", id)
-	}
-	return u, nil
-}
-
-// newClient loads the selected profile and builds an authenticated SDK v2
-// client. Commands must pass their cobra context to the SDK operations so that
-// cancellation (Ctrl+C) reaches the HTTP layer.
-func newClient(cmd *cobra.Command) (library.Library, *config.ClientConfig, error) {
-	cfg, err := config.Load(cli.ProfileName(cmd))
-	if err != nil {
-		return nil, nil, err
-	}
-	xo, err := cli.NewClient(cmd, cfg)
-	if err != nil {
-		return nil, nil, err
-	}
-	return xo, cfg, nil
-}
-
-// notFound delegates to cli.NotFound, which reports a 404 concisely and keeps
-// the raw API error as debug detail.
-func notFound(id string, err error, insecure bool) error {
-	return cli.NotFound("VBD", "get", id, err, insecure)
-}
-
-// renderVBD renders a single VBD in the requested format. The human format
-// uses a single-row table with the same columns as 'xo vbd list'; the
-// structured formats emit the normalized object (or its --query projection).
-func renderVBD(w io.Writer, format output.Format, vbd *payloads.VBD, query string) error {
-	if format == output.FormatTable && query == "" {
-		table := output.Table{
-			Headers: []string{"ID", "VM", "VDI", "DEVICE", "MODE", "ATTACHED"},
-			Rows: [][]string{{
-				vbd.ID.String(),
-				vbd.VM.String(),
-				vdiText(vbd.VDI),
-				deviceText(vbd.Device),
-				modeText(vbd),
-				boolText(vbd.Attached),
-			}},
-		}
-		return output.Render(w, format, table, vbd, nil)
-	}
-
+// renderVBDRaw renders the VBD in the structured formats (json/yaml/text) or
+// as a --query projection. It emits the raw object so machine readable output
+// and the query pipeline are unchanged.
+func renderVBDRaw(w io.Writer, format output.Format, vbd *payloads.VBD, query string) error {
 	if query != "" {
 		queryResult, err := output.Query(query, vbd)
 		if err != nil {
@@ -127,6 +104,66 @@ func renderVBD(w io.Writer, format output.Format, vbd *payloads.VBD, query strin
 		return err
 	}
 	return output.Render(w, format, output.Table{}, normalized, nil)
+}
+
+// renderVBDDetail renders the single VBD as a human readable detail sheet.
+// The two relationships (the VM and the VDI) are resolved to names at a
+// constant cost (one VM name lookup and one VDI lookup). A reference that
+// cannot be resolved falls back to its raw id, so the view is always complete.
+func renderVBDDetail(w io.Writer, ctx context.Context, xo library.Library, vbd *payloads.VBD, r *resolve.Client) error {
+	lines := make([]string, 0, 10)
+
+	// Header: type, device and (mode, attachment).
+	header := "VBD " + deviceText(vbd.Device)
+	header += fmt.Sprintf("  (%s, attached=%s)", modeText(vbd), boolText(vbd.Attached))
+	if vbd.Bootable {
+		header += ", bootable"
+	}
+	lines = append(lines, header)
+
+	// Identity
+	if vbd.IsCDDrive {
+		lines = append(lines, output.DetailField("Type", "CD drive"))
+	}
+	if vbd.Device != nil && *vbd.Device != "" {
+		lines = append(lines, output.DetailField("Device", *vbd.Device))
+	}
+	if vbd.Position != 0 {
+		lines = append(lines, output.DetailField("Position", fmt.Sprintf("%d", vbd.Position)))
+	}
+
+	// Relationships (resolved by name; the resolver falls back to the raw id
+	// when a reference cannot be resolved, so the view is always complete).
+	if name, err := r.VMName(ctx, vbd.VM); err == nil {
+		lines = append(lines, output.DetailField("VM", name))
+	} else {
+		lines = append(lines, output.DetailField("VM", vbd.VM.String()))
+	}
+	if vdiRef := vbd.VDI; vdiRef != nil && !vdiRef.IsNil() {
+		name, size := vdiLabel(ctx, xo, *vdiRef)
+		lines = append(lines, output.DetailField("VDI", output.OrDash(name)))
+		if size != "" {
+			lines = append(lines, output.DetailField("Size", size))
+		}
+	}
+
+	_, err := fmt.Fprintln(w, strings.Join(lines, "\n"))
+	return err
+}
+
+// vdiLabel resolves the name and size of the VDI a VBD points at. The VDI is
+// fetched once (a constant lookup) so both its name and its virtual size are
+// available; the raw id is returned when it cannot be resolved.
+func vdiLabel(ctx context.Context, xo library.Library, vdi uuid.UUID) (string, string) {
+	d, err := xo.VDI().Get(ctx, vdi)
+	if err != nil || d == nil {
+		return vdi.String(), ""
+	}
+	size := ""
+	if d.Size > 0 {
+		size = units.HumanSize(float64(d.Size))
+	}
+	return d.NameLabel, size
 }
 
 func vdiText(vdi *uuid.UUID) string {

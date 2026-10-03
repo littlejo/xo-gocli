@@ -13,6 +13,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/littlejo/xo-gocli/internal/cli"
+	"github.com/littlejo/xo-gocli/internal/output"
 )
 
 const (
@@ -196,7 +197,11 @@ func TestPBDListJSON(t *testing.T) {
 
 // --- get ---------------------------------------------------------------------
 
-func TestPBDGetTable(t *testing.T) {
+// TestPBDGetDetail checks the human view of `pbd get`: it is a detail sheet,
+// not the one-row table shared with `pbd list`. The mutation server does not
+// serve hosts/SRs/pools, so the relationships fall back to their raw ids; the
+// full device_config is shown (here: device=/dev/sda).
+func TestPBDGetDetail(t *testing.T) {
 	server := newMutationServer(t)
 	defer server.Close()
 	isolatePointers(t, server.URL)
@@ -205,9 +210,15 @@ func TestPBDGetTable(t *testing.T) {
 	if err != nil {
 		t.Fatalf("pbd get: %v", err)
 	}
-	for _, expected := range []string{"ID", "HOST", "SR", "POOL", "ATTACHED", "DEVICE", "/dev/sda", "yes"} {
+	for _, expected := range []string{
+		"PBD /dev/sda  (attached=yes)",
+		output.DetailField("Host", pbdHostID),
+		output.DetailField("SR", pbdSRID),
+		output.DetailField("Pool", pbdPoolID),
+		output.DetailField("Config", "device=/dev/sda"),
+	} {
 		if !strings.Contains(out, expected) {
-			t.Errorf("table output missing %q:\n%s", expected, out)
+			t.Errorf("get output missing %q:\n%s", expected, out)
 		}
 	}
 }

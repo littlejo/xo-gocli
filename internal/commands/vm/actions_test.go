@@ -13,6 +13,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/littlejo/xo-gocli/internal/cli"
+	"github.com/littlejo/xo-gocli/internal/output"
 )
 
 const fixtureVM = `{
@@ -148,9 +149,9 @@ func TestVMGetDetail(t *testing.T) {
 	}
 	for _, expected := range []string{
 		"VM web-01  (Halted)",
-		field("Memory", "2.147GB"),
-		field("CPUs", "2"),
-		field("Container", "aaaaaaaa-bbbb-cccc-dddd-000000000001"),
+		output.DetailField("Memory", "2.147GB"),
+		output.DetailField("CPUs", "2"),
+		output.DetailField("Container", "aaaaaaaa-bbbb-cccc-dddd-000000000001"),
 	} {
 		if !strings.Contains(out, expected) {
 			t.Errorf("get output missing %q:\n%s", expected, out)

@@ -479,7 +479,7 @@ VM and a VDI — it is what "plugs a disk into a VM".
 xo vbd list
 xo vbd list --vm <vm-id>        # only the VBDs of one VM
 xo vbd list --query '[].VDI'
-xo vbd get <id>                 # one VBD (table/json/yaml)
+xo vbd get <id>                 # one VBD, as a detail view
 
 # Attach / detach
 xo vbd create --vm <vm-id> --vdi <vdi-id>
@@ -500,6 +500,22 @@ removes only the attachment — the VDI (and its data) is kept; use
 `xo vdi delete` to remove the disk itself. `connect` / `disconnect` are
 asynchronous (they print a task id); `--wait` blocks until the task completes.
 
+Like `vm get`, `vbd get` shows a single VBD as a **detail view** (distinct
+from the `vbd list` table). It resolves the two relationships by name — the
+VM the VBD belongs to, and the VDI it points at (with its size) — at a constant
+cost (one VM lookup and one VDI lookup). `--output json` / `yaml` / `text` and
+`--query` still emit the raw object, unchanged.
+
+```
+$ xo vbd get 33333333-3333-4333-8333-333333333333
+VBD xvda  (RW, attached=yes, bootable)
+Device:    xvda
+Position:  0
+VM:        web-01
+VDI:       sys-disk
+Size:      42.95GB
+```
+
 ### `xo pbd`
 
 Manage physical block devices (PBDs). A PBD is the connection between a host
@@ -508,7 +524,7 @@ and a storage repository (SR) — it is what "plugs" an SR into a host.
 ```sh
 xo pbd list
 xo pbd list --query '[].attached'
-xo pbd get <id>                 # one PBD (table/json/yaml)
+xo pbd get <id>                 # one PBD, as a detail view
 
 # Connect / disconnect the SR to its host (async: prints a task id; --wait to block)
 xo pbd plug <id>
@@ -521,6 +537,22 @@ xo pbd unplug <id> --wait
 them with `xo task get <task-id>` or `xo task wait <task-id>`, or add `--wait`
 to block until the task completes. A PBD's `attached` column reflects whether
 the SR is currently connected.
+
+Like `vm get`, `pbd get` shows a single PBD as a **detail view** (distinct
+from the `pbd list` table). It resolves the three relationships by name — the
+host, the SR and the pool — at a constant cost (one lookup each), and shows the
+**full** `device_config`, not just the block device: for an NFS SR you get the
+`server` and `serverpath`, for a local disk the `device`. `--output json` /
+`yaml` / `text` and `--query` still emit the raw object, unchanged.
+
+```
+$ xo pbd get 66666666-6666-4666-8666-666666666666
+PBD /dev/sda  (attached=yes)
+Host:        host-01
+SR:          Local Storage
+Pool:        prod-pool
+Config:      device=/dev/sda
+```
 
 ### `xo task`
 

@@ -8,6 +8,8 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+
+	"github.com/littlejo/xo-gocli/internal/output"
 )
 
 const (
@@ -115,7 +117,10 @@ func readBody(r *http.Request) (string, error) {
 
 // --- get --------------------------------------------------------------------
 
-func TestVBDGetTable(t *testing.T) {
+// TestVBDGetDetail checks the human view of `vbd get`: it is a detail sheet,
+// not the one-row table shared with `vbd list`. The mutation server does not
+// serve VMs or VDIs, so the relationships fall back to their raw ids.
+func TestVBDGetDetail(t *testing.T) {
 	server := newMutationServer(t)
 	defer server.Close()
 	isolatePointers(t, server.URL)
@@ -124,9 +129,14 @@ func TestVBDGetTable(t *testing.T) {
 	if err != nil {
 		t.Fatalf("vbd get: %v", err)
 	}
-	for _, expected := range []string{"ID", "VM", "VDI", "DEVICE", "MODE", "ATTACHED", "xvda", "RW"} {
+	for _, expected := range []string{
+		"VBD xvda  (RW, attached=yes)",
+		output.DetailField("Device", "xvda"),
+		output.DetailField("VM", vmID),
+		output.DetailField("VDI", "11111111-1111-4111-8111-111111111111"),
+	} {
 		if !strings.Contains(out, expected) {
-			t.Errorf("table output missing %q:\n%s", expected, out)
+			t.Errorf("get output missing %q:\n%s", expected, out)
 		}
 	}
 }
