@@ -2,12 +2,13 @@
 
 Status snapshot and the minimal checklist for releasing `xo` v1.0.0.
 
-> **Snapshot**: `list` branch at `75ff733` (2026-10-04). This page is based on a
-> read-only audit of the full codebase (every command file, the output layer,
-> the test suite, the docs and the release pipeline), with the built binary
-> exercised directly to confirm the key findings. As items are fixed, cross
-> them off in the [release checklist](#release-checklist) and update the
-> snapshot line.
+> **Snapshot**: `main` at `56bec90` (2026-10-04). B1, B2 and S1 are done
+> (merged); S2–S7 and the release-day steps remain. The rest of this page is
+> based on the original read-only audit of the full codebase (every command
+> file, the output layer, the test suite, the docs and the release pipeline),
+> with the built binary exercised directly to confirm the key findings. As
+> items are fixed, cross them off in the [release checklist](#release-checklist)
+> and update the snapshot line.
 
 ## Table of contents
 
@@ -59,9 +60,10 @@ The product is technically close to releaseable. Verified at snapshot time:
   xo-api-sim), `version.yml` (semver from conventional commits), `release.yml`
   (GoReleaser, amd64/arm64, checksums).
 
-What keeps it from a v1.0.0 tag is the small list below — two hard blockers,
-a handful of "should fix" hardening items, and release-day steps that must be
-done by hand.
+What keeps it from a v1.0.0 tag is the small list below — the two hard
+blockers are now resolved (B1, B2), as is the first hardening item (S1); the
+remaining "should fix" items (S2–S7) and the release-day steps still need to
+be done by hand.
 
 ## Blockers
 
@@ -302,12 +304,12 @@ required for a coherent release):
 
 ## Release checklist
 
-Minimal path from `list` @ `75ff733` to a published v1.0.0:
+Minimal path from here (B1, B2 and S1 are done) to a published v1.0.0:
 
-- [ ] **B1** — fix the `rest` `-d` shorthand collision; add a test that
+- [x] **B1** — fix the `rest` `-d` shorthand collision; add a test that
       exercises the real root (or `os/exec` smoke test)
-- [ ] **B2** — add the MIT `LICENSE` file
-- [ ] **S1** — process-level tests: exit codes/stderr, 401, Ctrl+C,
+- [x] **B2** — add the MIT `LICENSE` file
+- [x] **S1** — process-level tests: exit codes/stderr, 401, Ctrl+C,
       `--profile` e2e, golden JSON for `vm list`/`vm get`
 - [ ] **S2** — error translation layer (timeout / network / unmarshal) with
       the raw detail behind `--debug`; status-based not-found detection
