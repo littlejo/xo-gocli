@@ -190,7 +190,11 @@ Examples:
 	}
 
 	flags := cmd.Flags()
-	flags.StringVarP(&data, flagData, "d", "", `JSON request body for post/put/patch ('-' reads stdin)`)
+	// No shorthand for --data: the root owns -d for --debug, and a
+	// shorthand collision in the merged flagset makes cobra panic on
+	// every 'xo rest' invocation (see the regression test in
+	// internal/commands/commands_test.go).
+	flags.StringVar(&data, flagData, "", `JSON request body for post/put/patch ('-' reads stdin)`)
 	flags.StringSliceVar(&params, flagParam, nil, `query parameter KEY=VALUE (repeatable)`)
 	flags.StringSliceVar(&headers, flagHeader, nil, `extra request header KEY: VALUE (repeatable)`)
 	flags.StringVarP(&query, flagQuery, "q", "", "JMESPath expression applied to the result, e.g. '[].name_label'")
