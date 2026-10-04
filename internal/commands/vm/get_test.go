@@ -93,7 +93,7 @@ func newDetailServer(t *testing.T, containerIsHost, template404 bool) *detailSer
 			http.NotFound(w, r)
 		}
 	}))
-	t.Cleanup(s.Server.Close)
+	t.Cleanup(s.Close)
 	return s
 }
 
