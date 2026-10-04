@@ -34,14 +34,14 @@ func newListDetailServer(t *testing.T) *listDetailServer {
 			return
 		}
 		w.Header().Set("Content-Type", "application/json")
-		switch {
-		case r.URL.Path == "/rest/v0/srs":
+		switch r.URL.Path {
+		case "/rest/v0/srs":
 			_, _ = fmt.Fprint(w, listTestSRs)
-		case r.URL.Path == "/rest/v0/pools":
+		case "/rest/v0/pools":
 			_, _ = fmt.Fprint(w, `[
 				{"id":"aaaaaaaa-bbbb-cccc-dddd-000000000009","name_label":"prod-pool"}
 			]`)
-		case r.URL.Path == "/rest/v0/hosts":
+		case "/rest/v0/hosts":
 			_, _ = fmt.Fprint(w, `[
 				{"id":"bbbbbbbb-bbbb-cccc-dddd-000000000001","name_label":"host-01"}
 			]`)
