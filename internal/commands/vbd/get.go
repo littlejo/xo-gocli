@@ -128,8 +128,8 @@ func renderVBDDetail(w io.Writer, ctx context.Context, xo library.Library, vbd *
 	if vbd.Device != nil && *vbd.Device != "" {
 		lines = append(lines, output.DetailField("Device", *vbd.Device))
 	}
-	if vbd.Position != 0 {
-		lines = append(lines, output.DetailField("Position", fmt.Sprintf("%d", vbd.Position)))
+	if vbd.Position != "" {
+		lines = append(lines, output.DetailField("Position", vbd.Position))
 	}
 
 	// Relationships (resolved by name; the resolver falls back to the raw id

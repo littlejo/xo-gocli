@@ -121,6 +121,42 @@ func TestVBDListTable(t *testing.T) {
 	}
 }
 
+// Regression: the REST API exposes the XAPI "userdevice" under the "position"
+// key as a string whose content is data dependent — a numeric index ("0") on
+// some stacks or a device name ("xvdb") on others. A device name must not fail
+// the unmarshal of the whole VBD listing.
+func TestVBDListDeviceNamePosition(t *testing.T) {
+	server := fakeXO(t, func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = fmt.Fprint(w, `[
+			{
+				"id": "33333333-3333-4333-8333-333333333333",
+				"uuid": "33333333-3333-4333-8333-333333333333",
+				"type": "VBD",
+				"$pool": "aaaaaaaa-bbbb-cccc-dddd-000000000009",
+				"attached": true,
+				"bootable": false,
+				"device": "xvdb",
+				"is_cd_drive": false,
+				"position": "xvdb",
+				"read_only": false,
+				"VDI": "11111111-1111-4111-8111-111111111111",
+				"VM": "550e8400-e29b-41d4-a716-446655440001"
+			}
+		]`)
+	})
+	defer server.Close()
+	isolatePointers(t, server.URL)
+
+	out, err := runVBD(t, "vbd", "list")
+	if err != nil {
+		t.Fatalf("vbd list with a device-name position must not fail unmarshal: %v", err)
+	}
+	if !strings.Contains(out, "33333333-3333-4333-8333-333333333333") {
+		t.Errorf("expected the VBD id in the listing:\n%s", out)
+	}
+}
+
 func TestVBDListJSON(t *testing.T) {
 	server := fakeXO(t, nil)
 	defer server.Close()
