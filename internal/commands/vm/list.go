@@ -1,10 +1,12 @@
 package vm
 
 import (
+	"context"
 	"fmt"
 	"io"
 
 	"github.com/docker/go-units"
+	"github.com/gofrs/uuid"
 	"github.com/spf13/cobra"
 
 	"github.com/vatesfr/xenorchestra-go-sdk/pkg/payloads"
@@ -12,6 +14,7 @@ import (
 	"github.com/littlejo/xo-gocli/internal/cli"
 	"github.com/littlejo/xo-gocli/internal/config"
 	"github.com/littlejo/xo-gocli/internal/output"
+	"github.com/littlejo/xo-gocli/internal/resolve"
 )
 
 const (
@@ -70,7 +73,18 @@ Examples:
 				return cli.InsecureHint(fmt.Sprintf("cannot list VMs: %v", err), cfg.Insecure)
 			}
 
-			return renderVMs(cmd.OutOrStdout(), format, vms, query)
+			// Names (instead of raw UUIDs) are only shown in the human table;
+			// --output json/yaml/text and --query keep the raw references, so
+			// the resolver — and its extra batch requests — is only built for
+			// the table.
+			var resolver *resolve.Client
+			if format == output.FormatTable && query == "" {
+				resolver, err = cli.NewResolver(cmd, cfg)
+				if err != nil {
+					return err
+				}
+			}
+			return renderVMs(cmd.OutOrStdout(), cmd.Context(), format, vms, query, resolver)
 		},
 	}
 
@@ -83,24 +97,52 @@ Examples:
 }
 
 // renderVMs applies the optional --query expression and renders the result in
-// the requested format.
-func renderVMs(w io.Writer, format output.Format, vms []*payloads.VM, query string) error {
+// the requested format. The human table shows the container (the host the VM
+// runs on, or the pool it belongs to in pool mode) by name instead of by UUID;
+// the names come from at most two batch lookups (all hosts, all pools), never
+// one lookup per VM. The structured formats and --query still emit the raw
+// objects, unchanged.
+func renderVMs(w io.Writer, ctx context.Context, format output.Format, vms []*payloads.VM, query string, r *resolve.Client) error {
 	queryResult, err := output.Query(query, vms)
 	if err != nil {
 		return err
+	}
+
+	// The container is a pool in pool mode, or a host when the VM is pinned to
+	// one; the VM's $poolId field is what disambiguates the two. Resolving
+	// both collections at once costs two batch lookups whatever the list size,
+	// and an unresolvable id falls back to its raw string.
+	var containers []uuid.UUID
+	for _, vm := range vms {
+		if !vm.Container.IsNil() {
+			containers = append(containers, vm.Container)
+		}
+	}
+	var hostNames, poolNames map[string]string
+	if r != nil && len(containers) > 0 {
+		hostNames = r.HostBatchNames(ctx, containers)
+		poolNames = r.PoolBatchNames(ctx, containers)
 	}
 
 	table := output.Table{
 		Headers: []string{"ID", "NAME", "POWER STATE", "MEMORY", "CPUS", "HOST/POOL"},
 	}
 	for _, vm := range vms {
+		name := vm.Container.String()
+		if vm.PoolID == vm.Container {
+			if n, ok := poolNames[vm.Container.String()]; ok {
+				name = n
+			}
+		} else if n, ok := hostNames[vm.Container.String()]; ok {
+			name = n
+		}
 		table.Rows = append(table.Rows, []string{
 			vm.ID.String(),
 			vm.NameLabel,
 			vm.PowerState,
 			memoryText(vm),
 			fmt.Sprintf("%d", vm.CPUs.Number),
-			vm.Container.String(),
+			name,
 		})
 	}
 

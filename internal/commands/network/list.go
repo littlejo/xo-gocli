@@ -1,9 +1,11 @@
 package network
 
 import (
+	"context"
 	"fmt"
 	"io"
 
+	"github.com/gofrs/uuid"
 	"github.com/spf13/cobra"
 
 	"github.com/vatesfr/xenorchestra-go-sdk/pkg/payloads"
@@ -11,6 +13,7 @@ import (
 	"github.com/littlejo/xo-gocli/internal/cli"
 	"github.com/littlejo/xo-gocli/internal/config"
 	"github.com/littlejo/xo-gocli/internal/output"
+	"github.com/littlejo/xo-gocli/internal/resolve"
 )
 
 const (
@@ -62,7 +65,18 @@ Examples:
 				return cli.InsecureHint(fmt.Sprintf("cannot list networks: %v", err), cfg.Insecure)
 			}
 
-			return renderNetworks(cmd.OutOrStdout(), format, networks, query)
+			// Names (instead of raw UUIDs) are only shown in the human table;
+			// --output json/yaml/text and --query keep the raw references, so
+			// the resolver — and its extra batch requests — is only built for
+			// the table.
+			var resolver *resolve.Client
+			if format == output.FormatTable && query == "" {
+				resolver, err = cli.NewResolver(cmd, cfg)
+				if err != nil {
+					return err
+				}
+			}
+			return renderNetworks(cmd.OutOrStdout(), cmd.Context(), format, networks, query, resolver)
 		},
 	}
 
@@ -74,17 +88,35 @@ Examples:
 }
 
 // renderNetworks applies the optional --query expression and renders the
-// result in the requested format.
-func renderNetworks(w io.Writer, format output.Format, networks []*payloads.Network, query string) error {
+// result in the requested format. The human table shows the pool each network
+// belongs to by name (one batch lookup for every row, never one lookup per
+// network); the structured formats and --query still emit the raw objects,
+// unchanged.
+func renderNetworks(w io.Writer, ctx context.Context, format output.Format, networks []*payloads.Network, query string, r *resolve.Client) error {
 	queryResult, err := output.Query(query, networks)
 	if err != nil {
 		return err
+	}
+
+	var pools []uuid.UUID
+	for _, n := range networks {
+		if !n.Pool.IsNil() {
+			pools = append(pools, n.Pool)
+		}
+	}
+	poolNames := map[string]string{}
+	if r != nil && len(pools) > 0 {
+		poolNames = r.PoolBatchNames(ctx, pools)
 	}
 
 	table := output.Table{
 		Headers: []string{"ID", "NAME", "BRIDGE", "TYPE", "MTU", "VIFS", "POOL"},
 	}
 	for _, n := range networks {
+		pool := n.Pool.String()
+		if name, ok := poolNames[n.Pool.String()]; ok {
+			pool = name
+		}
 		table.Rows = append(table.Rows, []string{
 			n.ID.String(),
 			n.NameLabel,
@@ -92,7 +124,7 @@ func renderNetworks(w io.Writer, format output.Format, networks []*payloads.Netw
 			string(n.Type),
 			fmt.Sprintf("%d", n.MTU),
 			fmt.Sprintf("%d", len(n.VIFs)),
-			n.Pool.String(),
+			pool,
 		})
 	}
 

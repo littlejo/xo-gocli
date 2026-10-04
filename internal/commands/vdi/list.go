@@ -1,10 +1,12 @@
 package vdi
 
 import (
+	"context"
 	"fmt"
 	"io"
 
 	"github.com/docker/go-units"
+	"github.com/gofrs/uuid"
 	"github.com/spf13/cobra"
 
 	"github.com/vatesfr/xenorchestra-go-sdk/pkg/payloads"
@@ -12,6 +14,7 @@ import (
 	"github.com/littlejo/xo-gocli/internal/cli"
 	"github.com/littlejo/xo-gocli/internal/config"
 	"github.com/littlejo/xo-gocli/internal/output"
+	"github.com/littlejo/xo-gocli/internal/resolve"
 )
 
 const (
@@ -71,7 +74,18 @@ Examples:
 				return cli.InsecureHint(fmt.Sprintf("cannot list VDIs: %v", err), cfg.Insecure)
 			}
 
-			return renderVDIs(cmd.OutOrStdout(), format, vdis, query)
+			// Names (instead of raw UUIDs) are only shown in the human table;
+			// --output json/yaml/text and --query keep the raw references, so
+			// the resolver — and its extra batch requests — is only built for
+			// the table.
+			var resolver *resolve.Client
+			if format == output.FormatTable && query == "" {
+				resolver, err = cli.NewResolver(cmd, cfg)
+				if err != nil {
+					return err
+				}
+			}
+			return renderVDIs(cmd.OutOrStdout(), cmd.Context(), format, vdis, query, resolver)
 		},
 	}
 
@@ -84,24 +98,41 @@ Examples:
 }
 
 // renderVDIs applies the optional --query expression and renders the result
-// in the requested format.
-func renderVDIs(w io.Writer, format output.Format, vdis []*payloads.VDI, query string) error {
+// in the requested format. The human table shows the SR each VDI lives on by
+// name (one batch lookup for every row, never one lookup per VDI); the
+// structured formats and --query still emit the raw objects, unchanged.
+func renderVDIs(w io.Writer, ctx context.Context, format output.Format, vdis []*payloads.VDI, query string, r *resolve.Client) error {
 	queryResult, err := output.Query(query, vdis)
 	if err != nil {
 		return err
+	}
+
+	var srs []uuid.UUID
+	for _, vdi := range vdis {
+		if !vdi.SR.IsNil() {
+			srs = append(srs, vdi.SR)
+		}
+	}
+	srNames := map[string]string{}
+	if r != nil && len(srs) > 0 {
+		srNames = r.SRBatchNames(ctx, srs)
 	}
 
 	table := output.Table{
 		Headers: []string{"ID", "NAME", "TYPE", "SIZE", "USAGE", "SR"},
 	}
 	for _, vdi := range vdis {
+		sr := vdi.SR.String()
+		if n, ok := srNames[vdi.SR.String()]; ok {
+			sr = n
+		}
 		table.Rows = append(table.Rows, []string{
 			vdi.ID.String(),
 			vdi.NameLabel,
 			string(vdi.VDIType),
 			units.HumanSize(float64(vdi.Size)),
 			units.HumanSize(float64(vdi.Usage)),
-			vdi.SR.String(),
+			sr,
 		})
 	}
 

@@ -192,6 +192,22 @@ func (c *Client) SRBatchNames(ctx context.Context, ids []uuid.UUID) map[string]s
 	}, ids)
 }
 
+// PoolBatchNames resolves many pool ids at once (one GetAll, then an id→name
+// map), falling back to the raw id for any id not returned.
+func (c *Client) PoolBatchNames(ctx context.Context, ids []uuid.UUID) map[string]string {
+	return batchNames(c, ctx, "pool", c.xo.Pool().GetAll, func(p *payloads.Pool) (uuid.UUID, string) {
+		return p.ID, p.NameLabel
+	}, ids)
+}
+
+// VDIBatchNames resolves many VDI ids at once (one GetAll, then an id→name
+// map), falling back to the raw id for any id not returned.
+func (c *Client) VDIBatchNames(ctx context.Context, ids []uuid.UUID) map[string]string {
+	return batchNames(c, ctx, "vdi", c.xo.VDI().GetAll, func(d *payloads.VDI) (uuid.UUID, string) {
+		return d.ID, d.NameLabel
+	}, ids)
+}
+
 // HostsOfPool returns the sorted names of the hosts belonging to a pool. The
 // Pool payload carries no host list, so this fetches every host once (one
 // GetAll) and filters by $pool in memory — a single request, independent of
