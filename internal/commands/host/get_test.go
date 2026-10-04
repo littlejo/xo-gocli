@@ -12,6 +12,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/littlejo/xo-gocli/internal/cli"
+	"github.com/littlejo/xo-gocli/internal/output"
 )
 
 const fixtureHost = `{
@@ -25,6 +26,7 @@ const fixtureHost = `{
 	"memory": {"size": 2147483648, "usage": 1073741824},
 	"cpus": {"cores": 8, "sockets": 2},
 	"$pool": "99999999-9999-4999-8999-999999999999",
+	"enabled": true,
 	"residentVms": ["11111111-1111-4111-8111-111111111111", "22222222-2222-4222-8222-222222222222"]
 }`
 
@@ -86,7 +88,11 @@ func runGetExec(t *testing.T, args ...string) (string, error) {
 	return errOut.String(), err
 }
 
-func TestHostGetTable(t *testing.T) {
+// TestHostGetDetail checks the human view of `host get`: it is a detail
+// sheet, not the one-row table shared with `host list`. The fake server serves
+// the host only, so the pool falls back to its raw id and the resident VMs
+// show their raw ids (the /vms batch returns 404).
+func TestHostGetDetail(t *testing.T) {
 	server := fakeXOGet(t, nil)
 	defer server.Close()
 	isolatePointers(t, server.URL)
@@ -95,9 +101,17 @@ func TestHostGetTable(t *testing.T) {
 	if err != nil {
 		t.Fatalf("host get: %v", err)
 	}
-	for _, expected := range []string{"ID", "NAME", "ADDRESS", "POWER STATE", "PLATFORM", "MEMORY", "VMS", "POOL", "host-01", "10.0.0.11", "Running", "8.2.0", "2.147GB"} {
+	for _, expected := range []string{
+		"Host host-01  (Running)",
+		output.DetailField("Pool", "99999999-9999-4999-8999-999999999999"),
+		output.DetailField("Address", "10.0.0.11"),
+		output.DetailField("Memory", "1.074GB / 2.147GB (50%)"),
+		output.DetailField("CPUs", "8 cores, 2 sockets"),
+		output.DetailField("Platform", "8.2.0"),
+		output.DetailField("VMs", "2  (11111111-1111-4111-8111-111111111111, 22222222-2222-4222-8222-222222222222)"),
+	} {
 		if !strings.Contains(out, expected) {
-			t.Errorf("table output missing %q:\n%s", expected, out)
+			t.Errorf("get output missing %q:\n%s", expected, out)
 		}
 	}
 }
@@ -260,4 +274,101 @@ func TestHostGetTLSErrorNoHintWhenInsecureOn(t *testing.T) {
 	if strings.Contains(err.Error(), "--insecure") {
 		t.Fatalf("no hint expected when XOA_INSECURE=1: %v", err)
 	}
+}
+
+const (
+	hostTestID      = "aaaaaaaa-bbbb-cccc-dddd-000000000001"
+	hostPoolID      = "99999999-9999-4999-8999-999999999999"
+	hostResidentVM1 = "11111111-1111-4111-8111-111111111111"
+	hostResidentVM2 = "22222222-2222-4222-8222-222222222222"
+)
+
+// hostDetailServer serves the full surface a `host get` detail view uses and
+// records every request path so tests can assert the resolver's cost. The host
+// belongs to pool prod and has two resident VMs.
+//
+//	GET /rest/v0/hosts/{id} -> the host
+//	GET /rest/v0/pools/{id} -> prod-pool (when resolveNames)
+//	GET /rest/v0/vms        -> all VMs, for the batch resident-VM lookup
+func hostDetailServer(t *testing.T, resolveNames bool) (*httptest.Server, *[]string) {
+	t.Helper()
+	var paths []string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		paths = append(paths, r.URL.Path)
+		if cookie, err := r.Cookie("authenticationToken"); err != nil || cookie.Value != "test-token" {
+			w.WriteHeader(http.StatusUnauthorized)
+			_, _ = fmt.Fprint(w, `{"message":"unauthorized"}`)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		switch {
+		case strings.HasPrefix(r.URL.Path, "/rest/v0/hosts/"):
+			_, _ = fmt.Fprint(w, `{"id":"`+hostTestID+`","name_label":"host-01","power_state":"Running","address":"10.0.0.11","version":"8.2.0","memory":{"size":2147483648,"usage":1073741824},"cpus":{"cores":8,"sockets":2},"$pool":"`+hostPoolID+`","enabled":true,"residentVms":["`+hostResidentVM1+`","`+hostResidentVM2+`"]}`)
+		case strings.HasPrefix(r.URL.Path, "/rest/v0/pools/"):
+			if resolveNames {
+				_, _ = fmt.Fprint(w, `{"name_label":"prod-pool"}`)
+			} else {
+				w.WriteHeader(http.StatusNotFound)
+				_, _ = fmt.Fprint(w, `{"message":"not found"}`)
+			}
+		case r.URL.Path == "/rest/v0/vms":
+			_, _ = fmt.Fprint(w, `[
+				{"id":"`+hostResidentVM1+`","name_label":"web-01"},
+				{"id":"`+hostResidentVM2+`","name_label":"db-01"}
+			]`)
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	t.Cleanup(srv.Close)
+	return srv, &paths
+}
+
+// The detail sheet resolves the pool by name and the resident VMs by name (in
+// one batch).
+func TestHostGetDetailResolved(t *testing.T) {
+	srv, _ := hostDetailServer(t, true)
+	isolatePointers(t, srv.URL)
+
+	out, err := runGet(t, "get", hostTestID)
+	if err != nil {
+		t.Fatalf("host get: %v", err)
+	}
+	for _, expected := range []string{
+		output.DetailField("Pool", "prod-pool"),
+		output.DetailField("VMs", "2  (web-01, db-01)"),
+	} {
+		if !strings.Contains(out, expected) {
+			t.Errorf("get output missing %q:\n%s", expected, out)
+		}
+	}
+}
+
+// Resolving the resident VMs must cost one VM batch (not one lookup per VM)
+// plus the single pool lookup — a constant cost.
+func TestHostGetDetailCostConstant(t *testing.T) {
+	srv, paths := hostDetailServer(t, true)
+	isolatePointers(t, srv.URL)
+
+	if _, err := runGet(t, "get", hostTestID); err != nil {
+		t.Fatalf("host get: %v", err)
+	}
+	// The batch fetches all VMs in a single call, not one per resident VM.
+	if n := countHostPaths(paths, "vms"); n != 1 {
+		t.Fatalf("expected exactly 1 VM batch (not one per VM), got %d", n)
+	}
+	if n := countHostPaths(paths, "pools/"); n != 1 {
+		t.Fatalf("expected 1 pool lookup, got %d", n)
+	}
+}
+
+func countHostPaths(paths *[]string, prefix string) int {
+	p := "/rest/v0/" + prefix
+	n := 0
+	for _, x := range *paths {
+		if strings.HasPrefix(x, p) {
+			n++
+		}
+	}
+	return n
 }

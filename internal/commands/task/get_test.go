@@ -12,6 +12,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/littlejo/xo-gocli/internal/cli"
+	"github.com/littlejo/xo-gocli/internal/output"
 )
 
 const fixtureTask = `{
@@ -94,7 +95,10 @@ func runGet(t *testing.T, args ...string) (string, error) {
 	return out.String(), err
 }
 
-func TestTaskGetTable(t *testing.T) {
+// TestTaskGetDetail checks the human view of `task get`: it is a detail sheet,
+// not the one-row table shared with `task list`. The fixture is a failed task,
+// so the error (code + message) is shown and the duration is computed.
+func TestTaskGetDetail(t *testing.T) {
 	server := fakeXOGet(t, nil)
 	defer server.Close()
 	isolatePointers(t, server.URL)
@@ -103,9 +107,18 @@ func TestTaskGetTable(t *testing.T) {
 	if err != nil {
 		t.Fatalf("task get: %v", err)
 	}
-	for _, expected := range []string{"ID", "STATUS", "TYPE", "NAME", "STARTED", "ENDED", "MESSAGE", "f6e5d4c3b2a1", "failure", "VM", "clean_shutdown", "2026-09-28T10:05:00Z", "VM not found"} {
+	for _, expected := range []string{
+		"Task f6e5d4c3b2a1  (failure)",
+		output.DetailField("Type", "VM"),
+		output.DetailField("Name", "clean_shutdown"),
+		output.DetailField("Target", "550e8400-e29b-41d4-a716-446655440002"),
+		output.DetailField("Started", "2026-09-28T10:05:00Z"),
+		output.DetailField("Ended", "2026-09-28T10:05:02Z"),
+		output.DetailField("Duration", "2s"),
+		output.DetailField("Error", "VM_NOT_FOUND — VM not found"),
+	} {
 		if !strings.Contains(out, expected) {
-			t.Errorf("table output missing %q:\n%s", expected, out)
+			t.Errorf("get output missing %q:\n%s", expected, out)
 		}
 	}
 }
@@ -221,5 +234,33 @@ func TestTaskGetBadID(t *testing.T) {
 
 	if _, err := runGet(t, "get", "a/b"); err == nil {
 		t.Fatal("expected an error for an invalid id")
+	}
+}
+
+// A successful task whose result is a plain string shows it as "Result" (no
+// error block), and the duration is computed from the numeric start.
+func TestTaskGetDetailStringResult(t *testing.T) {
+	server := fakeXOGet(t, func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = fmt.Fprint(w, fixtureTaskStringResult)
+	})
+	defer server.Close()
+	isolatePointers(t, server.URL)
+
+	out, err := runGet(t, "get", "888")
+	if err != nil {
+		t.Fatalf("task get: %v", err)
+	}
+	for _, expected := range []string{
+		"Task 888  (success)",
+		output.DetailField("Result", "a plain string result"),
+		output.DetailField("Subtasks", "1"),
+	} {
+		if !strings.Contains(out, expected) {
+			t.Errorf("get output missing %q:\n%s", expected, out)
+		}
+	}
+	if strings.Contains(out, "Error") {
+		t.Errorf("a successful task must not show an error block:\n%s", out)
 	}
 }

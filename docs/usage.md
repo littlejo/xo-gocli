@@ -334,11 +334,31 @@ Manage hosts.
 xo host list
 xo host list --query '[].name_label'
 xo host list --query '[?power_state==`Running`].name_label'
-xo host get <id>
+xo host get <id>                 # one host, as a detail view
 
 # Tags
 xo host tag add <id> production
 xo host tag remove <id> production
+```
+
+`host get` shows a single host as a **detail view** (distinct from `host
+list`). It shows the address and hostname, the **pool** the host belongs to
+(resolved by name), the **memory** usage, the CPU model, the platform and
+license, and the **VMs** resident on the host (resolved in one batch, never
+one lookup per VM). If the pool cannot be resolved, the raw id is shown
+instead. `--output json` / `yaml` / `text` and `--query` still emit the raw
+object, unchanged.
+
+```
+$ xo host get aaaaaaaa-bbbb-cccc-dddd-000000000001
+Host host-01  (Running)
+Address:     10.0.0.11
+Pool:        prod-pool
+Memory:      62.50GB / 128GB (48%)
+CPUs:        32 cores, 4 sockets
+CPU:         Intel(R) Xeon(R) CPU E5-2680 v4 @ 2400 MHz
+Platform:    XCP-ng 8.2.0
+VMs:         14  (web-01, db-01, …  (+12 more))
 ```
 
 ### `xo sr`
@@ -371,7 +391,7 @@ Manage pools.
 ```sh
 xo pool list
 xo pool list --query '[?HA_enabled].name_label'
-xo pool get <id>
+xo pool get <id>                 # one pool, as a detail view
 
 # Maintenance (all synchronous: the command waits for the backing task)
 xo pool rolling-update <id>                  # apply the pool update, host by host
@@ -392,6 +412,25 @@ every host at once **without evacuating the VMs first**: the pool is down
 afterwards, so it is a last resort. Like the other destructive commands,
 `--yes` (or `$XOA_YES=1`) skips the confirmation.
 
+`pool get` shows a single pool as a **detail view** (distinct from `pool
+list`). It shows the **master** host (resolved by name), the pool's **hosts**
+(resolved in one batch, never one lookup per host), the storage
+repositories — **default**, suspend and crash-dump (resolved by name) — and
+the platform, CPU topology and features. If a reference cannot be resolved,
+the raw id is shown instead. `--output json` / `yaml` / `text` and `--query`
+still emit the raw object, unchanged.
+
+```
+$ xo pool get 550e8400-e29b-41d4-a716-446655440001
+Pool prod-pool  (HA)
+Master:      host-master
+Hosts:       host-01, host-02
+Default SR:  Local Storage
+Platform:    8.2
+CPUs:        16 cores, 2 sockets
+Features:    auto-poweron zstd
+```
+
 ### `xo network`
 
 Manage networks.
@@ -399,7 +438,7 @@ Manage networks.
 ```sh
 xo network list
 xo network list --query '[].name_label'
-xo network get <id>                 # one network (table/json/yaml)
+xo network get <id>                 # one network, as a detail view
 
 # Create (the creation is asynchronous server-side; the command waits for the
 # backing task and prints the created network)
@@ -423,6 +462,24 @@ creates a network with no physical attachment, carrying virtual traffic
 between VMs. `create-bonded` links several PIFs into one logical network;
 `--bond-mode` is `active-backup`, `balance-slb` or `lacp`. PIFs are listed
 with `xo rest get pifs` (there is no typed PIF command yet).
+
+`network get` shows a single network as a **detail view** (distinct from
+`network list`). It shows the bridge, MTU and type, the **pool** the network
+belongs to (resolved by name), and the counts of VIFs and PIFs. The PIF
+hosts are not listed because PIFs have no typed SDK service yet; use
+`xo rest get pifs --param filter=<network-id>` to see them. `--output json` /
+`yaml` / `text` and `--query` still emit the raw object, unchanged.
+
+```
+$ xo network get 11111111-1111-4111-8111-111111111111
+Network Management  (external)
+Pool:      prod-pool
+Bridge:    xenbr0
+MTU:       1500
+Default:   locked
+VIFs:      12
+PIFs:      2
+```
 
 ### `xo vdi`
 
@@ -562,11 +619,30 @@ Manage asynchronous tasks.
 xo task list                        # all asynchronous tasks
 xo task list --status failure       # filter by status (pending, success, failure, interrupted)
 xo task list --query '[].id'
-xo task get <id>                    # one task (table/json/yaml)
+xo task get <id>                    # one task, as a detail view
 xo task wait <id>                   # block until the task completes
 xo task wait <id> --timeout 5m      # …but give up after 5 minutes
 xo task abort <id>                  # ask Xen Orchestra to interrupt a running task
 xo task abort <id> --yes            # …without the confirmation prompt
+```
+
+`task get` shows a single task as a **detail view** (distinct from `task
+list`): the status, the operation (type, name, method), the user that ran it
+and the object it targeted, when it started and ended, its duration and any
+subtasks. For a **failed** task the error (code and message) is shown; for a
+successful one with a result, that result is shown. `--output json` / `yaml` /
+`text` and `--query` still emit the raw object, unchanged.
+
+```
+$ xo task get f6e5d4c3b2a1
+Task f6e5d4c3b2a1  (failure)
+Type:      VM
+Name:      clean_shutdown
+Target:    550e8400-e29b-41d4-a716-446655440002
+Started:   2026-09-28T10:05:00Z
+Ended:     2026-09-28T10:05:02Z
+Duration:  2s
+Error:     VM_NOT_FOUND — VM not found
 ```
 
 Asynchronous operations (`vm start`, `vm create`, …) return a task id; follow
@@ -624,7 +700,22 @@ show them. `xo template list` reads that dedicated resource.
 xo template list
 xo template list --output json
 xo template list --query '[].name_label'
-xo template get <id>            # one template (table/json/yaml)
+xo template get <id>            # one template, as a detail view
+```
+
+`template get` shows a single template as a **detail view** (distinct from
+`template list`): the memory and CPUs, the power state, and the **pool** the
+template belongs to (resolved by name). If the pool cannot be resolved, the
+raw id is shown instead. `--output json` / `yaml` / `text` and `--query`
+still emit the raw object, unchanged.
+
+```
+$ xo template get d31e47fd-a70e-d849-883e-c17193472710-6959dfe8-534c-4c58-8a8c-3c3792293543
+Template Oracle Linux 8  (default)
+Pool:        prod-pool
+Memory:      4.295GB
+CPUs:        2
+Power state: Halted
 ```
 
 ### `xo rest`
@@ -687,8 +778,10 @@ underlying JMESPath engine uses single quotes.
 
 Format behavior:
 
-- `table` (default): aligned columns for humans; for `get` a detail view
-  (`vm get` is a key/value sheet — see the `xo vm` section).
+- `table` (default): aligned columns for humans; for `get`, a detail view —
+  `vm`, `vbd`, `pbd`, `vdi`, `sr`, `pool`, `network`, `host`, `template` and
+  `task` `get` are all key/value detail sheets that resolve relationships to
+  names (see each resource's section).
 - `json` / `yaml`: the full structured data (or the `--query` projection).
   Machine-readable output is the only thing on stdout; errors go to stderr, so
   `xo vm list --output json | jq '.[].name_label'` always works.
