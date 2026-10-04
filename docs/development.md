@@ -192,6 +192,17 @@ There is no `v2/go.mod`: `v2` is a plain subdirectory, so the import path
 v1.19.0 version number is the *module* version, not the REST API version
 (the REST API itself is `/rest/v0`).
 
+> **SDK pin (temporary).** `go.mod` `require`s `v1.19.0` but carries a
+> `replace` directive pinning the module to a specific commit of
+> `littlejo/xenorchestra-go-sdk` (a pseudo-version, so it is reproducible,
+> not a floating checkout). That commit carries the `VBD.Position` fix
+> (upstream PR #119, pending release as `v1.20.0`): `payloads.VBD.Position`
+> was typed `StringifiedInt`, but the REST API returns the XAPI `userdevice`
+> under the `position` key as a string whose content is data dependent
+> (`"0"` or a device name such as `"xvdb"`), so every `VBD().Get` / `GetAll`
+> failed to unmarshal. Once `v1.20.0` (or a release including PR #119) is
+> published, remove the `replace`, bump the `require`, and run `go mod tidy`.
+
 ### Two entry points
 
 1. **`v2.New(cfg) → library.Library`** — the typed facade. Returns
@@ -373,6 +384,20 @@ in the REST API OpenAPI spec (the reboot actions are `clean_reboot` /
 `hard_reboot`). The CLI is not affected (`xo vm reboot` uses the correct
 actions), but the SDK method should be checked against a live instance and
 fixed upstream if broken.
+
+### SDK bugs confirmed & fixed upstream
+
+- **`payloads.VBD.Position` typed as `StringifiedInt`** (broke every
+  `VBD().Get` / `GetAll` against real instances:
+  `failed to unmarshal response strconv.Atoi: parsing "xvdb": invalid syntax`).
+  The REST API exposes the XAPI `userdevice` under the `position` key as a
+  string whose content is data dependent (a numeric index on some stacks, a
+  device name such as `xvdb` / `cd0` on others); the SDK's own v1 client
+  already types it as `string`. Fixed upstream as a `string` (PR
+  [vatesfr/xenorchestra-go-sdk#119](https://github.com/vatesfr/xenorchestra-go-sdk/pull/119),
+  regression tests added in the SDK) and picked up here via the `replace`
+  pin described in [Module layout](#module-layout) until it ships in a
+  release.
 
 ## License
 
