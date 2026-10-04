@@ -27,6 +27,7 @@ import (
 
 	"github.com/gofrs/uuid"
 
+	"github.com/vatesfr/xenorchestra-go-sdk/pkg/payloads"
 	"github.com/vatesfr/xenorchestra-go-sdk/pkg/services/library"
 	"github.com/vatesfr/xenorchestra-go-sdk/v2/client"
 )
@@ -162,6 +163,95 @@ func (c *Client) Template(ctx context.Context, id string) (string, error) {
 	}
 	c.storeStr("template", id, t.NameLabel)
 	return t.NameLabel, nil
+}
+
+// VMBatchNames resolves many VM ids at once: a single GetAll (fields=*), then
+// an id→name map. It never issues one GET per element, so the cost is constant
+// no matter how many ids are passed. Ids that are not returned (or that are
+// nil) fall back to their raw string.
+func (c *Client) VMBatchNames(ctx context.Context, ids []uuid.UUID) map[string]string {
+	return batchNames(c, ctx, "vm", c.xo.VM().GetAll, func(v *payloads.VM) (uuid.UUID, string) {
+		return v.ID, v.NameLabel
+	}, ids)
+}
+
+// HostBatchNames resolves many host ids at once (one GetAll, then an id→name
+// map), falling back to the raw id for any id not returned.
+func (c *Client) HostBatchNames(ctx context.Context, ids []uuid.UUID) map[string]string {
+	return batchNames(c, ctx, "host", c.xo.Host().GetAll, func(h *payloads.Host) (uuid.UUID, string) {
+		return h.ID, h.NameLabel
+	}, ids)
+}
+
+// SRBatchNames resolves many SR ids at once (one GetAll, then an id→name map),
+// falling back to the raw id for any id not returned.
+func (c *Client) SRBatchNames(ctx context.Context, ids []uuid.UUID) map[string]string {
+	return batchNames(c, ctx, "sr", c.xo.SR().GetAll, func(s *payloads.StorageRepository) (uuid.UUID, string) {
+		return s.ID, s.NameLabel
+	}, ids)
+}
+
+// batchNames is the shared implementation of the *BatchNames helpers: it
+// fetches all objects of a kind in one call, then builds an id→name map for the
+// requested ids. It never issues one GET per element, so the cost is constant
+// no matter how many ids are passed. It caches every resolved name (repeated
+// calls stay cheap) and falls back to the raw id for references the list does
+// not return.
+func batchNames[T any](
+	c *Client,
+	ctx context.Context,
+	kind string,
+	fetchAll func(context.Context, int, string) ([]*T, error),
+	nameOf func(*T) (uuid.UUID, string),
+	ids []uuid.UUID,
+) map[string]string {
+	out := make(map[string]string, len(ids))
+	if c.xo == nil {
+		for _, id := range ids {
+			if !id.IsNil() {
+				out[id.String()] = id.String()
+			}
+		}
+		return out
+	}
+
+	// Separate the ids into those already cached and those still unknown.
+	var todo []uuid.UUID
+	for _, id := range ids {
+		if id.IsNil() {
+			continue
+		}
+		if n, ok := c.lookup(kind, id); ok {
+			out[id.String()] = n
+			continue
+		}
+		todo = append(todo, id)
+	}
+
+	// One request for everything still unknown.
+	if len(todo) > 0 {
+		if objs, err := fetchAll(ctx, 0, ""); err == nil {
+			for _, obj := range objs {
+				id, n := nameOf(obj)
+				if n != "" {
+					c.store(kind, id, n)
+					out[id.String()] = n
+				}
+			}
+		}
+	}
+
+	// Fill the gaps with the raw id so the caller always gets a value, and
+	// remember the fallback in the cache: the batch already fetched the whole
+	// collection, so re-resolving the same id within this command cannot find
+	// a name (and must not trigger another request).
+	for _, id := range todo {
+		if _, ok := out[id.String()]; !ok {
+			out[id.String()] = id.String()
+			c.store(kind, id, id.String())
+		}
+	}
+	return out
 }
 
 // lookup reports a previously resolved name for a UUID.

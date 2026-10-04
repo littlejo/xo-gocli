@@ -305,6 +305,70 @@ func TestTemplateMissing(t *testing.T) {
 	}
 }
 
+// The batch helpers resolve many ids with a single GetAll — never one GET per
+// element (the anti-N+1 contract) — and fall back to the raw id for the ids
+// the collection does not return.
+func TestVMBatchNames(t *testing.T) {
+	ids := []uuid.UUID{
+		mustUUID(t, "dddddddd-0000-0000-0000-000000000001"),
+		mustUUID(t, "dddddddd-0000-0000-0000-000000000002"),
+		mustUUID(t, "dddddddd-0000-0000-0000-000000000003"),
+	}
+	srv, log := fakeXO(t, map[string]func(http.ResponseWriter, *http.Request){
+		"vms": func(w http.ResponseWriter, _ *http.Request) {
+			// The listing endpoint; it carries the names for every id.
+			json(w, 0, `[
+				{"id":"dddddddd-0000-0000-0000-000000000001","name_label":"web-01"},
+				{"id":"dddddddd-0000-0000-0000-000000000003","name_label":"db-01"}
+			]`)
+		},
+		"vms/": func(w http.ResponseWriter, _ *http.Request) {
+			t.Fatal("a single /vms/{id} GET must not be used for a batch")
+		},
+	})
+	c := newClient(t, srv.URL)
+
+	names := c.VMBatchNames(context.Background(), ids)
+	if names[ids[0].String()] != "web-01" || names[ids[2].String()] != "db-01" {
+		t.Fatalf("unexpected batch result: %#v", names)
+	}
+	// An id absent from the listing falls back to its raw form.
+	if names[ids[1].String()] != ids[1].String() {
+		t.Fatalf("expected raw id fallback, got %q", names[ids[1].String()])
+	}
+	// Exactly one listing request, whatever the number of ids.
+	if n := log.count("vms"); n != 1 {
+		t.Fatalf("expected exactly 1 GetAll, got %d", n)
+	}
+
+	// A second call is served from the cache: no further request.
+	if got := c.VMBatchNames(context.Background(), ids); len(got) != len(ids) {
+		t.Fatalf("cached batch incomplete: %#v", got)
+	}
+	if n := log.count("vms"); n != 1 {
+		t.Fatalf("expected the cache to prevent a second GetAll, got %d", n)
+	}
+}
+
+// An empty batch resolves to nothing and hits the API not at all.
+func TestBatchEmptyNoFetch(t *testing.T) {
+	srv, log := fakeXO(t, map[string]func(http.ResponseWriter, *http.Request){})
+	c := newClient(t, srv.URL)
+
+	if got := c.VMBatchNames(context.Background(), nil); len(got) != 0 {
+		t.Fatalf("expected an empty map, got %#v", got)
+	}
+	if got := c.HostBatchNames(context.Background(), nil); len(got) != 0 {
+		t.Fatalf("expected an empty map, got %#v", got)
+	}
+	if got := c.SRBatchNames(context.Background(), []uuid.UUID{uuid.Nil}); len(got) != 0 {
+		t.Fatalf("expected an empty map, got %#v", got)
+	}
+	if n := log.len(); n != 0 {
+		t.Fatalf("expected no API request, got %d", n)
+	}
+}
+
 // Nil and empty references resolve to themselves without hitting the API.
 func TestNilReferenceNoFetch(t *testing.T) {
 	srv, log := fakeXO(t, map[string]func(http.ResponseWriter, *http.Request){})

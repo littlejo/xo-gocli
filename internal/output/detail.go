@@ -1,6 +1,9 @@
 package output
 
-import "fmt"
+import (
+	"fmt"
+	"strings"
+)
 
 // detailLabelWidth is the aligned label column of a `get` detail sheet. It is
 // shared by every resource so the detail views look consistent (the longest
@@ -22,4 +25,19 @@ func OrDash(s string) string {
 		return "-"
 	}
 	return s
+}
+
+// JoinNames renders a list of names for a detail sheet. Up to limit names are
+// joined with commas; beyond that, a count is shown instead of an unbounded
+// list ("3, 42, …  (+39 more)"), keeping the sheet readable. An empty list
+// renders as "-".
+func JoinNames(names []string) string {
+	if len(names) == 0 {
+		return "-"
+	}
+	const limit = 10
+	if len(names) <= limit {
+		return strings.Join(names, ", ")
+	}
+	return strings.Join(names[:limit], ", ") + fmt.Sprintf("  (+%d more)", len(names)-limit)
 }

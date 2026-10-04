@@ -510,7 +510,7 @@ cost (one VM lookup and one VDI lookup). `--output json` / `yaml` / `text` and
 $ xo vbd get 33333333-3333-4333-8333-333333333333
 VBD xvda  (RW, attached=yes, bootable)
 Device:    xvda
-Position:  0
+Position:  xvdb
 VM:        web-01
 VDI:       sys-disk
 Size:      42.95GB
