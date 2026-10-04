@@ -140,11 +140,15 @@ insecure mode is not enabled, the error points at this escape hatch.
 ### Debug mode
 
 Errors are intentionally concise: a failed lookup is reported as
-`Error: host "…" not found` rather than the raw API response. The global
-`-d`, `--debug` flag (or the `$XOA_DEBUG` environment variable) reveals the
-details behind that message — which profile and endpoint resolved, and the raw
-SDK/API error. The diagnostics go to **stderr**, so machine-readable stdout
-stays clean even when debugging.
+`Error: host "…" not found` rather than the raw API response, and common
+failure causes are translated from the SDK/Go internals into a single clear
+sentence — e.g. `the request timed out after 30s (raise it with --timeout)`,
+`cannot reach 127.0.0.1:8443: connection refused`, `the Xen Orchestra API
+returned a malformed response`, or `authentication was rejected by the server
+(401)`. The global `-d`, `--debug` flag (or the `$XOA_DEBUG` environment
+variable) reveals the details behind any of those messages — which profile
+and endpoint resolved, and the raw SDK/API error. The diagnostics go to
+**stderr**, so machine-readable stdout stays clean even when debugging.
 
 ```sh
 xo vm get <id> --debug

@@ -16,11 +16,12 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"strings"
+	"net/http"
 	"time"
 
 	"github.com/vatesfr/xenorchestra-go-sdk/v2/client"
 
+	"github.com/littlejo/xo-gocli/internal/cli"
 	"github.com/littlejo/xo-gocli/internal/output"
 )
 
@@ -186,14 +187,14 @@ func outcomeError(id, status string, task map[string]any) error {
 }
 
 // defaultNotFound is the not-found mapping used when Options.NotFound is nil:
-// a 404 becomes a concise "not found" error, anything else a plain transport
+// a 404 becomes a concise "not found" error, anything else a concise transport
 // error (callers that need --debug details or the insecure hint pass their own
 // NotFound).
 func defaultNotFound(id string, err error) error {
-	if err != nil && strings.Contains(err.Error(), "404") {
+	if err != nil && cli.APIStatus(err) == http.StatusNotFound {
 		return fmt.Errorf("task %q not found", id)
 	}
-	return fmt.Errorf("cannot get task %q: %v", id, err)
+	return cli.InsecureHint(fmt.Sprintf("cannot get task %q: %v", id, err), false)
 }
 
 // messageText extracts a human readable message from the task result, which
