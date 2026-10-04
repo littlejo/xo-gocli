@@ -4,3 +4,6 @@ dist/
 
 # Local configuration / credentials
 .env
+
+# Performance-check artifacts (ci/perf/proxy.py writes this in the CWD)
+reqs.log
