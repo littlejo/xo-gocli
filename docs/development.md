@@ -11,6 +11,7 @@ Xen Orchestra API layer).
 - [Toolchain](#toolchain)
 - [Testing](#testing)
   - [Functional tests against the simulator](#functional-tests-against-the-simulator)
+  - [Process-level tests (the scripting contract)](#process-level-tests-the-scripting-contract)
 - [CI / Release](#ci--release)
 - [Versioning](#versioning)
 - [Repository layout](#repository-layout)
@@ -117,6 +118,27 @@ XOA_TEST_URL=http://localhost:3001 XOA_TEST_TOKEN=test-token go test -tags=integ
 > `ci/xo-api-sim-cookie-auth.patch` closes that gap and is applied in CI; run
 > the simulator from that patched source (or the fix contributed upstream)
 > locally.
+
+### Process-level tests (the scripting contract)
+
+`cmd/xo/process_test.go` runs the **compiled** binary as a child process
+(built once per test run with `go build`, then driven with `os/exec`) against
+an in-process `httptest` fake of the XO REST API. These tests pin the
+scripting contract that in-process unit tests cannot see — exit codes, the
+stdout/stderr split, the `Error:` prefix, `--help` on every command group,
+401 handling, SIGINT (Ctrl+C) propagation all the way down to the HTTP layer,
+profile resolution from the config file, and the exact JSON shape. This is
+the class of test that catches regressions like the `xo rest` flag-merge
+panic, which slipped through a fully green in-process suite. They need no
+live instance and run in the normal unit suite.
+
+The JSON shape is pinned by golden files in `cmd/xo/testdata/`. After an
+**intentional** output change, regenerate them and review the diff:
+
+```sh
+go test ./cmd/xo/ -update
+git diff cmd/xo/testdata/
+```
 
 ## CI / Release
 

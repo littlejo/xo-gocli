@@ -1,0 +1,30 @@
+{
+  "$container": "aaaaaaaa-bbbb-cccc-dddd-000000000001",
+  "$poolId": "00000000-0000-0000-0000-000000000000",
+  "CPUs": {
+    "max": 4,
+    "number": 2
+  },
+  "auto_poweron": false,
+  "boot": {
+    "firmware": "bios",
+    "order": "cd"
+  },
+  "creation": {
+    "template": "00000000-0000-0000-0000-000000000000"
+  },
+  "id": "550e8400-e29b-41d4-a716-446655440001",
+  "mainIpAddress": "10.0.0.11",
+  "memory": {
+    "size": 2147483648
+  },
+  "name_description": "frontend for the test fixture",
+  "name_label": "web-01",
+  "power_state": "Running",
+  "tags": [
+    "web",
+    "fixture"
+  ],
+  "template": "00000000-0000-0000-0000-000000000000",
+  "type": "vm"
+}
