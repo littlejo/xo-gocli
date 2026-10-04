@@ -1,10 +1,12 @@
 package host
 
 import (
+	"context"
 	"fmt"
 	"io"
 
 	"github.com/docker/go-units"
+	"github.com/gofrs/uuid"
 	"github.com/spf13/cobra"
 
 	"github.com/vatesfr/xenorchestra-go-sdk/pkg/payloads"
@@ -12,6 +14,7 @@ import (
 	"github.com/littlejo/xo-gocli/internal/cli"
 	"github.com/littlejo/xo-gocli/internal/config"
 	"github.com/littlejo/xo-gocli/internal/output"
+	"github.com/littlejo/xo-gocli/internal/resolve"
 )
 
 const (
@@ -63,7 +66,18 @@ Examples:
 				return cli.InsecureHint(fmt.Sprintf("cannot list hosts: %v", err), cfg.Insecure)
 			}
 
-			return renderHosts(cmd.OutOrStdout(), format, hosts, query)
+			// Names (instead of raw UUIDs) are only shown in the human table;
+			// --output json/yaml/text and --query keep the raw references, so
+			// the resolver — and its extra batch requests — is only built for
+			// the table.
+			var resolver *resolve.Client
+			if format == output.FormatTable && query == "" {
+				resolver, err = cli.NewResolver(cmd, cfg)
+				if err != nil {
+					return err
+				}
+			}
+			return renderHosts(cmd.OutOrStdout(), cmd.Context(), format, hosts, query, resolver)
 		},
 	}
 
@@ -75,17 +89,34 @@ Examples:
 }
 
 // renderHosts applies the optional --query expression and renders the result
-// in the requested format.
-func renderHosts(w io.Writer, format output.Format, hosts []*payloads.Host, query string) error {
+// in the requested format. The human table shows the pool each host belongs
+// to by name (one batch lookup for every row, never one lookup per host); the
+// structured formats and --query still emit the raw objects, unchanged.
+func renderHosts(w io.Writer, ctx context.Context, format output.Format, hosts []*payloads.Host, query string, r *resolve.Client) error {
 	queryResult, err := output.Query(query, hosts)
 	if err != nil {
 		return err
+	}
+
+	var pools []uuid.UUID
+	for _, h := range hosts {
+		if !h.Pool.IsNil() {
+			pools = append(pools, h.Pool)
+		}
+	}
+	poolNames := map[string]string{}
+	if r != nil && len(pools) > 0 {
+		poolNames = r.PoolBatchNames(ctx, pools)
 	}
 
 	table := output.Table{
 		Headers: []string{"ID", "NAME", "ADDRESS", "POWER STATE", "PLATFORM", "MEMORY", "VMS", "POOL"},
 	}
 	for _, h := range hosts {
+		pool := h.Pool.String()
+		if n, ok := poolNames[h.Pool.String()]; ok {
+			pool = n
+		}
 		table.Rows = append(table.Rows, []string{
 			h.ID.String(),
 			h.NameLabel,
@@ -94,7 +125,7 @@ func renderHosts(w io.Writer, format output.Format, hosts []*payloads.Host, quer
 			h.Version,
 			memoryText(h),
 			fmt.Sprintf("%d", len(h.ResidentVMs)),
-			h.Pool.String(),
+			pool,
 		})
 	}
 

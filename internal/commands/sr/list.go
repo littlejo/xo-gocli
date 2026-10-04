@@ -1,10 +1,12 @@
 package sr
 
 import (
+	"context"
 	"fmt"
 	"io"
 
 	"github.com/docker/go-units"
+	"github.com/gofrs/uuid"
 	"github.com/spf13/cobra"
 
 	"github.com/vatesfr/xenorchestra-go-sdk/pkg/payloads"
@@ -12,6 +14,7 @@ import (
 	"github.com/littlejo/xo-gocli/internal/cli"
 	"github.com/littlejo/xo-gocli/internal/config"
 	"github.com/littlejo/xo-gocli/internal/output"
+	"github.com/littlejo/xo-gocli/internal/resolve"
 )
 
 const (
@@ -70,7 +73,18 @@ Examples:
 				return cli.InsecureHint(fmt.Sprintf("cannot list storage repositories: %v", err), cfg.Insecure)
 			}
 
-			return renderSRs(cmd.OutOrStdout(), format, srs, query)
+			// Names (instead of raw UUIDs) are only shown in the human table;
+			// --output json/yaml/text and --query keep the raw references, so
+			// the resolver — and its extra batch requests — is only built for
+			// the table.
+			var resolver *resolve.Client
+			if format == output.FormatTable && query == "" {
+				resolver, err = cli.NewResolver(cmd, cfg)
+				if err != nil {
+					return err
+				}
+			}
+			return renderSRs(cmd.OutOrStdout(), cmd.Context(), format, srs, query, resolver)
 		},
 	}
 
@@ -83,24 +97,48 @@ Examples:
 }
 
 // renderSRs applies the optional --query expression and renders the result in
-// the requested format.
-func renderSRs(w io.Writer, format output.Format, srs []*payloads.StorageRepository, query string) error {
+// the requested format. The human table shows the container (the pool the SR
+// belongs to, or the host when the SR is host-local) by name; the SR's $pool
+// field disambiguates the two. The names come from at most two batch lookups
+// (all hosts, all pools), never one lookup per SR; the structured formats and
+// --query still emit the raw objects, unchanged.
+func renderSRs(w io.Writer, ctx context.Context, format output.Format, srs []*payloads.StorageRepository, query string, r *resolve.Client) error {
 	queryResult, err := output.Query(query, srs)
 	if err != nil {
 		return err
+	}
+
+	var containers []uuid.UUID
+	for _, sr := range srs {
+		if !sr.Container.IsNil() {
+			containers = append(containers, sr.Container)
+		}
+	}
+	var hostNames, poolNames map[string]string
+	if r != nil && len(containers) > 0 {
+		hostNames = r.HostBatchNames(ctx, containers)
+		poolNames = r.PoolBatchNames(ctx, containers)
 	}
 
 	table := output.Table{
 		Headers: []string{"ID", "NAME", "TYPE", "SIZE", "USAGE", "CONTAINER"},
 	}
 	for _, sr := range srs {
+		container := sr.Container.String()
+		if sr.Pool == sr.Container {
+			if n, ok := poolNames[sr.Container.String()]; ok {
+				container = n
+			}
+		} else if n, ok := hostNames[sr.Container.String()]; ok {
+			container = n
+		}
 		table.Rows = append(table.Rows, []string{
 			sr.ID.String(),
 			sr.NameLabel,
 			sr.SRType,
 			units.HumanSize(sr.Size),
 			units.HumanSize(sr.Usage),
-			sr.Container.String(),
+			container,
 		})
 	}
 

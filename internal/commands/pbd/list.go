@@ -1,9 +1,11 @@
 package pbd
 
 import (
+	"context"
 	"fmt"
 	"io"
 
+	"github.com/gofrs/uuid"
 	"github.com/spf13/cobra"
 
 	"github.com/vatesfr/xenorchestra-go-sdk/pkg/payloads"
@@ -11,6 +13,7 @@ import (
 	"github.com/littlejo/xo-gocli/internal/cli"
 	"github.com/littlejo/xo-gocli/internal/config"
 	"github.com/littlejo/xo-gocli/internal/output"
+	"github.com/littlejo/xo-gocli/internal/resolve"
 )
 
 const (
@@ -65,7 +68,18 @@ Examples:
 				return cli.InsecureHint(fmt.Sprintf("cannot list PBDs: %v", err), cfg.Insecure)
 			}
 
-			return renderPBDs(cmd.OutOrStdout(), format, pbds, query)
+			// Names (instead of raw UUIDs) are only shown in the human table;
+			// --output json/yaml/text and --query keep the raw references, so
+			// the resolver — and its extra batch requests — is only built for
+			// the table.
+			var resolver *resolve.Client
+			if format == output.FormatTable && query == "" {
+				resolver, err = cli.NewResolver(cmd, cfg)
+				if err != nil {
+					return err
+				}
+			}
+			return renderPBDs(cmd.OutOrStdout(), cmd.Context(), format, pbds, query, resolver)
 		},
 	}
 
@@ -93,22 +107,62 @@ func boolText(b bool) string {
 }
 
 // renderPBDs applies the optional --query expression and renders the result in
-// the requested format.
-func renderPBDs(w io.Writer, format output.Format, pbds []*payloads.PBD, query string) error {
+// the requested format. The human table shows the host, SR and pool each PBD
+// connects by name (at most three batch lookups for every row, never one
+// lookup per PBD); the structured formats and --query still emit the raw
+// objects, unchanged.
+func renderPBDs(w io.Writer, ctx context.Context, format output.Format, pbds []*payloads.PBD, query string, r *resolve.Client) error {
 	queryResult, err := output.Query(query, pbds)
 	if err != nil {
 		return err
+	}
+
+	var hosts, srs, pools []uuid.UUID
+	for _, pbd := range pbds {
+		if !pbd.Host.IsNil() {
+			hosts = append(hosts, pbd.Host)
+		}
+		if !pbd.SR.IsNil() {
+			srs = append(srs, pbd.SR)
+		}
+		if !pbd.Pool.IsNil() {
+			pools = append(pools, pbd.Pool)
+		}
+	}
+	hostNames := map[string]string{}
+	if r != nil && len(hosts) > 0 {
+		hostNames = r.HostBatchNames(ctx, hosts)
+	}
+	srNames := map[string]string{}
+	if r != nil && len(srs) > 0 {
+		srNames = r.SRBatchNames(ctx, srs)
+	}
+	poolNames := map[string]string{}
+	if r != nil && len(pools) > 0 {
+		poolNames = r.PoolBatchNames(ctx, pools)
 	}
 
 	table := output.Table{
 		Headers: []string{"ID", "HOST", "SR", "POOL", "ATTACHED", "DEVICE"},
 	}
 	for _, pbd := range pbds {
+		host := pbd.Host.String()
+		if n, ok := hostNames[pbd.Host.String()]; ok {
+			host = n
+		}
+		sr := pbd.SR.String()
+		if n, ok := srNames[pbd.SR.String()]; ok {
+			sr = n
+		}
+		pool := pbd.Pool.String()
+		if n, ok := poolNames[pbd.Pool.String()]; ok {
+			pool = n
+		}
 		table.Rows = append(table.Rows, []string{
 			pbd.ID.String(),
-			pbd.Host.String(),
-			pbd.SR.String(),
-			pbd.Pool.String(),
+			host,
+			sr,
+			pool,
 			boolText(pbd.Attached),
 			deviceOf(pbd),
 		})

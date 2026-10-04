@@ -781,7 +781,11 @@ Format behavior:
 - `table` (default): aligned columns for humans; for `get`, a detail view —
   `vm`, `vbd`, `pbd`, `vdi`, `sr`, `pool`, `network`, `host`, `template` and
   `task` `get` are all key/value detail sheets that resolve relationships to
-  names (see each resource's section).
+  names (see each resource's section). In `list` tables, the columns that
+  reference another object (`MASTER`, `SR`, `VM`/`VDI`, `POOL`, `HOST/POOL`,
+  `CONTAINER`) show the referenced object's **name** instead of its UUID,
+  resolved in one batch per referenced kind (a constant cost, never one lookup
+  per row); a reference to a deleted object keeps its raw UUID.
 - `json` / `yaml`: the full structured data (or the `--query` projection).
   Machine-readable output is the only thing on stdout; errors go to stderr, so
   `xo vm list --output json | jq '.[].name_label'` always works.

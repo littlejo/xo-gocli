@@ -1,9 +1,11 @@
 package vbd
 
 import (
+	"context"
 	"fmt"
 	"io"
 
+	"github.com/gofrs/uuid"
 	"github.com/spf13/cobra"
 
 	"github.com/vatesfr/xenorchestra-go-sdk/pkg/payloads"
@@ -11,6 +13,7 @@ import (
 	"github.com/littlejo/xo-gocli/internal/cli"
 	"github.com/littlejo/xo-gocli/internal/config"
 	"github.com/littlejo/xo-gocli/internal/output"
+	"github.com/littlejo/xo-gocli/internal/resolve"
 )
 
 const (
@@ -73,7 +76,18 @@ Examples:
 				return cli.InsecureHint(fmt.Sprintf("cannot list VBDs: %v", err), cfg.Insecure)
 			}
 
-			return renderVBDs(cmd.OutOrStdout(), format, vbds, query)
+			// Names (instead of raw UUIDs) are only shown in the human table;
+			// --output json/yaml/text and --query keep the raw references, so
+			// the resolver — and its extra batch requests — is only built for
+			// the table.
+			var resolver *resolve.Client
+			if format == output.FormatTable && query == "" {
+				resolver, err = cli.NewResolver(cmd, cfg)
+				if err != nil {
+					return err
+				}
+			}
+			return renderVBDs(cmd.OutOrStdout(), cmd.Context(), format, vbds, query, resolver)
 		},
 	}
 
@@ -86,21 +100,51 @@ Examples:
 }
 
 // renderVBDs applies the optional --query expression and renders the result
-// in the requested format.
-func renderVBDs(w io.Writer, format output.Format, vbds []*payloads.VBD, query string) error {
+// in the requested format. The human table shows the attached VM and VDI by
+// name (at most two batch lookups for every row, never one lookup per VBD);
+// the structured formats and --query still emit the raw objects, unchanged.
+func renderVBDs(w io.Writer, ctx context.Context, format output.Format, vbds []*payloads.VBD, query string, r *resolve.Client) error {
 	queryResult, err := output.Query(query, vbds)
 	if err != nil {
 		return err
+	}
+
+	var vms, vdis []uuid.UUID
+	for _, vbd := range vbds {
+		if !vbd.VM.IsNil() {
+			vms = append(vms, vbd.VM)
+		}
+		if vbd.VDI != nil && !vbd.VDI.IsNil() {
+			vdis = append(vdis, *vbd.VDI)
+		}
+	}
+	vmNames := map[string]string{}
+	if r != nil && len(vms) > 0 {
+		vmNames = r.VMBatchNames(ctx, vms)
+	}
+	vdiNames := map[string]string{}
+	if r != nil && len(vdis) > 0 {
+		vdiNames = r.VDIBatchNames(ctx, vdis)
 	}
 
 	table := output.Table{
 		Headers: []string{"ID", "VM", "VDI", "DEVICE", "MODE", "ATTACHED"},
 	}
 	for _, vbd := range vbds {
+		vm := vbd.VM.String()
+		if n, ok := vmNames[vbd.VM.String()]; ok {
+			vm = n
+		}
+		vdi := vdiText(vbd.VDI)
+		if vbd.VDI != nil {
+			if n, ok := vdiNames[vbd.VDI.String()]; ok {
+				vdi = n
+			}
+		}
 		table.Rows = append(table.Rows, []string{
 			vbd.ID.String(),
-			vbd.VM.String(),
-			vdiText(vbd.VDI),
+			vm,
+			vdi,
 			deviceText(vbd.Device),
 			modeText(vbd),
 			boolText(vbd.Attached),

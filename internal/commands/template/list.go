@@ -1,10 +1,12 @@
 package template
 
 import (
+	"context"
 	"fmt"
 	"io"
 
 	"github.com/docker/go-units"
+	"github.com/gofrs/uuid"
 	"github.com/spf13/cobra"
 
 	"github.com/vatesfr/xenorchestra-go-sdk/v2/client"
@@ -12,6 +14,7 @@ import (
 	"github.com/littlejo/xo-gocli/internal/cli"
 	"github.com/littlejo/xo-gocli/internal/config"
 	"github.com/littlejo/xo-gocli/internal/output"
+	"github.com/littlejo/xo-gocli/internal/resolve"
 )
 
 const (
@@ -86,7 +89,18 @@ Examples:
 				return cli.InsecureHint(fmt.Sprintf("cannot list templates: %v", err), cfg.Insecure)
 			}
 
-			return renderTemplates(cmd.OutOrStdout(), format, templates, query)
+			// Names (instead of raw UUIDs) are only shown in the human table;
+			// --output json/yaml/text and --query keep the raw references, so
+			// the resolver — and its extra batch requests — is only built for
+			// the table.
+			var resolver *resolve.Client
+			if format == output.FormatTable && query == "" {
+				resolver, err = cli.NewResolver(cmd, cfg)
+				if err != nil {
+					return err
+				}
+			}
+			return renderTemplates(cmd.OutOrStdout(), cmd.Context(), format, templates, query, resolver)
 		},
 	}
 
@@ -98,25 +112,52 @@ Examples:
 }
 
 // renderTemplates applies the optional --query expression and renders the
-// result in the requested format. The raw objects are plain maps (the REST
-// shape) so that --query and the structured formats see every field.
-func renderTemplates(w io.Writer, format output.Format, templates []map[string]any, query string) error {
+// result in the requested format. The human table shows the pool each template
+// belongs to by name (one batch lookup for every row, never one lookup per
+// template); the raw objects are plain maps (the REST shape) so that --query
+// and the structured formats see every field, unchanged.
+func renderTemplates(w io.Writer, ctx context.Context, format output.Format, templates []map[string]any, query string, r *resolve.Client) error {
 	queryResult, err := output.Query(query, templates)
 	if err != nil {
 		return err
 	}
 
+	var poolIDs []uuid.UUID
+	poolByTemplate := make([]uuid.UUID, len(templates))
+	for i, t := range templates {
+		id, err := uuid.FromString(strField(t, "$pool"))
+		if err != nil {
+			id = uuid.UUID{}
+		}
+		poolByTemplate[i] = id
+		if !id.IsNil() {
+			poolIDs = append(poolIDs, id)
+		}
+	}
+	poolNames := map[string]string{}
+	if r != nil && len(poolIDs) > 0 {
+		poolNames = r.PoolBatchNames(ctx, poolIDs)
+	}
+
 	table := output.Table{
 		Headers: []string{"ID", "NAME", "DEFAULT", "MEMORY", "CPUS", "POOL"},
 	}
-	for _, t := range templates {
+	for i, t := range templates {
+		pool := strField(t, "$pool")
+		if id := poolByTemplate[i]; !id.IsNil() {
+			if n, ok := poolNames[id.String()]; ok {
+				pool = n
+			} else {
+				pool = id.String()
+			}
+		}
 		table.Rows = append(table.Rows, []string{
 			strField(t, "id"),
 			strField(t, "name_label"),
 			fmt.Sprintf("%t", boolField(t, "isDefaultTemplate")),
 			memoryText(t),
 			fmt.Sprintf("%d", nestedInt(t, "CPUs", "number")),
-			strField(t, "$pool"),
+			pool,
 		})
 	}
 

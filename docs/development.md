@@ -196,6 +196,21 @@ The `get` detail sheets all follow the same rules:
   always emit the raw object / projection, exactly as before; only the default
   human `table` view is the detail sheet.
 
+`list` tables follow the same rules for their **reference columns**: a column
+that points at another object (the `MASTER` of a pool, the `SR` of a VDI, the
+`VM`/`VDI` of a VBD, the `POOL` of a host, the `HOST/POOL` or `CONTAINER` of a
+VM/SR) shows the **name** of the referenced object instead of its UUID, by
+default. The names come from **one batch call per referenced kind**
+(`resolve.*BatchNames`), never a lookup per row, so the cost is constant
+whatever the list size. A mixed reference (a container that is a pool or a
+host) is disambiguated with the sibling field (`$poolId` for VMs, `$pool` for
+SRs). Two extra rules apply to lists:
+
+- **The resolver is only built for the human table.** `--output json`/`yaml`/
+  `text` and `--query` keep the raw references *and* pay for no extra request.
+- **Orphans keep the raw UUID** so a deleted referenced object does not break
+  the listing.
+
 The relationships are resolved by the shared [`internal/resolve`](../internal/resolve/resolve.go)
 helper (built on the SDK v2 typed services, plus the SDK REST client for the
 endpoints they don't wrap yet, such as `vm-templates`). See
@@ -343,6 +358,7 @@ v1.19.0 version number is the *module* version, not the REST API version
 - `xo configure` + named profiles (with environment overrides)
 - `list` / `get` for `vm`, `host`, `pool`, `sr`, `network`, `task`, `template`, `token`
 - **`get` detail views** for `vm`, `vbd`, `pbd`, `vdi`, `sr`, `pool`, `network`, `host`, `template` and `task` (see the [`list` vs `get` convention](#list-vs-get-the-detail-view-convention)): each is a key/value sheet that resolves relationships to names at a constant, anti-N+1 cost, with raw-id fallback; machine output (`--output json`/`yaml`/`text`, `--query`) is unchanged
+- **`list` reference columns resolved to names** for `vm`, `sr`, `pool`, `host`, `network`, `vdi`, `vbd`, `pbd`, `template` and `vm vdis`: the columns that reference another object (`MASTER`, `SR`, `VM`/`VDI`, `POOL`, `HOST/POOL`, `CONTAINER`) show the object's name instead of its UUID, resolved with one batch per referenced kind (constant cost, orphans keep the raw UUID); `--output json`/`yaml`/`text` and `--query` keep the raw references and make no extra request
 - `task wait` (blocks until a task reaches a terminal state; exit status reflects the outcome)
 - `task abort` (asks Xen Orchestra to interrupt a pending task; confirmation + `--yes`; pre-checks existence and that the task is still pending, so a finished task is rejected with a clear error)
 - `--wait` on the asynchronous actions (`vm start/stop/reboot/pause/unpause/suspend/resume/snapshot`, `vbd connect/disconnect`, `pbd plug/unplug`, `sr scan/reclaim-space`; plus `$XOA_WAIT` for scripts): blocks until the action's task completes, then renders it (shared `internal/taskwait` package, reused by `task wait`)
