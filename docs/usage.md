@@ -755,7 +755,7 @@ xo rest get vdis --output json --query '[].name_label'
 xo rest get vdis -i                             # status line + headers on stderr
 ```
 
-Flags: `--data/-d` (JSON body, `-` = stdin), `--param KEY=VALUE` (repeatable),
+Flags: `--data` (JSON body, `-` = stdin), `--param KEY=VALUE` (repeatable),
 `--header KEY: VALUE` (repeatable), `--query/-q`, `--yes`, `--include/-i`.
 
 More resources and sub-commands (`get`, `start`, `stop`, …) are added on top of

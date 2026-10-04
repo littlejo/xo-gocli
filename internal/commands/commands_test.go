@@ -54,3 +54,23 @@ func TestVersionCommand(t *testing.T) {
 		t.Fatalf("xo version = %q, want %q", got, want)
 	}
 }
+
+// TestRootRestFlagMerge guards against the 'xo rest' panic (blocker B1 in
+// docs/road-to-v1.md): when a local subcommand flag reuses a shorthand the
+// root persistent flags already own, cobra panics in mergePersistentFlags on
+// the first invocation — even 'rest --help'. The per-package rest tests
+// build their own minimal root without the global shorthands, so the
+// collision only surfaced in the real tree.
+func TestRootRestFlagMerge(t *testing.T) {
+	root := NewRoot()
+	var out bytes.Buffer
+	root.SetOut(&out)
+	root.SetErr(&out)
+	root.SetArgs([]string{"rest", "--help"})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("rest --help on the real root: %v", err)
+	}
+	if !strings.Contains(out.String(), "--data") {
+		t.Fatal("rest --help should document the --data flag")
+	}
+}
