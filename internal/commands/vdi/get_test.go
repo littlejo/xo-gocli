@@ -72,7 +72,7 @@ func newDetailServer(t *testing.T, resolveSR, listVBDs bool) *detailServer {
 			http.NotFound(w, r)
 		}
 	}))
-	t.Cleanup(s.Server.Close)
+	t.Cleanup(s.Close)
 	return s
 }
 
