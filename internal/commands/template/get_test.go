@@ -12,6 +12,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/littlejo/xo-gocli/internal/cli"
+	"github.com/littlejo/xo-gocli/internal/output"
 )
 
 const fixtureTemplate = `{
@@ -74,7 +75,10 @@ func runGet(t *testing.T, args ...string) (string, error) {
 	return out.String(), err
 }
 
-func TestTemplateGetTable(t *testing.T) {
+// TestTemplateGetDetail checks the human view of `template get`: it is a
+// detail sheet, not the one-row table shared with `template list`. The fake
+// server serves the template only, so the pool falls back to its raw id.
+func TestTemplateGetDetail(t *testing.T) {
 	server := fakeXOGet(t, nil)
 	defer server.Close()
 	isolatePointers(t, server.URL)
@@ -83,7 +87,13 @@ func TestTemplateGetTable(t *testing.T) {
 	if err != nil {
 		t.Fatalf("template get: %v", err)
 	}
-	for _, expected := range []string{"ID", "NAME", "DEFAULT", "MEMORY", "CPUS", "POOL", "Oracle Linux 8", "4.295GB", "true"} {
+	for _, expected := range []string{
+		"Template Oracle Linux 8  (default)",
+		output.DetailField("Pool", "d31e47fd-a70e-d849-883e-c17193472710"),
+		output.DetailField("Memory", "4.295GB"),
+		output.DetailField("CPUs", "2"),
+		output.DetailField("Power state", "Halted"),
+	} {
 		if !strings.Contains(out, expected) {
 			t.Errorf("get output missing %q:\n%s", expected, out)
 		}
@@ -146,5 +156,38 @@ func TestTemplateGetBadID(t *testing.T) {
 
 	if _, err := runGet(t, "get", "a/b"); err == nil {
 		t.Fatal("expected an error for an invalid id")
+	}
+}
+
+// The detail sheet resolves the pool by name.
+func TestTemplateGetDetailResolved(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if cookie, err := r.Cookie("authenticationToken"); err != nil || cookie.Value != "test-token" {
+			w.WriteHeader(http.StatusUnauthorized)
+			_, _ = fmt.Fprint(w, `{"message":"unauthorized"}`)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		switch {
+		case strings.HasPrefix(r.URL.Path, "/rest/v0/vm-templates/"):
+			_, _ = fmt.Fprint(w, fixtureTemplate)
+		case strings.HasPrefix(r.URL.Path, "/rest/v0/pools/"):
+			_, _ = fmt.Fprint(w, `{"name_label":"prod-pool"}`)
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer srv.Close()
+	isolatePointers(t, srv.URL)
+
+	out, err := runGet(t, "get", templateID)
+	if err != nil {
+		t.Fatalf("template get: %v", err)
+	}
+	if !strings.Contains(out, output.DetailField("Pool", "prod-pool")) {
+		t.Fatalf("expected the resolved pool name:\n%s", out)
+	}
+	if !strings.Contains(out, "Template Oracle Linux 8  (default)") {
+		t.Fatalf("expected the template header:\n%s", out)
 	}
 }

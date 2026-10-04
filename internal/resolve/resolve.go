@@ -24,6 +24,7 @@ package resolve
 import (
 	"context"
 	"fmt"
+	"sort"
 
 	"github.com/gofrs/uuid"
 
@@ -189,6 +190,29 @@ func (c *Client) SRBatchNames(ctx context.Context, ids []uuid.UUID) map[string]s
 	return batchNames(c, ctx, "sr", c.xo.SR().GetAll, func(s *payloads.StorageRepository) (uuid.UUID, string) {
 		return s.ID, s.NameLabel
 	}, ids)
+}
+
+// HostsOfPool returns the sorted names of the hosts belonging to a pool. The
+// Pool payload carries no host list, so this fetches every host once (one
+// GetAll) and filters by $pool in memory — a single request, independent of
+// the pool size, rather than one lookup per host. A pool id that resolves no
+// hosts returns an empty slice (the caller shows a count or a pointer).
+func (c *Client) HostsOfPool(ctx context.Context, pool uuid.UUID) []string {
+	if c.xo == nil || pool.IsNil() {
+		return nil
+	}
+	hosts, err := c.xo.Host().GetAll(ctx, 0, "")
+	if err != nil {
+		return nil
+	}
+	names := make([]string, 0, len(hosts))
+	for _, h := range hosts {
+		if h.Pool == pool && h.NameLabel != "" {
+			names = append(names, h.NameLabel)
+		}
+	}
+	sort.Strings(names)
+	return names
 }
 
 // batchNames is the shared implementation of the *BatchNames helpers: it

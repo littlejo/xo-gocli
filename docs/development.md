@@ -160,12 +160,46 @@ implemented in `.github/scripts/bump-version.sh`.
 ```text
 cmd/xo/                  main entrypoint
 internal/
-  cli/                   SDK client construction, global flags, error hints
+  cli/                   SDK client construction, global flags, error hints,
+                           name-resolver factory (NewResolver)
   commands/              one package per resource group (vm, host, pool, …)
     configure/           profile management
   config/                profiles, environment overrides, config file
-  output/                table/json/yaml/text rendering, JMESPath queries
+  output/                table/json/yaml/text rendering, JMESPath queries,
+                           detail-sheet helpers (DetailField, OrDash, JoinNames)
+  resolve/               reference→name resolution (single + batch), the
+                           shared anti-N+1 helper behind every `get` detail view
+  taskwait/              shared --wait poll loop (reused by task wait)
 ```
+
+### `list` vs `get` (the detail-view convention)
+
+`list` is a **selection view**: a flat, one-line-per-resource table used to
+pick a resource. `get` is a **detailed inspection view**: a key/value **detail
+sheet** (see `output/detail.go`) that resolves the resource's relationships to
+**names** instead of UUIDs, so the sheet is complete on its own.
+
+The `get` detail sheets all follow the same rules:
+
+- **Cost model (anti-N+1).** A single reference (a container, a master, the SR
+  of a VDI, the VM/VDI of a VBD, the host/SR/pool of a PBD, the pool of a
+  network/host/template) costs one GET. A *collection* (the hosts of a pool,
+  the PBDs of an SR, the VBDs of a VDI, the resident VMs of a host) is resolved
+  with **one batch call + an id→name map** (`resolve.*BatchNames` /
+  `HostsOfPool`), never a GET per element. The cost is therefore constant,
+  independent of pool/farm size, and the tests assert it against an
+  `httptest` server that counts requests.
+- **Never fails on resolution.** A reference that cannot be resolved falls back
+  to its raw id (or the line is omitted), so the view is always complete and
+  the command still succeeds.
+- **Machine output is untouched.** `--output json`/`yaml`/`text` and `--query`
+  always emit the raw object / projection, exactly as before; only the default
+  human `table` view is the detail sheet.
+
+The relationships are resolved by the shared [`internal/resolve`](../internal/resolve/resolve.go)
+helper (built on the SDK v2 typed services, plus the SDK REST client for the
+endpoints they don't wrap yet, such as `vm-templates`). See
+[usage](usage.md) for each resource's detail view and example output.
 
 ## SDK v2: what we build on
 
@@ -308,6 +342,7 @@ v1.19.0 version number is the *module* version, not the REST API version
 
 - `xo configure` + named profiles (with environment overrides)
 - `list` / `get` for `vm`, `host`, `pool`, `sr`, `network`, `task`, `template`, `token`
+- **`get` detail views** for `vm`, `vbd`, `pbd`, `vdi`, `sr`, `pool`, `network`, `host`, `template` and `task` (see the [`list` vs `get` convention](#list-vs-get-the-detail-view-convention)): each is a key/value sheet that resolves relationships to names at a constant, anti-N+1 cost, with raw-id fallback; machine output (`--output json`/`yaml`/`text`, `--query`) is unchanged
 - `task wait` (blocks until a task reaches a terminal state; exit status reflects the outcome)
 - `task abort` (asks Xen Orchestra to interrupt a pending task; confirmation + `--yes`; pre-checks existence and that the task is still pending, so a finished task is rejected with a clear error)
 - `--wait` on the asynchronous actions (`vm start/stop/reboot/pause/unpause/suspend/resume/snapshot`, `vbd connect/disconnect`, `pbd plug/unplug`, `sr scan/reclaim-space`; plus `$XOA_WAIT` for scripts): blocks until the action's task completes, then renders it (shared `internal/taskwait` package, reused by `task wait`)

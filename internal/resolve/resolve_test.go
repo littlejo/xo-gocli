@@ -387,3 +387,37 @@ func TestNilReferenceNoFetch(t *testing.T) {
 		t.Fatalf("expected no API request, got %d", n)
 	}
 }
+
+// HostsOfPool must list a pool's member hosts from a single host batch (no
+// per-host lookup) and ignore hosts that belong to another pool.
+func TestHostsOfPool(t *testing.T) {
+	poolID := mustUUID(t, "bbbbbbbb-0000-0000-0000-000000000009")
+	otherPool := "00000000-0000-0000-0000-000000000009"
+	srv, log := fakeXO(t, map[string]func(http.ResponseWriter, *http.Request){
+		"hosts": func(w http.ResponseWriter, _ *http.Request) {
+			json(w, 0, `[
+				{"id":"aaaaaaaa-0000-0000-0000-00000000000a","name_label":"host-b","$pool":"`+poolID.String()+`"},
+				{"id":"aaaaaaaa-0000-0000-0000-00000000000b","name_label":"host-a","$pool":"`+poolID.String()+`"},
+				{"id":"aaaaaaaa-0000-0000-0000-00000000000c","name_label":"other","$pool":"`+otherPool+`"}
+			]`)
+		},
+		"hosts/": func(w http.ResponseWriter, _ *http.Request) {
+			t.Fatal("a single /hosts/{id} GET must not be used for a pool's hosts")
+		},
+	})
+	c := newClient(t, srv.URL)
+
+	hosts := c.HostsOfPool(context.Background(), poolID)
+	if len(hosts) != 2 || hosts[0] != "host-a" || hosts[1] != "host-b" {
+		t.Fatalf("expected [host-a host-b] sorted, got %#v", hosts)
+	}
+	// One host batch, whatever the pool size.
+	if n := log.count("hosts"); n != 1 {
+		t.Fatalf("expected exactly 1 host batch, got %d", n)
+	}
+
+	// A pool that has no hosts resolves to an empty slice.
+	if got := c.HostsOfPool(context.Background(), mustUUID(t, "cccccccc-0000-0000-0000-000000000009")); len(got) != 0 {
+		t.Fatalf("expected no hosts, got %#v", got)
+	}
+}
