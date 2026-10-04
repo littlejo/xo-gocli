@@ -13,6 +13,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/littlejo/xo-gocli/internal/cli"
+	"github.com/littlejo/xo-gocli/internal/output"
 )
 
 const (
@@ -165,7 +166,11 @@ func runGet(t *testing.T, args ...string) (string, error) {
 
 // --- get --------------------------------------------------------------------
 
-func TestVDIGetTable(t *testing.T) {
+// TestVDIGetDetail checks the human view of `vdi get`: it is a detail sheet,
+// not the one-row table shared with `vdi list`. The mutation server does not
+// serve SRs, so the SR falls back to its raw id; it also does not serve VBDs,
+// so the "Attached to" line is simply omitted (best effort).
+func TestVDIGetDetail(t *testing.T) {
 	server := newMutationServer(t)
 	defer server.Close()
 	isolatePointers(t, server.URL)
@@ -174,9 +179,13 @@ func TestVDIGetTable(t *testing.T) {
 	if err != nil {
 		t.Fatalf("vdi get: %v", err)
 	}
-	for _, expected := range []string{"ID", "NAME", "TYPE", "SIZE", "USAGE", "SR", "system disk", "system"} {
+	for _, expected := range []string{
+		"VDI system disk",
+		output.DetailField("SR", "aaaaaaaa-bbbb-cccc-dddd-000000000001"),
+		output.DetailField("Type", "system"),
+	} {
 		if !strings.Contains(out, expected) {
-			t.Errorf("table output missing %q:\n%s", expected, out)
+			t.Errorf("get output missing %q:\n%s", expected, out)
 		}
 	}
 }
