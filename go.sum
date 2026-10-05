@@ -12,6 +12,8 @@ github.com/inconshreveable/mousetrap v1.1.0 h1:wN+x4NVGpMsO7ErUn/mUI3vEoE6Jt13X2
 github.com/inconshreveable/mousetrap v1.1.0/go.mod h1:vpF70FUmC8bwa3OWnCshd2FqLfsEA9PFc4w1p2J65bw=
 github.com/jmespath-community/go-jmespath v1.1.1 h1:bFikPhsi/FdmlZhVgSCd2jj1e7G/rw+zyQfyg5UF+L4=
 github.com/jmespath-community/go-jmespath v1.1.1/go.mod h1:4gOyFJsR/Gk+05RgTKYrifT7tBPWD8Lubtb5jRrfy9I=
+github.com/littlejo/xenorchestra-go-sdk v1.19.0 h1:7KuKU9l4uQHSSGMRPJJfiVVsL8vO3Ea/otno6nIyEi8=
+github.com/littlejo/xenorchestra-go-sdk v1.19.0/go.mod h1:lkAhxh9gLFZNLIubuMcjDKP49G2/H/h6wfWA3nWpO1o=
 github.com/littlejo/xenorchestra-go-sdk v1.19.1-0.20261004053017-35834c168797 h1:vDHlHRvJd7b6U9cs2Yo/O+NZCjhpfkxyXqfo0HuPOXQ=
 github.com/littlejo/xenorchestra-go-sdk v1.19.1-0.20261004053017-35834c168797/go.mod h1:lkAhxh9gLFZNLIubuMcjDKP49G2/H/h6wfWA3nWpO1o=
 github.com/mitchellh/mapstructure v1.5.0 h1:jeMsZIYE/09sWLaz43PL7Gy6RuMjD2eJVyuac5Z2hdY=
