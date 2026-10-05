@@ -328,6 +328,13 @@ hand-cut release:
   (`rest.doRestRequest`, `vm/xva.xvRequest`, `token.doTokensRequest`), each
   re-implementing URL joining, cookie attachment and error formatting —
   consolidate into one helper to remove the drift surface.
+- **Double login for username/password profiles** (issue #56): commands that
+  build both the typed facade and the REST client (the resolver on every
+  `list`/`get` table, plus `vm update/export/import/vdis` and `task abort`)
+  send `POST /auth/login` twice. Decided in S7 to defer the fix to v1.1 — it
+  needs the SDK to build the typed services around a single
+  already-authenticated REST client. `usage.md` now recommends token
+  profiles until then.
 
 ## Deferred to v1.1+
 
