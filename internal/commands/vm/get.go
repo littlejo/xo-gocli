@@ -167,9 +167,9 @@ func renderVMDetail(w io.Writer, ctx context.Context, vm *payloads.VM, r *resolv
 		keys := make([]string, 0, len(vm.BlockedOperations))
 		for k, v := range vm.BlockedOperations {
 			if v != "" {
-				keys = append(keys, k+"="+v)
+				keys = append(keys, string(k)+"="+v)
 			} else {
-				keys = append(keys, k)
+				keys = append(keys, string(k))
 			}
 		}
 		sortStrings(keys)
