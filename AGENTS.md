@@ -791,6 +791,7 @@ Agents must not:
 * add speculative abstractions
 * silently change established CLI conventions
 * weaken TLS/security for convenience
+* push to `main` or merge into `main` (see [Repository workflow](#repository-workflow-never-touch-main))
 
 ---
 
@@ -888,6 +889,35 @@ custom implementation
 The goal is not to reproduce the existing `xo-cli`.
 
 The goal is to create a **modern Go CLI for Xen Orchestra**, with an AWS CLI-like experience, while keeping `xenorchestra-go-sdk/v2` as the single API boundary.
+
+
+# Repository workflow: never touch `main`
+
+Agents must **never push to `main`** and must **never merge into `main`**
+(no direct push, no PR merge, no rebase of `main`). Merging into `main` is
+always the maintainer's decision.
+
+The workflow is:
+
+```text
+feature branch
+      ↓
+push the feature branch
+      ↓
+open/update a pull request
+      ↓
+stop: the maintainer reviews and merges
+```
+
+So:
+
+* `git push` may only ever target a feature branch, never `main`.
+* Do not run `gh pr merge` (or any equivalent) for a PR targeting `main`;
+  open the PR and report its URL instead.
+* Do not force-push, rebase or rewrite `main`.
+
+This applies even when a task is described as "finishing" or "completing"
+work: the finished state is a green pull request, not a merged commit.
 
 
 # Xen Orchestra integration environment
