@@ -11,10 +11,76 @@ func isolateConfig(t *testing.T) string {
 	path := filepath.Join(t.TempDir(), "config")
 	t.Setenv("XOA_CONFIG_FILE", path)
 	// Clear any environment overrides so tests are deterministic.
-	for _, key := range []string{EnvProfile, EnvEndpoint, EnvToken, EnvUsername, EnvPassword, EnvInsecure} {
+	for _, key := range []string{EnvProfile, EnvEndpoint, EnvToken, EnvUsername, EnvPassword, EnvInsecure, EnvDefaultOutput} {
 		t.Setenv(key, "")
 	}
 	return path
+}
+
+func TestLoadCarriesProfileOutput(t *testing.T) {
+	isolateConfig(t)
+
+	if _, err := Upsert(Profile{Name: "lab", Endpoint: "https://lab.example.com", Token: "t", Output: "json"}, true); err != nil {
+		t.Fatalf("Upsert: %v", err)
+	}
+
+	cfg, err := Load("")
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if cfg.Output != "json" {
+		t.Fatalf("profile output not carried into the resolved config: %+v", cfg)
+	}
+}
+
+func TestDefaultOutputEnvOverridesProfileOutput(t *testing.T) {
+	isolateConfig(t)
+
+	if _, err := Upsert(Profile{Name: "lab", Endpoint: "https://lab.example.com", Token: "t", Output: "yaml"}, true); err != nil {
+		t.Fatalf("Upsert: %v", err)
+	}
+	t.Setenv(EnvDefaultOutput, "json")
+
+	cfg, err := Load("")
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if cfg.Output != "json" {
+		t.Fatalf("$%s must override the stored profile output: %+v", EnvDefaultOutput, cfg)
+	}
+}
+
+func TestDefaultOutputEnvOnly(t *testing.T) {
+	isolateConfig(t)
+
+	if _, err := Upsert(Profile{Name: "lab", Endpoint: "https://lab.example.com", Token: "t"}, true); err != nil {
+		t.Fatalf("Upsert: %v", err)
+	}
+	t.Setenv(EnvDefaultOutput, "text")
+
+	cfg, err := Load("")
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if cfg.Output != "text" {
+		t.Fatalf("$%s must be used when the profile has no output: %+v", EnvDefaultOutput, cfg)
+	}
+}
+
+func TestLoadWithoutProfileOutputIsEmpty(t *testing.T) {
+	isolateConfig(t)
+
+	if _, err := Upsert(Profile{Name: "lab", Endpoint: "https://lab.example.com", Token: "t"}, true); err != nil {
+		t.Fatalf("Upsert: %v", err)
+	}
+
+	cfg, err := Load("")
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if cfg.Output != "" {
+		t.Fatalf("no output configured, expected an empty value: %+v", cfg)
+	}
 }
 
 func TestLoadWithoutAnyConfigurationFails(t *testing.T) {

@@ -18,6 +18,7 @@ import (
 	v2client "github.com/vatesfr/xenorchestra-go-sdk/v2/client"
 
 	xoconfig "github.com/littlejo/xo-gocli/internal/config"
+	"github.com/littlejo/xo-gocli/internal/output"
 )
 
 const (
@@ -25,6 +26,9 @@ const (
 	FlagProfile = "profile"
 	// FlagOutput is the global --output flag.
 	FlagOutput = "output"
+	// FlagJSON is the global --json flag: a boolean shortcut that selects
+	// JSON output, for AWS CLI familiarity. An explicit --output still wins.
+	FlagJSON = "json"
 	// FlagDebug is the global --debug flag.
 	FlagDebug = "debug"
 	// FlagTimeout is the global --timeout flag.
@@ -140,10 +144,36 @@ func ProfileName(cmd *cobra.Command) string {
 	return name
 }
 
-// OutputFormat returns the requested output format.
+// OutputFormat returns the output format selected for this run.
+// Precedence, highest first:
+//
+//  1. the --output flag when explicitly given by the user;
+//  2. the --json flag (a boolean shortcut that selects JSON output);
+//  3. the $XOA_DEFAULT_OUTPUT environment variable;
+//  4. the "output" value stored on the active profile;
+//  5. table, the human friendly default.
+//
+// Steps 3 and 4 need the profile to load; when it cannot (for example an
+// unconfigured command), the chain silently falls back to the default.
+// The returned name is validated at render time by output.ParseFormat.
 func OutputFormat(cmd *cobra.Command) string {
-	format, _ := cmd.Flags().GetString(FlagOutput)
-	return format
+	if cmd == nil {
+		return string(output.FormatTable)
+	}
+
+	if f, err := cmd.Flags().GetString(FlagOutput); err == nil && cmd.Flags().Changed(FlagOutput) {
+		return f
+	}
+	if b, err := cmd.Root().PersistentFlags().GetBool(FlagJSON); err == nil && b {
+		return string(output.FormatJSON)
+	}
+	if v := os.Getenv(xoconfig.EnvDefaultOutput); v != "" {
+		return v
+	}
+	if cfg, err := xoconfig.Load(ProfileName(cmd)); err == nil && cfg.Output != "" {
+		return cfg.Output
+	}
+	return string(output.FormatTable)
 }
 
 // Timeout returns the HTTP client timeout for this invocation. Precedence:

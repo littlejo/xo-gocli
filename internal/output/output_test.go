@@ -175,6 +175,83 @@ func TestRenderNoQueryYAML(t *testing.T) {
 	}
 }
 
+func TestRenderYAMLIntegersAreNotExponential(t *testing.T) {
+	// Whole values that json.Unmarshal decodes as float64 must be printed as
+	// plain integers, not in exponent form (the S4 bug: size:
+	// 2.147483648e+09). Values above 2^53 must survive without precision
+	// loss, and fractional values must keep their decimal form.
+	var buf bytes.Buffer
+	raw := map[string]any{
+		"size":       float64(2147483648),
+		"big":        float64(9007199254740992), // 2^53
+		"usage":      1.5,
+		"zero":       float64(0),
+		"negative":   float64(-1073741824),
+		"nested":     map[string]any{"depth": float64(1099511627776)},
+		"list":       []any{float64(123456789), float64(0.5)},
+		"not_number": "2147483648",
+	}
+	if err := Render(&buf, FormatYAML, Table{}, raw, nil); err != nil {
+		t.Fatalf("Render: %v", err)
+	}
+	out := buf.String()
+	for _, expected := range []string{"size: 2147483648", "big: 9007199254740992", "usage: 1.5", "zero: 0", "negative: -1073741824", "depth: 1099511627776", "123456789", "0.5", `not_number: "2147483648"`} {
+		if !strings.Contains(out, expected) {
+			t.Errorf("YAML output missing %q:\n%s", expected, out)
+		}
+	}
+	if strings.Contains(out, "e+") || strings.Contains(out, "e-") {
+		t.Errorf("YAML output must not use exponent notation:\n%s", out)
+	}
+
+	// The document must still parse back to the same values, as numbers.
+	var decoded map[string]any
+	if err := yaml.Unmarshal(buf.Bytes(), &decoded); err != nil {
+		t.Fatalf("output is not valid YAML: %v\n%s", err, out)
+	}
+	if got, ok := yamlIntValue(decoded["size"]); !ok || got != 2147483648 {
+		t.Errorf("size round-trip = %T %v, want the integer 2147483648", decoded["size"], decoded["size"])
+	}
+	if decoded["usage"] != 1.5 {
+		t.Errorf("usage round-trip = %v, want 1.5", decoded["usage"])
+	}
+}
+
+// yamlIntValue extracts a plain integer from a value decoded by yaml.v3,
+// which chooses int, int64 or uint64 depending on the magnitude.
+func yamlIntValue(v any) (int64, bool) {
+	switch n := v.(type) {
+	case int:
+		return int64(n), true
+	case int64:
+		return n, true
+	case uint64:
+		return int64(n), true
+	default:
+		return 0, false
+	}
+}
+
+func TestRenderYAMLQueryResultIntegers(t *testing.T) {
+	// The --query path feeds the normalized tree (float64 numbers) straight
+	// into the YAML renderer: whole values must come out plain too.
+	var buf bytes.Buffer
+	raw := []map[string]any{
+		{"name_label": "sr-01", "size": float64(10737418240)},
+		{"name_label": "sr-02", "size": float64(1)},
+	}
+	query, err := Query("[].size", raw)
+	if err != nil {
+		t.Fatalf("Query: %v", err)
+	}
+	if err := Render(&buf, FormatYAML, Table{}, nil, query); err != nil {
+		t.Fatalf("Render: %v", err)
+	}
+	if !strings.Contains(buf.String(), "10737418240") {
+		t.Fatalf("query YAML output must keep the integer plain:\n%s", buf.String())
+	}
+}
+
 func TestRenderQueryResultJSON(t *testing.T) {
 	var buf bytes.Buffer
 	query, err := Query("[].name_label", sampleData())

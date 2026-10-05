@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"math"
 	"strconv"
 	"strings"
 
@@ -245,12 +246,53 @@ func renderJSON(w io.Writer, data any) error {
 }
 
 func renderYAML(w io.Writer, data any) error {
-	encoded, err := yaml.Marshal(data)
+	encoded, err := yaml.Marshal(intifyNumbers(data))
 	if err != nil {
 		return err
 	}
 	_, err = w.Write(encoded)
 	return err
+}
+
+// intifyNumbers rewrites JSON numbers in a decoded tree (map[string]any /
+// []any) into typed Go values before YAML marshaling.
+//
+// Data reaching the renderer has been round-tripped through json.Unmarshal,
+// so every number is a float64; yaml.v3 would then print whole values of 10
+// digits or more in exponent form (size: 2.147483648e+09). Converting whole
+// values to int64 keeps them exact and plain. The same walk also normalizes
+// json.Number values (a raw payload decoded with UseNumber), which yaml
+// would render as quoted strings, into numbers. Values that do not fit in an
+// int64, or that carry a fractional part, stay float64.
+func intifyNumbers(v any) any {
+	switch value := v.(type) {
+	case map[string]any:
+		for key, item := range value {
+			value[key] = intifyNumbers(item)
+		}
+		return value
+	case []any:
+		for i, item := range value {
+			value[i] = intifyNumbers(item)
+		}
+		return value
+	case float64:
+		if !math.IsNaN(value) && !math.IsInf(value, 0) && value == math.Trunc(value) &&
+			value >= math.MinInt64 && value <= math.MaxInt64 {
+			return int64(value)
+		}
+		return value
+	case json.Number:
+		if i, err := value.Int64(); err == nil {
+			return i
+		}
+		if f, err := value.Float64(); err == nil {
+			return f
+		}
+		return string(value)
+	default:
+		return v
+	}
 }
 
 // renderValue is the plain rendering used for table and text formats:

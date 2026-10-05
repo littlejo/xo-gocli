@@ -181,6 +181,142 @@ func TestTimeoutDefault(t *testing.T) {
 	}
 }
 
+// isolateOutputEnv points the format resolution at an empty config file and
+// clears the variables the chain reads.
+func isolateOutputEnv(t *testing.T) {
+	t.Helper()
+	t.Setenv("XOA_CONFIG_FILE", t.TempDir()+"/config")
+	for _, key := range []string{xoconfig.EnvProfile, xoconfig.EnvEndpoint, xoconfig.EnvToken, xoconfig.EnvUsername, xoconfig.EnvPassword, xoconfig.EnvInsecure, xoconfig.EnvDefaultOutput} {
+		t.Setenv(key, "")
+	}
+}
+
+func newOutputTestRoot() *cobra.Command {
+	root := &cobra.Command{Use: "xo", SilenceUsage: true, SilenceErrors: true}
+	root.PersistentFlags().StringP(FlagOutput, "o", "table", "")
+	root.PersistentFlags().Bool(FlagJSON, false, "")
+	root.AddCommand(&cobra.Command{
+		Use:  "noop",
+		RunE: func(*cobra.Command, []string) error { return nil },
+	})
+	return root
+}
+
+func TestOutputFormatDefault(t *testing.T) {
+	isolateOutputEnv(t)
+	root := newOutputTestRoot()
+	if err := Execute(context.Background(), root, []string{"noop"}); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if got := OutputFormat(root); got != "table" {
+		t.Fatalf("OutputFormat = %q, want table by default", got)
+	}
+	if got := OutputFormat(nil); got != "table" {
+		t.Fatalf("OutputFormat(nil) = %q, want table", got)
+	}
+}
+
+func TestOutputFormatFromFlag(t *testing.T) {
+	isolateOutputEnv(t)
+	root := newOutputTestRoot()
+	if err := Execute(context.Background(), root, []string{"noop", "--output", "yaml"}); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if got := OutputFormat(root); got != "yaml" {
+		t.Fatalf("--output yaml = %q", got)
+	}
+}
+
+func TestOutputFormatFromJSONFlag(t *testing.T) {
+	isolateOutputEnv(t)
+	root := newOutputTestRoot()
+	if err := Execute(context.Background(), root, []string{"noop", "--json"}); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if got := OutputFormat(root); got != "json" {
+		t.Fatalf("--json = %q, want json", got)
+	}
+}
+
+func TestOutputFormatFlagWinsOverJSONFlag(t *testing.T) {
+	isolateOutputEnv(t)
+	root := newOutputTestRoot()
+	if err := Execute(context.Background(), root, []string{"noop", "--output", "text", "--json"}); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if got := OutputFormat(root); got != "text" {
+		t.Fatalf("--output text --json = %q, want text", got)
+	}
+}
+
+func TestOutputFormatFromEnvVar(t *testing.T) {
+	isolateOutputEnv(t)
+	t.Setenv(xoconfig.EnvDefaultOutput, "json")
+	root := newOutputTestRoot()
+	if err := Execute(context.Background(), root, []string{"noop"}); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if got := OutputFormat(root); got != "json" {
+		t.Fatalf("$%s=json = %q", xoconfig.EnvDefaultOutput, got)
+	}
+}
+
+func TestOutputFormatEnvVarBeatsProfileOutput(t *testing.T) {
+	isolateOutputEnv(t)
+	if _, err := xoconfig.Upsert(xoconfig.Profile{Name: "lab", Endpoint: "https://lab.test", Token: "t", Output: "yaml"}, true); err != nil {
+		t.Fatalf("Upsert: %v", err)
+	}
+	t.Setenv(xoconfig.EnvDefaultOutput, "json")
+	root := newOutputTestRoot()
+	if err := Execute(context.Background(), root, []string{"noop"}); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if got := OutputFormat(root); got != "json" {
+		t.Fatalf("$%s must beat the profile output: %q", xoconfig.EnvDefaultOutput, got)
+	}
+}
+
+func TestOutputFormatFromProfile(t *testing.T) {
+	isolateOutputEnv(t)
+	if _, err := xoconfig.Upsert(xoconfig.Profile{Name: "lab", Endpoint: "https://lab.test", Token: "t", Output: "yaml"}, true); err != nil {
+		t.Fatalf("Upsert: %v", err)
+	}
+	root := newOutputTestRoot()
+	if err := Execute(context.Background(), root, []string{"noop"}); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if got := OutputFormat(root); got != "yaml" {
+		t.Fatalf("profile output = %q, want yaml", got)
+	}
+}
+
+func TestOutputFormatUnsetFlagFallsBackToEnvVar(t *testing.T) {
+	// The --output flag is registered with the default value "table", so an
+	// invocation that does not pass it must still fall through to the
+	// environment variable and the profile.
+	isolateOutputEnv(t)
+	t.Setenv(xoconfig.EnvDefaultOutput, "yaml")
+	root := newOutputTestRoot()
+	if err := Execute(context.Background(), root, []string{"noop"}); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if got := OutputFormat(root); got != "yaml" {
+		t.Fatalf("unset --output must fall back to $%s: %q", xoconfig.EnvDefaultOutput, got)
+	}
+}
+
+func TestOutputFormatFlagWinsOverEnvVar(t *testing.T) {
+	isolateOutputEnv(t)
+	t.Setenv(xoconfig.EnvDefaultOutput, "json")
+	root := newOutputTestRoot()
+	if err := Execute(context.Background(), root, []string{"noop", "--output", "text"}); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if got := OutputFormat(root); got != "text" {
+		t.Fatalf("--output must beat $%s: %q", xoconfig.EnvDefaultOutput, got)
+	}
+}
+
 func TestTimeoutFromFlag(t *testing.T) {
 	t.Setenv(EnvTimeout, "")
 	var captured *cobra.Command

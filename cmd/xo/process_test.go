@@ -541,3 +541,116 @@ func TestGoldenJSONGet(t *testing.T) {
 	ok := newFakeXO(t, 0, false)
 	golden(t, bin, "vm-get.json", envFor(t, ok.URL(), fakeToken), "vm", "get", firstVMID, "--output", "json")
 }
+
+// TestJSONFlag selects JSON output, like the AWS CLI. The exact shape is
+// already pinned by the golden tests; here it is enough to prove the flag is
+// accepted and switches the format, and that an explicit --output still wins.
+func TestJSONFlag(t *testing.T) {
+	bin := requireBinary(t)
+	ok := newFakeXO(t, 0, false)
+
+	res := run(t, bin, envFor(t, ok.URL(), fakeToken), "vm", "list", "--json")
+	if res.code != 0 {
+		t.Fatalf("--json: exit %d, stderr:\n%s", res.code, res.stderr)
+	}
+	if !strings.HasPrefix(strings.TrimSpace(res.stdout), "[") {
+		t.Fatalf("--json should emit a JSON document, got:\n%s", res.stdout)
+	}
+	if !strings.Contains(res.stdout, "web-01") {
+		t.Fatalf("--json output missing the fixture VMs:\n%s", res.stdout)
+	}
+	var vms []map[string]any
+	if err := json.Unmarshal([]byte(res.stdout), &vms); err != nil {
+		t.Fatalf("--json output is not valid JSON: %v\n%s", err, res.stdout)
+	}
+
+	// An explicit --output beats --json.
+	res = run(t, bin, envFor(t, ok.URL(), fakeToken), "vm", "list", "--json", "--output", "text")
+	if res.code != 0 {
+		t.Fatalf("--json --output text: exit %d, stderr:\n%s", res.code, res.stderr)
+	}
+	if strings.HasPrefix(strings.TrimSpace(res.stdout), "[") {
+		t.Fatalf("--output text must beat --json, got:\n%s", res.stdout)
+	}
+	if !strings.Contains(res.stdout, "web-01") {
+		t.Fatalf("text output missing the fixture VMs:\n%s", res.stdout)
+	}
+}
+
+func TestDefaultOutputEnvVar(t *testing.T) {
+	bin := requireBinary(t)
+	ok := newFakeXO(t, 0, false)
+
+	// $XOA_DEFAULT_OUTPUT=json selects the default format for a script,
+	// without passing --output.
+	env := envFor(t, ok.URL(), fakeToken)
+	env = append(env, "XOA_DEFAULT_OUTPUT=json")
+	res := run(t, bin, env, "vm", "list")
+	if res.code != 0 {
+		t.Fatalf("env default output: exit %d, stderr:\n%s", res.code, res.stderr)
+	}
+	var vms []map[string]any
+	if err := json.Unmarshal([]byte(res.stdout), &vms); err != nil {
+		t.Fatalf("$XOA_DEFAULT_OUTPUT=json output is not valid JSON: %v\n%s", err, res.stdout)
+	}
+
+	// The flag wins over the environment variable.
+	env = envFor(t, ok.URL(), fakeToken)
+	env = append(env, "XOA_DEFAULT_OUTPUT=json")
+	res = run(t, bin, env, "vm", "list", "--output", "text")
+	if res.code != 0 {
+		t.Fatalf("env default output + flag: exit %d, stderr:\n%s", res.code, res.stderr)
+	}
+	if strings.HasPrefix(strings.TrimSpace(res.stdout), "[") {
+		t.Fatalf("--output must beat $XOA_DEFAULT_OUTPUT, got:\n%s", res.stdout)
+	}
+
+	// An invalid value fails cleanly, after the request would otherwise
+	// succeed: the format is validated at render time.
+	env = envFor(t, ok.URL(), fakeToken)
+	env = append(env, "XOA_DEFAULT_OUTPUT=xml")
+	res = run(t, bin, env, "vm", "list")
+	if res.code != 1 {
+		t.Fatalf("invalid default output: exit %d (want 1), stderr:\n%s", res.code, res.stderr)
+	}
+	if !strings.HasPrefix(res.stderr, "Error: ") {
+		t.Fatalf("invalid default output: stderr should start with 'Error: ', got:\n%s", res.stderr)
+	}
+	if res.stdout != "" {
+		t.Fatalf("invalid default output: expected empty stdout, got:\n%s", res.stdout)
+	}
+}
+
+func TestDefaultOutputFromConfigFile(t *testing.T) {
+	bin := requireBinary(t)
+	ok := newFakeXO(t, 0, false)
+
+	// The "output" value stored on a profile is the profile-level default:
+	// it applies without any --output flag or XOA_DEFAULT_OUTPUT variable.
+	cfgFile := filepath.Join(t.TempDir(), "config")
+	cfg := fmt.Sprintf("current: lab\nprofiles:\n  - name: lab\n    endpoint: %s\n    token: %s\n    output: json\n", ok.URL(), fakeToken)
+	if err := os.WriteFile(cfgFile, []byte(cfg), 0o600); err != nil {
+		t.Fatalf("cannot write config: %v", err)
+	}
+
+	res := run(t, bin, cleanEnv("XOA_CONFIG_FILE="+cfgFile), "vm", "list", "--profile", "lab")
+	if res.code != 0 {
+		t.Fatalf("config output: exit %d, stderr:\n%s", res.code, res.stderr)
+	}
+	var vms []map[string]any
+	if err := json.Unmarshal([]byte(res.stdout), &vms); err != nil {
+		t.Fatalf("profile output=json is not valid JSON: %v\n%s", err, res.stdout)
+	}
+	if res.stderr != "" {
+		t.Fatalf("config output: expected empty stderr, got:\n%s", res.stderr)
+	}
+
+	// --output still wins over the stored profile value.
+	res = run(t, bin, cleanEnv("XOA_CONFIG_FILE="+cfgFile), "vm", "list", "--profile", "lab", "--output", "text")
+	if res.code != 0 {
+		t.Fatalf("config output + flag: exit %d, stderr:\n%s", res.code, res.stderr)
+	}
+	if strings.HasPrefix(strings.TrimSpace(res.stdout), "[") {
+		t.Fatalf("--output must beat the profile output value, got:\n%s", res.stdout)
+	}
+}

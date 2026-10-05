@@ -28,6 +28,9 @@ quickstart, see the [README](../README.md).
   - [`xo template`](#xo-template)
   - [`xo rest`](#xo-rest)
 - [Output & querying](#output--querying)
+  - [Choosing the default format](#choosing-the-default-format)
+  - [The JSON and YAML contract](#the-json-and-yaml-contract)
+  - [Mutation and action output](#mutation-and-action-output)
 
 ## Installation
 
@@ -67,6 +70,8 @@ profiles:
     token: <token>
     # OR: username: admin / password: <secret>
     # OR: insecure: true
+    # Default output format for this profile (table, json, yaml or text):
+    # output: json
 ```
 
 The active profile is resolved in this order: `--profile`, then `$XOA_PROFILE`,
@@ -110,6 +115,7 @@ time:
 | `XOA_PASSWORD`    | Password (alternative to a token)             |
 | `XOA_INSECURE`    | Skip TLS certificate verification             |
 | `XOA_TIMEOUT`     | HTTP client timeout, e.g. `60s` or `2m` (like `--timeout`) |
+| `XOA_DEFAULT_OUTPUT` | Default output format: `table`, `json`, `yaml` or `text` (like `--output`) |
 | `XOA_YES`         | Skip confirmation prompts (like `--yes`)      |
 | `XOA_WAIT`        | Wait for async action tasks to complete (like `--wait`) |
 | `XOA_DEBUG`       | Show SDK/API error details (like `--debug`)   |
@@ -123,6 +129,12 @@ Either a token, or a username + password, must be available to authenticate.
 `xo vbd`, `xo pbd` and `xo sr` sections below): `XOA_WAIT=1 xo vm start <id>`
 waits for the start task to complete without having to pass the flag on every
 command.
+
+`XOA_DEFAULT_OUTPUT` is the script counterpart of `--output`:
+`XOA_DEFAULT_OUTPUT=json xo vm list` emits JSON without the flag, and an
+explicit `--output` still wins for a single command. It is also stored per
+profile in the configuration file as `output:` (see [Output &
+querying](#output--querying)).
 
 ### Insecure mode
 
@@ -189,7 +201,8 @@ to complete.
 | Flag             | Description                                             |
 | ---------------- | ------------------------------------------------------- |
 | `-p`, `--profile`| Configuration profile to use (or `$XOA_PROFILE`)         |
-| `-o`, `--output` | Output format: `table` (default), `json`, `yaml`, `text`|
+| `-o`, `--output` | Output format: `table` (default), `json`, `yaml`, `text` (or `$XOA_DEFAULT_OUTPUT`, or the profile's `output`) |
+| `--json`         | Output as JSON, a shortcut for `--output json`          |
 | `-d`, `--debug`  | Show SDK/API error details on failure (or `$XOA_DEBUG`) |
 | `--timeout`      | HTTP client timeout, e.g. `60s` or `2m` (default `30s`, or `$XOA_TIMEOUT`) |
 | `--version`      | Print the CLI version and exit                          |
@@ -779,6 +792,62 @@ xo vm list --query 'length(@)'                # count
 
 Backtick literals (`` `Running` ``) work as in the AWS CLI even though the
 underlying JMESPath engine uses single quotes.
+
+### Choosing the default format
+
+`--output` applies to one invocation. For a recurring default, set
+`XOA_DEFAULT_OUTPUT` for the shell or script (`XOA_DEFAULT_OUTPUT=json xo vm
+list`), or store `output: json` on the profile in the configuration file.
+Resolution order: `--output` > `--json` > `$XOA_DEFAULT_OUTPUT` > the
+profile's `output` > `table`. The `--json` flag is a boolean shortcut for
+`--output json` (AWS CLI familiarity); an explicit `--output` still wins
+when both are given.
+
+```sh
+export XOA_DEFAULT_OUTPUT=json        # everything from this shell is JSON
+xo vm list                            # JSON, no flag needed
+xo vm list --output table             # back to the human view for once
+```
+
+### The JSON and YAML contract
+
+`--output json` emits the **SDK struct shape**, not the API response
+byte-for-byte:
+
+- fields declared `omitempty` in the SDK payload are dropped when they hold
+  a zero value, so two responses to the same object may have different field
+  sets;
+- fields the SDK payload does not model at all are absent (a `rest get` of
+  the same object can show more fields — it prints the raw API document);
+- the output is stable and intentional, and this is the v1 machine interface:
+  scripts should rely on field *presence* plus the documented resource shape
+  (the `--query` projections in each resource section), not on exact equality
+  with a captured response.
+
+YAML notes:
+
+- whole numbers are printed as plain integers (`size: 2147483648`); values
+  that are not whole stay decimal (`usage: 1.5`);
+- YAML goes through the same JSON normalization as `--query`, so a whole
+  value larger than 2^53 (about 9.007e15) can lose precision — use `--output
+  json` or `--query` for such fields;
+- `--output json` is the recommended format for scripting: it is the most
+  faithful to the data and the most tooling-friendly (`jq`).
+
+### Mutation and action output
+
+Mutating commands (`create`, `update`, `delete`, `start`, `stop`, …) emit a
+small result document, not the full object. For `json`/`yaml` the shape is:
+
+```json
+{ "action": "delete", "vm": "web-01" }
+```
+
+The resource field carries the **name** the command resolved for the target
+(the name the user sees in `list`), and actions that start a task add a
+`task_id` (or `result`/`task` on `--wait`). The id is not repeated because
+the name is the stable handle in the CLI; for the raw id, use the resource's
+`list`/`get` with `--query '[].id'` or the `--output json` of `get`.
 
 Format behavior:
 

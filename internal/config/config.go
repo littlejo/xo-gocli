@@ -26,6 +26,10 @@ const (
 	EnvPassword = "XOA_PASSWORD"
 	// EnvInsecure overrides the profile insecure flag.
 	EnvInsecure = "XOA_INSECURE"
+	// EnvDefaultOutput is the script counterpart of the per-profile
+	// "output" setting: it selects the default output format (table, json,
+	// yaml or text) without passing --output on every command.
+	EnvDefaultOutput = "XOA_DEFAULT_OUTPUT"
 )
 
 // DefaultProfile is used when no profile is selected.
@@ -39,6 +43,10 @@ type Profile struct {
 	Username string `yaml:"username" json:"username,omitempty"`
 	Password string `yaml:"password" json:"password,omitempty"`
 	Insecure bool   `yaml:"insecure" json:"insecure"`
+	// Output is the default output format for commands run against this
+	// profile (table, json, yaml or text). A per-invocation --output flag
+	// always wins over it.
+	Output string `yaml:"output,omitempty" json:"output,omitempty"`
 }
 
 // File is the on-disk representation of the configuration.
@@ -55,6 +63,11 @@ type ClientConfig struct {
 	Username string
 	Password string
 	Insecure bool
+	// Output is the default output format resolved for this run (the
+	// profile's stored value, overridden by $XOA_DEFAULT_OUTPUT). It is
+	// never validated here: the format is checked at render time, where a
+	// per-invocation --output flag may have replaced it.
+	Output string
 }
 
 // Load reads the configuration file, applies environment overrides and
@@ -91,6 +104,7 @@ func Load(profileName string) (*ClientConfig, error) {
 		cfg.Username = profile.Username
 		cfg.Password = profile.Password
 		cfg.Insecure = profile.Insecure
+		cfg.Output = profile.Output
 	}
 
 	cfg.applyEnv()
@@ -129,6 +143,9 @@ func (c *ClientConfig) applyEnv() {
 	}
 	if v := os.Getenv(EnvInsecure); v != "" {
 		c.Insecure = v == "1" || v == "true" || v == "yes"
+	}
+	if v := os.Getenv(EnvDefaultOutput); v != "" {
+		c.Output = v
 	}
 }
 
