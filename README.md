@@ -52,9 +52,35 @@ xo vm list
 - Multiple connection profiles, AWS-style (`--profile`, `$XOA_PROFILE`)
 - Human-friendly default output plus `--output json|yaml|text` (or the `--json` shortcut, or `$XOA_DEFAULT_OUTPUT`) for scripting
 - AWS-CLI-like `--query` using [JMESPath](https://jmespath.org/)
-- `--insecure` escape hatch for self-signed / internal certificates
 - Concise errors by default; `-d`/`--debug` (or `$XOA_DEBUG`) reveals the raw SDK/API error on failure
-- Static, dependency-free binaries (releases are built for the common 64-bit platforms)
+- Self-signed / internal certificate escape hatch: `xo configure --insecure` (stored per profile) or `$XOA_INSECURE`
+- Static, dependency-free binaries for Linux, macOS and Windows — amd64 and arm64 only (the SDK does not compile on 32-bit). On Windows the binary is a `.zip` on the releases page; `install.sh` covers Linux and macOS
+
+## Commands
+
+`xo` is organized in resource groups. Each group exposes `list` and `get`
+plus the domain operations Xen Orchestra exposes (`xo rest` is a raw REST
+escape hatch, not a resource):
+
+| Group | Operations |
+| ----- | ---------- |
+| `xo vm` | `list` `get` `create` `update` `delete` `start` `stop` `reboot` `pause` `unpause` `suspend` `resume` `snapshot` `export` `import` `vdis` `tag` |
+| `xo host` | `list` `get` `tag` |
+| `xo pool` | `list` `get` `rolling-update` `rolling-reboot` `emergency-shutdown` `tag` |
+| `xo sr` | `list` `get` `scan` `reclaim-space` `tag` |
+| `xo network` | `list` `get` `create` `create-internal` `create-bonded` `delete` `tag` |
+| `xo vdi` | `list` `get` `create` `delete` `migrate` `export` `import` `tag` |
+| `xo vbd` | `list` `get` `create` (attach a VDI to a VM) `delete` (detach) `connect` `disconnect` |
+| `xo pbd` | `list` `get` `plug` `unplug` |
+| `xo task` | `list` `get` `wait` `abort` |
+| `xo token` | `list` `get` `create` |
+| `xo template` | `list` `get` |
+| `xo rest` | raw REST escape hatch: `xo rest <method> <path>` |
+
+Plus `xo configure` (connection profiles), `xo version` and `xo completion`
+(shell completion scripts).
+
+Every flag and subcommand is documented in [docs/usage.md](docs/usage.md).
 
 ## Documentation
 
