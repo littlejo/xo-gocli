@@ -410,8 +410,12 @@ v1.19.0 version number is the *module* version, not the REST API version
   (`nameLabel`, `nameDescription`, …) — responses, in contrast, use
   snake_case.
 - Non-2xx responses surface as `API error: <status> - <body>`; the CLI maps
-  the `404` substring to a concise "not found" message, and `--debug`
-  (`$XOA_DEBUG`) reveals the raw API error on demand.
+  a 404 (checked on the actual HTTP status carried by the error, not a
+  substring) to a concise "not found" message, and translates the well-known
+  SDK/Go transport and parsing errors — timeout, unreachable endpoint,
+  malformed API response, 401/403 — into concise messages (see
+  `internal/cli/errors.go`). In every case the raw error is kept behind
+  `--debug` (`$XOA_DEBUG`).
 - `pkg/config.NewWithValues` (what we use) takes explicit values and reads no
   environment variables; `pkg/config.New` (env `XOA_*`) is not used.
 

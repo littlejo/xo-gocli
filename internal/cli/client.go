@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/http"
 	"os"
 	"strings"
 	"time"
@@ -102,14 +103,16 @@ func Detail(err error) string {
 }
 
 // NotFound turns a lookup failure into the concise "<kind> not found" message
-// when the API returned a 404, keeping the raw SDK error as debug-only detail
-// (see --debug / $XOA_DEBUG). For any other error it wraps it in
-// "cannot <verb> <kind> <id>: …" and applies the TLS hint.
+// when the API returned a 404 — detected on the actual HTTP status carried by
+// the SDK error, not a substring of the message — keeping the raw SDK error
+// as debug-only detail (see --debug / $XOA_DEBUG). For any other error it
+// translates the SDK/Go internals to a concise message (see translateSDKError)
+// and wraps it in "cannot <verb> <kind> <id>: …" with the TLS hint.
 //
 // verb is the verb shown for non-404 failures ("get" for a read, "resolve"
 // for an existence check); it does not affect the 404 wording.
 func NotFound(kind, verb, id string, err error, insecure bool) error {
-	if err != nil && strings.Contains(err.Error(), "404") {
+	if err != nil && APIStatus(err) == http.StatusNotFound {
 		return &detailError{
 			err:    fmt.Errorf("%s %q not found", kind, id),
 			detail: err.Error(),
@@ -150,17 +153,26 @@ func OutputFormat(cmd *cobra.Command) string {
 // long-running operations such as a pool rolling update, the whole task wait —
 // can be raised above the SDK's hard-coded 30-second floor.
 func Timeout(cmd *cobra.Command) time.Duration {
+	var d time.Duration
 	if cmd != nil {
-		if d, err := cmd.Root().PersistentFlags().GetDuration(FlagTimeout); err == nil && d > 0 {
-			return d
+		if v, err := cmd.Root().PersistentFlags().GetDuration(FlagTimeout); err == nil && v > 0 {
+			d = v
 		}
 	}
-	if v := os.Getenv(EnvTimeout); v != "" {
-		if d, err := time.ParseDuration(v); err == nil {
-			return d
+	if d == 0 {
+		if v := os.Getenv(EnvTimeout); v != "" {
+			if parsed, err := time.ParseDuration(v); err == nil {
+				d = parsed
+			}
 		}
 	}
-	return defaultClientTimeout
+	if d == 0 {
+		d = defaultClientTimeout
+	}
+	// Remember the value that will actually be in effect for the requests of
+	// this invocation, so error messages can report it ("timed out after …").
+	currentClientTimeout = d
+	return d
 }
 
 // SkipConfirm reports whether destructive operations should run without a
@@ -233,6 +245,11 @@ func NewHTTPClient(cmd *cobra.Command, cfg *xoconfig.ClientConfig) (*v2client.Cl
 }
 
 func newConnectionError(cfg *xoconfig.ClientConfig, err error) error {
+	// A transport failure while building the client (or logging in) is
+	// translated like any other SDK error; the raw text is kept as detail.
+	if translated, raw := translateSDKError(err.Error()); translated != "" {
+		return &detailError{err: errors.New(translated), detail: raw}
+	}
 	var msg string
 	if cfg.Token == "" && cfg.Username != "" {
 		msg = fmt.Sprintf("authentication to %s failed: %v", cfg.Endpoint, err)
@@ -242,12 +259,21 @@ func newConnectionError(cfg *xoconfig.ClientConfig, err error) error {
 	return InsecureHint(msg, cfg.Insecure)
 }
 
-// InsecureHint returns msg unchanged, or appends a hint when the failure is a
-// TLS certificate problem and insecure mode is not already enabled. Commands
-// should run their SDK errors through it so users get the documented escape
-// hatch instead of raw x509 internals.
+// InsecureHint returns a concise error for msg, appending a hint when the
+// failure is a TLS certificate problem and insecure mode is not already
+// enabled.
+//
+// Before that, msg is run through translateSDKError: known SDK/Go error forms
+// (timeout, unreachable endpoint, malformed API response, 401/403) are
+// replaced by a concise message, and the original text is kept as the
+// debug-only detail that Execute reveals with --debug. Messages that match no
+// known form (including local I/O errors and "API error: 5xx" lines carrying
+// the server's own body) are returned unchanged.
 func InsecureHint(msg string, alreadyInsecure bool) error {
 	msg = cleanSDKArtifact(msg)
+	if translated, raw := translateSDKError(msg); translated != "" {
+		return &detailError{err: errors.New(translated), detail: raw}
+	}
 	if alreadyInsecure || !isTLSVerifyError(msg) {
 		return errors.New(msg)
 	}
