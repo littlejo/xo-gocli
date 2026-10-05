@@ -2,13 +2,14 @@
 
 Status snapshot and the minimal checklist for releasing `xo` v1.0.0.
 
-> **Snapshot**: `main` at `2f5a90c` (2026-10-05). B1, B2, S1, S2, S4 and S5
-> are done (merged); S3 and S6–S7 and the release-day steps remain. The rest
-> of this page is based on the original read-only audit of the full codebase
-> (every command file, the output layer, the test suite, the docs and the
-> release pipeline), with the built binary exercised directly to confirm the
-> key findings. As items are fixed, cross them off in the
-> [release checklist](#release-checklist) and update the snapshot line.
+> **Snapshot**: `main` at `86807bf` (2026-10-05). B1, B2, S1, S2, S4 and S5
+> are done (merged); S3 and S7 and the release-day steps remain. S6 is
+> implemented on branch `s6-readme-accuracy`. The rest of this page is based
+> on the original read-only audit of the full codebase (every command file,
+> the output layer, the test suite, the docs and the release pipeline), with
+> the built binary exercised directly to confirm the key findings. As items
+> are fixed, cross them off in the [release checklist](#release-checklist)
+> and update the snapshot line.
 
 ## Table of contents
 
@@ -244,6 +245,13 @@ unchanged); `vm list` gained the `IP` column and `host list` gained
 - No overview of the command groups; a first-time user must open `usage.md`
   to learn what exists.
 
+**Resolved (branch `s6-readme-accuracy`):** the `--insecure` feature bullet
+now names its real surface (`xo configure --insecure` per profile, or
+`$XOA_INSECURE`); the platform bullet states Linux/macOS/Windows, amd64 and
+arm64 only (the SDK does not compile on 32-bit), and that Windows ships as a
+`.zip` while `install.sh` covers Linux/macOS; a new "Commands" section lists
+every resource group and its operations.
+
 ### S7: two open UX decisions
 
 1. **`vm stop --hard` asks for confirmation; `vm reboot --hard` does not** —
@@ -347,7 +355,8 @@ v1.0.0:
       values, `HOST/POOL` vs `CONTAINER`, drop the constant `network TYPE`
       column, empty-value dashes, cap `vdi get` names, empty-table message
       (branch `s5-human-output`)
-- [ ] **S6** — README: `--insecure` scope, platforms, command overview
+- [x] **S6** — README: `--insecure` scope, platforms, command overview
+      (branch `s6-readme-accuracy`)
 - [ ] **S7** — decide: `vm reboot --hard` confirmation; double-login fix or
       v1.1
 - [ ] merge → `main`, CI fully green including the `functional` job
