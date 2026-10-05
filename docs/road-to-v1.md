@@ -2,14 +2,14 @@
 
 Status snapshot and the minimal checklist for releasing `xo` v1.0.0.
 
-> **Snapshot**: `main` at `86807bf` (2026-10-05). B1, B2, S1, S2, S4 and S5
-> are done (merged); S3 and S7 and the release-day steps remain. S6 is
-> implemented on branch `s6-readme-accuracy`. The rest of this page is based
-> on the original read-only audit of the full codebase (every command file,
-> the output layer, the test suite, the docs and the release pipeline), with
-> the built binary exercised directly to confirm the key findings. As items
-> are fixed, cross them off in the [release checklist](#release-checklist)
-> and update the snapshot line.
+> **Snapshot**: `main` at `698f966` (2026-10-05). B1, B2, S1, S2, S4, S5 and
+> S6 are done (merged); S3 and the release-day steps remain. S7 is
+> implemented on branch `s7-ux-decisions`. The rest of this page is based on
+> the original read-only audit of the full codebase (every command file, the
+> output layer, the test suite, the docs and the release pipeline), with the
+> built binary exercised directly to confirm the key findings. As items are
+> fixed, cross them off in the [release checklist](#release-checklist) and
+> update the snapshot line.
 
 ## Table of contents
 
@@ -62,9 +62,9 @@ The product is technically close to releaseable. Verified at snapshot time:
   (GoReleaser, amd64/arm64, checksums).
 
 What keeps it from a v1.0.0 tag is the small list below — the two hard
-blockers are resolved (B1, B2), as are S1, S2, S4 and S5; the remaining
-"should fix" items (S3 and S6–S7) and the release-day steps still need to be
-done by hand.
+blockers are resolved (B1, B2), as are S1, S2, S4, S5 and S6; the remaining
+"should fix" item (S3) and the release-day steps still need to be done by
+hand.
 
 ## Blockers
 
@@ -263,6 +263,30 @@ every resource group and its operations.
    per invocation (zero cost with a token profile). Sharing one client is a
    small refactor; at minimum, decide whether it ships in v1.0.0 or v1.1.
 
+**Resolved (branch `s7-ux-decisions`):**
+
+1. *Confirmation.* `vm stop` no longer asks for confirmation. Rationale: a
+   stopped VM is brought back by `xo vm start`, so `stop` is reversible by
+   its counterpart — exactly like the other power actions that already never
+   prompt (`reboot`, `pause`, `suspend`, …). Keeping the prompt on `stop`
+   alone made the power family inconsistent and interrupted the normal
+   start/stop/reboot loop; this matches the AWS CLI, where
+   `stop-instances` and `reboot-instances` are both non-interactive. `vm
+   delete` and the pool-maintenance actions keep their confirmation (they are
+   not reversible). `--yes`/`$XOA_YES` are unchanged.
+2. *Double login.* Decided **v1.1**: a real fix requires the SDK to expose a
+   way to build the typed services around a single already-authenticated REST
+   client (it does not today — `xov2.New` always logs in when given
+   username/password, and the `XOClient` facade is unexported). That is an
+   SDK contribution + re-pin of the fork + a refactor of `NewResolver` and the
+   five commands, which is too much surface to change immediately before the
+   v1.0.0 tag. In the meantime the caveat is documented in `usage.md`
+   (Configuration: token profiles are recommended), and a tracking issue is
+   opened. Note the audit's "five commands" under-counts the surface: every
+   `list`/`get` table goes through `NewResolver`, which also builds two
+   clients, so the duplicate login touches most commands — reinforcing the
+   "token profiles" guidance.
+
 ## Release-day process (manual steps)
 
 The normal flow ("push to main → auto tag + release") **cannot produce a
@@ -334,8 +358,8 @@ required for a coherent release):
 
 ## Release checklist
 
-Minimal path from here (B1, B2, S1, S2, S4 and S5 are done) to a published
-v1.0.0:
+Minimal path from here (B1, B2, S1, S2, S4, S5 and S6 are done) to a
+published v1.0.0:
 
 - [x] **B1** — fix the `rest` `-d` shorthand collision; add a test that
       exercises the real root (or `os/exec` smoke test)
@@ -357,8 +381,10 @@ v1.0.0:
       (branch `s5-human-output`)
 - [x] **S6** — README: `--insecure` scope, platforms, command overview
       (branch `s6-readme-accuracy`)
-- [ ] **S7** — decide: `vm reboot --hard` confirmation; double-login fix or
-      v1.1
+- [x] **S7** — decide: `vm reboot --hard` confirmation (stop loses its
+      confirmation, power family aligned, documented); double-login fix
+      deferred to v1.1 (caveat documented, tracking issue)
+      (branch `s7-ux-decisions`)
 - [ ] merge → `main`, CI fully green including the `functional` job
 - [ ] hand-push the `v1.0.0` tag
 - [ ] publish the draft release + release notes (headline + fork disclosure)
