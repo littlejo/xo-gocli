@@ -2,14 +2,13 @@
 
 Status snapshot and the minimal checklist for releasing `xo` v1.0.0.
 
-> **Snapshot**: `main` at `058515b` (2026-10-05). B1, B2, S1, S2 and S4 are
-> done (merged); S3 and S6–S7 and the release-day steps remain. S5 is
-> implemented on branch `s5-human-output`. The rest of this page is based on
-> the original read-only audit of the full codebase (every command file, the
-> output layer, the test suite, the docs and the release pipeline), with the
-> built binary exercised directly to confirm the key findings. As items are
-> fixed, cross them off in the [release checklist](#release-checklist) and
-> update the snapshot line.
+> **Snapshot**: `main` at `2f5a90c` (2026-10-05). B1, B2, S1, S2, S4 and S5
+> are done (merged); S3 and S6–S7 and the release-day steps remain. The rest
+> of this page is based on the original read-only audit of the full codebase
+> (every command file, the output layer, the test suite, the docs and the
+> release pipeline), with the built binary exercised directly to confirm the
+> key findings. As items are fixed, cross them off in the
+> [release checklist](#release-checklist) and update the snapshot line.
 
 ## Table of contents
 
@@ -62,9 +61,9 @@ The product is technically close to releaseable. Verified at snapshot time:
   (GoReleaser, amd64/arm64, checksums).
 
 What keeps it from a v1.0.0 tag is the small list below — the two hard
-blockers are now resolved (B1, B2), as is the first hardening item (S1); the
-remaining "should fix" items (S2–S7) and the release-day steps still need to
-be done by hand.
+blockers are resolved (B1, B2), as are S1, S2, S4 and S5; the remaining
+"should fix" items (S3 and S6–S7) and the release-day steps still need to be
+done by hand.
 
 ## Blockers
 
@@ -327,7 +326,8 @@ required for a coherent release):
 
 ## Release checklist
 
-Minimal path from here (B1, B2 and S1 are done) to a published v1.0.0:
+Minimal path from here (B1, B2, S1, S2, S4 and S5 are done) to a published
+v1.0.0:
 
 - [x] **B1** — fix the `rest` `-d` shorthand collision; add a test that
       exercises the real root (or `os/exec` smoke test)
