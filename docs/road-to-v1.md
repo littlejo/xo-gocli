@@ -2,8 +2,8 @@
 
 Status snapshot and the minimal checklist for releasing `xo` v1.0.0.
 
-> **Snapshot**: `main` at `56bec90` (2026-10-04). B1, B2 and S1 are done
-> (merged); S2–S7 and the release-day steps remain. The rest of this page is
+> **Snapshot**: `main` at `72aad49` (2026-10-05). B1, B2, S1 and S2 are done
+> (merged); S3–S7 and the release-day steps remain. The rest of this page is
 > based on the original read-only audit of the full codebase (every command
 > file, the output layer, the test suite, the docs and the release pipeline),
 > with the built binary exercised directly to confirm the key findings. As
@@ -193,6 +193,16 @@ Decision to make before the tag: a default wait deadline (e.g. 10 min) or
   Defensible (the name is what the user typed), but it is human data in a
   machine stream — document it, or switch to the id.
 
+**Resolved (branch `s4-machine-output`):** `--json` added as a global boolean
+shortcut for `--output json` (an explicit `--output` wins); YAML now converts
+whole numbers to `int64` before marshaling (`size: 2147483648`), with the
+`> 2^53` precision caveat documented — `Normalize`/JMESPath stay on `float64`
+because the engine cannot compare `int64`; the JSON contract and the
+mutation-JSON name-vs-id decision (keep the name, document it) are documented
+in the `Output & querying` section of `usage.md`. Default output became
+resolvable: `--output` > `--json` > `$XOA_DEFAULT_OUTPUT` > profile `output:`
+> `table`.
+
 ### S5: unify the human output conventions
 
 The table/detail renderers are consistent in structure but not in
@@ -317,7 +327,7 @@ Minimal path from here (B1, B2 and S1 are done) to a published v1.0.0:
       default deadline, pool-maintenance `--timeout`, export/import
       `--timeout` help note; verify the `interrupted` hang against a live
       instance and file the SDK issue
-- [ ] **S4** — `--json` flag (or documented `-o json`); YAML number decision;
+- [x] **S4** — `--json` flag (or documented `-o json`); YAML number decision;
       JSON contract subsection in `usage.md`; mutation-JSON names-vs-ids
       decision
 - [ ] **S5** — one pass over the renderers: booleans, `PLATFORM`, 0-size

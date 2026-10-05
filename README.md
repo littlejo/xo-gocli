@@ -50,7 +50,7 @@ xo vm list
 
 - Resource-oriented commands (`xo vm list`, `xo host list`, `xo template list`, `xo sr list`, `xo pool list`, …)
 - Multiple connection profiles, AWS-style (`--profile`, `$XOA_PROFILE`)
-- Human-friendly default output plus `--output json|yaml|text` for scripting
+- Human-friendly default output plus `--output json|yaml|text` (or the `--json` shortcut, or `$XOA_DEFAULT_OUTPUT`) for scripting
 - AWS-CLI-like `--query` using [JMESPath](https://jmespath.org/)
 - `--insecure` escape hatch for self-signed / internal certificates
 - Concise errors by default; `-d`/`--debug` (or `$XOA_DEBUG`) reveals the raw SDK/API error on failure

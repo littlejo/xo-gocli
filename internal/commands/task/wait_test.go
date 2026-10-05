@@ -77,6 +77,7 @@ func newWaitTestRoot() *cobra.Command {
 	}
 	root.PersistentFlags().String(cli.FlagProfile, "", "")
 	root.PersistentFlags().String(cli.FlagOutput, "table", "")
+	root.PersistentFlags().Bool(cli.FlagJSON, false, "")
 	root.AddCommand(newWaitCommand())
 	return root
 }
