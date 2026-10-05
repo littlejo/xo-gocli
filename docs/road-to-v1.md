@@ -2,15 +2,19 @@
 
 Status snapshot and the minimal checklist for releasing `xo` v1.0.0.
 
-> **Snapshot**: `main` at `3798df6` (2026-10-05). B1, B2, S1, S2, S4, S5,
-> S6 and S7 are done (merged); S3 is implemented on branch
-> `s3-bounded-waits`; the release-day steps remain. The rest of this page is
-> based on
+> **Snapshot**: `main` at `cde603c` (2026-10-05). B1, B2, S1, S2, S3, S4,
+> S5, S6 and S7 are all done and merged; the release-day steps remain. The
+> rest of this page is based on
 > the original read-only audit of the full codebase (every command file, the
 > output layer, the test suite, the docs and the release pipeline), with the
-> built binary exercised directly to confirm the key findings. As items are
-> fixed, cross them off in the [release checklist](#release-checklist) and
-> update the snapshot line.
+> built binary exercised directly to confirm the key findings. A second,
+> independent counter-expertise pass (2026-10-05) re-verified everything
+> against the real binary, a fake XO server and the upstream Xen Orchestra
+> REST source; it found five additional items (C1–C5, see
+> [Counter-expertise findings](#counter-expertise-findings-2026-10-05)) and
+> a verdict of **READY AFTER SMALL FIXES**. As items are fixed, cross them
+> off in the [release checklist](#release-checklist) and update the snapshot
+> line.
 
 ## Table of contents
 
@@ -26,6 +30,7 @@ Status snapshot and the minimal checklist for releasing `xo` v1.0.0.
   - [S5: unify the human output conventions](#s5-unify-the-human-output-conventions)
   - [S6: README accuracy](#s6-readme-accuracy)
   - [S7: two open UX decisions](#s7-two-open-ux-decisions)
+- [Counter-expertise findings (2026-10-05)](#counter-expertise-findings-2026-10-05)
 - [Release-day process (manual steps)](#release-day-process-manual-steps)
 - [Tracked follow-ups (not release-blocking)](#tracked-follow-ups-not-release-blocking)
 - [Deferred to v1.1+](#deferred-to-v11)
@@ -63,9 +68,10 @@ The product is technically close to releaseable. Verified at snapshot time:
   (GoReleaser, amd64/arm64, checksums).
 
 What keeps it from a v1.0.0 tag is the small list below — the two hard
-blockers are resolved (B1, B2), as are S1, S2, S4, S5, S6 and S7; S3 is
-implemented on branch `s3-bounded-waits`, and the release-day steps still
-need to be done by hand.
+blockers are resolved (B1, B2), as are S1–S7 (all merged, S3 in `cde603c`).
+The independent counter-expertise pass of 2026-10-05 confirmed the state and
+added five findings (C1–C5); only **C1** (template id for `vm create`) must
+be fixed before the tag, the rest are tracked as follow-ups.
 
 ## Blockers
 
@@ -331,6 +337,105 @@ every resource group and its operations.
    clients, so the duplicate login touches most commands — reinforcing the
    "token profiles" guidance.
 
+## Counter-expertise findings (2026-10-05)
+
+A second, independent audit pass (verifying the original audit's claims
+rather than trusting them) built the binary and exercised it against a fake
+Xen Orchestra REST server with a per-path request counter, and cross-checked
+the API contract against the upstream `vatesfr/xen-orchestra` REST source
+(`@xen-orchestra/rest-api`, `@vates/types`) and against the pinned
+xo-api-sim ref (`ee5e2a9`) used by the CI `functional` job. Confirmed
+correct: no N+1 anywhere (request counts), stdout/stderr discipline and exit
+codes, confirmations (non-tty refusal, `--yes`/`XOA_YES`), `--wait`/
+`task wait` outcome semantics (failure and `interrupted` both exit non-zero,
+task on stdout), the JSON/YAML contract (int64 sizes, no exponent form),
+token masking (`create` prints in full once, `list` masks table and JSON),
+no panics across a broad sweep, Ctrl+C propagation (≤0.1 s), and — notably —
+`vm update`'s camelCase PATCH body is **correct**: the real XO route is
+documented with exactly that shape (`{"nameLabel": …, "nameDescription": …}`).
+
+Five new findings:
+
+### C1: `vm create --template` rejects the id that `xo template list` prints — HIGH, must fix before the tag
+
+- `xo template list` prints the REST `id` field, which on real XO is the
+  **composite** `poolId-templateUuid` (canonical form confirmed in the
+  upstream controller's documented examples, e.g.
+  `id: 'fe3d015b-…-7279a78a-…'`; `XoVmTemplate.id` is a branded composite
+  while `uuid` is the bare form).
+- `vm create --template` (`internal/commands/vm/create.go`) requires a
+  **bare UUID** (`uuid.FromString`) — and that part is correct: the real
+  `create_vm` wants `XoVmTemplate['uuid']`.
+- But the help says the template is "referenced by its UUID, as returned by
+  'xo template list'", so the documented flow (copy the printed id → paste it
+  in) fails on real XO with
+  `Error: invalid --template id "…" (expected a UUID)`.
+- The CI cannot see this: the pinned xo-api-sim models templates with
+  `id == uuid` (bare UUIDs), a different id model than production. Worse,
+  the repo's own `lifecycle_integration_test.go` encodes the broken flow —
+  it takes the first `id` from `template list --output json` and passes it to
+  `vm create --template` — and only passes in CI because of the sim's model.
+- Workaround today: `xo template list --output json | jq '.[].uuid'` (the
+  real REST object carries the bare `uuid` field), but it is undiscoverable.
+
+Fix: accept both forms in `--template` (bare UUID, or composite
+`poolId-uuid` with the trailing UUID extracted) and correct the help text
+(and `usage.md` line 294 et seq.); make the integration test consume `.uuid`
+(or the composite, after the fix). Small change, one flow, must land before
+the tag.
+
+### C2: SDK-driven waits spin forever on a stuck `interrupted` task (`vm create`, `network create*`) — MEDIUM, tracked
+
+Empirically confirmed against a fake whose task flips to `interrupted` and
+stays there:
+
+- `pool rolling-reboot`: **hangs** without `--timeout` (killed by an
+  external watchdog); `--timeout 5s` produces the concise deadline error
+  (`…did not complete within 5s (raise --timeout, or track the task with
+  'xo task wait')`, exit 1); Ctrl+C cancels in 0.1 s. So the S3 mitigation
+  works on the pool commands.
+- Same task with `xo task wait`: returns in ~10 ms with
+  `task … was interrupted` (the CLI's own `internal/taskwait` treats
+  `interrupted` as terminal) — an **internal asymmetry**: the CLI's own wait
+  is correct, the SDK's `task.Wait` (used by `vm create`, `network
+  create`/`create-internal`/`create-bonded` and the pool maintenance) is not.
+- `xo vm create` on a stuck create task: **hangs**, and `vm create` has no
+  `--timeout`/wait-deadline flag at all — only Ctrl+C. Realistic trigger:
+  the user interrupts with `xo task abort` (a shipped command) while a
+  create/maintenance is in flight.
+
+This is the known SDK gap of S3 ([vatesfr/xenorchestra-go-sdk#121](https://github.com/vatesfr/xenorchestra-go-sdk/issues/121)),
+now empirically verified (no live instance available). Accepted for v1.0.0
+with the existing mitigations (Ctrl+C, pool `--timeout`). Two one-line doc
+fixes are tracked with C4: the `usage.md` "Timeouts and waiting" section
+lists the unbounded waits as "the pool …, `task wait`, and the `--wait`
+flag" — `vm create` and `network create*` belong in that list too; and the
+same sentence is worth putting in their `--help`.
+
+### C3: the release workflow's `test` job is weaker than CI — LOW, tracked
+
+`release.yml` runs only gofmt + vet + `go test ./...`, while `ci.yml`
+additionally runs `go test -race ./...`, the integration tests and the
+xo-api-sim `functional` job. `workflow_dispatch` can release any tag,
+including one that never passed CI. Recommendation: mirror the CI gates (at
+least `-race` + functional) in the release `test` job before the first
+release.
+
+### C4: `vm create --boot` still prints "Start it with: xo vm start …" — LOW, tracked
+
+`renderCreatedVM` (`vm/create.go`) prints the start hint unconditionally;
+with `--boot` the VM is created already running, so the hint is wrong.
+One-line fix: skip it when `--boot` is set.
+
+### C5: `usage.md` "Mutating commands (create, update, delete, start, …) emit a small result document, not the full object" — LOW, tracked
+
+`vm create --output json` emits the **full VM object** (verified); the
+`{"action": …, "vm": …, "task_id": …}` shape applies to the action commands.
+Doc fix: exclude `create` (and check `update`) from that sentence.
+
+Verdict of the pass: **READY AFTER SMALL FIXES** — C1 before the tag; C2–C5
+are tracked follow-ups (C2's SDK half already tracked via #121).
+
 ## Release-day process (manual steps)
 
 The normal flow ("push to main → auto tag + release") **cannot produce a
@@ -379,6 +484,21 @@ hand-cut release:
   needs the SDK to build the typed services around a single
   already-authenticated REST client. `usage.md` now recommends token
   profiles until then.
+- **C2 (counter-expertise):** the SDK-driven waits (`vm create`,
+  `network create*`, pool maintenance) spin until Ctrl+C on a task stuck in
+  `interrupted`; the pool `--timeout` and Ctrl+C bound it, `task wait`
+  (CLI-side) already returns on `interrupted`. Blocked on
+  [vatesfr/xenorchestra-go-sdk#121](https://github.com/vatesfr/xenorchestra-go-sdk/issues/121);
+  until it lands, add `vm create` / `network create*` to the "unbounded
+  waits" list in `usage.md` ("Timeouts and waiting") and in their help text.
+- **C3 (counter-expertise):** mirror the CI gates (`go test -race`,
+  integration, xo-api-sim `functional`) in the `test` job of `release.yml`,
+  so a hand-dispatched release can never skip them.
+- **C4 (counter-expertise):** `vm create --boot` should not print the
+  "Start it with: xo vm start …" hint (one-line fix in `renderCreatedVM`).
+- **C5 (counter-expertise):** `usage.md` "Mutation and action output" says
+  mutating commands emit a small result document — but `vm create --output
+  json` emits the full VM object; fix the sentence.
 
 ## Deferred to v1.1+
 
@@ -403,14 +523,18 @@ required for a coherent release):
 - Snapshot/backup resources, `vm clone`/`migrate`, vif/user/group/acl
   resources, `xo watch` — all Layer 3/4 of the SDK roadmap (upstream work
   first).
-- Widen `vm create`/`vm update` flags; second use case in `usecases.md`;
+- Widen `vm create`/`vm update` flags (C1's template-id acceptance is *not*
+  part of this — it is a v1 must-fix); a wait-deadline `--timeout` on
+  `vm create` / `network create*` (the S3 pattern from pool maintenance;
+  C2) — not needed for v1.0.0 while #121 is open, but reconsider when it
+  lands; second use case in `usecases.md`;
   repository `CHANGELOG.md` (GoReleaser generates per-release notes today);
   commit hash in `xo version`; group-level `Long` help text; `.gitattributes`.
 
 ## Release checklist
 
-Minimal path from here (B1, B2, S1, S2, S4, S5, S6 and S7 are done, S3 is
-on branch `s3-bounded-waits`) to a published v1.0.0:
+Minimal path from here (B1, B2 and S1–S7 are all done and merged) to a
+published v1.0.0:
 
 - [x] **B1** — fix the `rest` `-d` shorthand collision; add a test that
       exercises the real root (or `os/exec` smoke test)
@@ -423,7 +547,7 @@ on branch `s3-bounded-waits`) to a published v1.0.0:
 - [x] **S3** — decide + implement (or document) wait bounds: `task wait`
       default deadline, pool-maintenance `--timeout`, export/import
       `--timeout` help note; verify the `interrupted` hang against a live
-      instance and file the SDK issue (branch `s3-bounded-waits`; SDK issue
+      instance and file the SDK issue (merged in `cde603c`; SDK issue
       [vatesfr/xenorchestra-go-sdk#121](https://github.com/vatesfr/xenorchestra-go-sdk/issues/121))
 - [x] **S4** — `--json` flag (or documented `-o json`); YAML number decision;
       JSON contract subsection in `usage.md`; mutation-JSON names-vs-ids
@@ -438,6 +562,20 @@ on branch `s3-bounded-waits`) to a published v1.0.0:
       confirmation, power family aligned, documented); double-login fix
       deferred to v1.1 (caveat documented, tracking issue)
       (branch `s7-ux-decisions`)
+- [ ] **C1** — `vm create --template`: accept the composite
+      `poolId-uuid` id printed by `xo template list` (or fix the help to
+      point at the bare `uuid` field); fix the `vm create`/`usage.md`
+      wording; make `lifecycle_integration_test.go` use a working id form
+      (counter-expertise 2026-10-05 — the only remaining must-fix)
+- [ ] **C2** — doc note: list `vm create` / `network create*` among the
+      unbounded waits in `usage.md` ("Timeouts and waiting") and in their
+      help (the `interrupted`-task hang itself is tracked in
+      [vatesfr/xenorchestra-go-sdk#121](https://github.com/vatesfr/xenorchestra-go-sdk/issues/121))
+- [ ] **C3** — mirror the CI gates (`-race`, integration, functional) in the
+      `test` job of `release.yml`
+- [ ] **C4** — drop the "Start it with" hint from `vm create --boot` output
+- [ ] **C5** — fix the "small result document" sentence in `usage.md`
+      (it is wrong for `vm create --output json`, which emits the full VM)
 - [ ] merge → `main`, CI fully green including the `functional` job
 - [ ] hand-push the `v1.0.0` tag
 - [ ] publish the draft release + release notes (headline; SDK is plain
