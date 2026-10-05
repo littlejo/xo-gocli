@@ -330,7 +330,7 @@ this section to be refreshed whenever the SDK is upgraded.
 ### Module layout
 
 The SDK is a **single Go module** (`github.com/vatesfr/xenorchestra-go-sdk`,
-pinned at `v1.19.0` in `go.mod`) that contains **both** APIs:
+pinned at `v1.20.0` in `go.mod`) that contains **both** APIs:
 
 | Path | API | Used by xo-gocli |
 | ---- | --- | ---------------- |
@@ -342,19 +342,18 @@ pinned at `v1.19.0` in `go.mod`) that contains **both** APIs:
 There is no `v2/go.mod`: `v2` is a plain subdirectory, so the import path
 `github.com/vatesfr/xenorchestra-go-sdk/v2` is a subpackage of the v1 module
 — the `/v2` suffix is a directory name, not a Go major-version path. The
-v1.19.0 version number is the *module* version, not the REST API version
+v1.20.0 version number is the *module* version, not the REST API version
 (the REST API itself is `/rest/v0`).
 
-> **SDK pin (temporary).** `go.mod` `require`s `v1.19.0` but carries a
-> `replace` directive pinning the module to a specific commit of
-> `littlejo/xenorchestra-go-sdk` (a pseudo-version, so it is reproducible,
-> not a floating checkout). That commit carries the `VBD.Position` fix
-> (upstream PR #119, pending release as `v1.20.0`): `payloads.VBD.Position`
-> was typed `StringifiedInt`, but the REST API returns the XAPI `userdevice`
-> under the `position` key as a string whose content is data dependent
-> (`"0"` or a device name such as `"xvdb"`), so every `VBD().Get` / `GetAll`
-> failed to unmarshal. Once `v1.20.0` (or a release including PR #119) is
-> published, remove the `replace`, bump the `require`, and run `go mod tidy`.
+> **SDK pin history.** The module was briefly `require`d at `v1.19.0` with a
+> `replace` to a fork commit carrying the `VBD.Position` fix (upstream PR
+> #119, not yet released then): `payloads.VBD.Position` was typed
+> `StringifiedInt`, but the REST API returns the XAPI `userdevice` under the
+> `position` key as a string whose content is data dependent (`"0"` or a
+> device name such as `"xvdb"`), so every `VBD().Get` / `GetAll` failed to
+> unmarshal. PR #119 shipped in `v1.20.0`, so the `replace` was removed and
+> the `require` bumped to the plain upstream release (no fork, no
+> pseudo-version).
 
 ### Two entry points
 
@@ -495,7 +494,7 @@ Every item below is a command (or a small set of commands) on top of an
 existing, implemented SDK service method — the same pattern as the current
 commands. No SDK work is required.
 
-- — (empty: every SDK v1.19.0 service method that maps to a single CLI command
+- — (empty: every SDK v1.20.0 service method that maps to a single CLI command
   is now exposed; `xo task abort` was the last one to be covered)
 
 Each item added here reduces the need for `xo rest`.
@@ -503,9 +502,9 @@ Each item added here reduces the need for `xo rest`.
 ### Layer 2 — complete SDK services, no CLI resource yet
 
 Full resources following the usual `list / get / …` shape, built on an
-implemented SDK service (verified in `v1.19.0`):
+implemented SDK service (verified in `v1.20.0`):
 
-- — (empty: every SDK v1.19.0 service now has a matching CLI resource;
+- — (empty: every SDK v1.20.0 service now has a matching CLI resource;
   `xo pbd` was the last one to be covered)
 
 ### Layer 3 — in the REST API, not in the SDK yet

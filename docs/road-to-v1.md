@@ -40,7 +40,7 @@ The product is technically close to releaseable. Verified at snapshot time:
   (create/create-internal/create-bonded/delete), `template`, `task`
   (wait, abort), `vdi` (migrate, export/import), `vbd` (connect/disconnect),
   `pbd` (plug/unplug), `token`, plus `rest`, `configure`, `version`,
-  `completion`. Every SDK v1.19.0 service method that maps to a single command
+  `completion`. Every SDK v1.20.0 service method that maps to a single command
   is already exposed (roadmap Layers 1–2 are empty).
 - **Architecture.** One API boundary: imports are limited to the SDK's `v2`
   and shared `pkg/` packages — no legacy v1 client import anywhere (grep
@@ -303,24 +303,22 @@ hand-cut release:
    installable (`install.sh` hits `releases/latest` and fails with "no
    release found") until a human publishes it from the Actions/Releases page.
 4. Release notes: the v1.0.0 headline (name resolution on `list`/`get` at a
-   constant anti-N+1 cost; first-class vdi/vbd/pbd; `rest` escape hatch) and
-   an explicit **disclosure that the SDK is a pinned fork** pending upstream
-   PR vatesfr/xenorchestra-go-sdk#119 (`VBD.Position` fix — without it,
-   `vbd list`/`get` cannot unmarshal real responses).
+   constant anti-N+1 cost; first-class vdi/vbd/pbd; `rest` escape hatch).
+   The SDK dependency is now plain upstream `v1.20.0` (the `VBD.Position`
+   fix, PR #119, shipped there), so no fork disclosure is needed.
 5. Smoke-test `install.sh` against the published release on Linux amd64 and
    arm64, then run the README quick start verbatim.
 
 ## Tracked follow-ups (not release-blocking)
 
-- **SDK fork pin.** `go.mod` replaces `github.com/vatesfr/xenorchestra-go-sdk`
-  with `littlejo/xenorchestra-go-sdk` at commit `35834c1` (PR #119). Verified
-  at snapshot time: upstream's latest release is still v1.19.0 and PR #119 is
-  still open, so the pin is load-bearing. The pseudo-version + `go.sum` make
-  builds reproducible, but (a) disclose it in the release notes (see
-  release-day step 4), (b) open a tracking issue to drop the `replace` and
-  bump the require as soon as an upstream release includes PR #119
-  (`development.md` already documents the procedure), and (c) watch for
-  fork-rot (it is a personal fork).
+- **SDK fork pin — resolved (branch `sdk-v1.20.0`).** `go.mod` no longer
+  replaces `github.com/vatesfr/xenorchestra-go-sdk` with the fork: PR #119
+  (`VBD.Position` as string) shipped in upstream **v1.20.0** (released
+  2026-10-05), so the `replace` was dropped and the `require` bumped to the
+  plain upstream release. One CLI adaptation: `payloads.VM.BlockedOperations`
+  and `payloads.VM.CurrentOperations` keys are now the `VMOperation` string
+  type (PR #118), not `string`. No new command surface: the `v2/` services
+  are unchanged between v1.19.0 and v1.20.0.
 - **SDK `task.Wait` and `interrupted`.** File upstream: the SDK's wait loop
   only treats `success`/`failure` as terminal; the CLI works around it in
   `internal/taskwait`. Relevant to the pool-maintenance hang risk in S3.
@@ -394,10 +392,11 @@ published v1.0.0:
       (branch `s7-ux-decisions`)
 - [ ] merge → `main`, CI fully green including the `functional` job
 - [ ] hand-push the `v1.0.0` tag
-- [ ] publish the draft release + release notes (headline + fork disclosure)
+- [ ] publish the draft release + release notes (headline; SDK is plain
+      upstream v1.20.0, no fork disclosure)
 - [ ] smoke-test `install.sh` (amd64 + arm64) and the README quick start
-- [ ] open tracking issues: drop the SDK `replace` when upstream ships PR
-      #119; SDK `task.Wait` / `interrupted`
+- [ ] open tracking issue: SDK `task.Wait` / `interrupted` (the SDK
+      `replace` / PR #119 item is resolved by the v1.20.0 bump)
 
 Everything in [Deferred to v1.1+](#deferred-to-v11) can wait; the
 [roadmap in development.md](development.md#roadmap) remains the home for
