@@ -123,8 +123,19 @@ time:
 
 Either a token, or a username + password, must be available to authenticate.
 
-`XOA_YES` is meant for scripts and CI: `XOA_YES=1 xo vm stop <id>` behaves like
-`xo vm stop <id> --yes` without having to pass the flag everywhere. Likewise
+**Token profiles are recommended.** A token profile authenticates with the
+cookie XO already issued, so no login request is sent at all. With a
+username + password profile, the SDK logs in once per client it builds
+(`POST /auth/login`), and a command that needs both the typed SDK services
+and the raw REST client (the `list`/`get` tables resolve names, so most of
+them do) builds two of them — two logins per invocation. This is a known
+inefficiency tracked for v1.1 (a single shared client); until then, token
+profiles avoid the duplicate logins and the resulting auth load on the
+server.
+
+`XOA_YES` is meant for scripts and CI: `XOA_YES=1 xo vm delete <id>` behaves
+like `xo vm delete <id> --yes` without having to pass the flag everywhere.
+Likewise
 `XOA_WAIT=1` behaves like `--wait` on the asynchronous actions (the `xo vm`,
 `xo vbd`, `xo pbd` and `xo sr` sections below): `XOA_WAIT=1 xo vm start <id>`
 waits for the start task to complete without having to pass the flag on every
@@ -278,9 +289,8 @@ xo vm vdis <id> --query '[].name_label'
 xo vm start <id>                    # power on
 xo vm start <id> --host <host-id>   # pin to a host
 xo vm start <id> --wait             # block until the start task completes
-xo vm stop <id>                     # clean shutdown (asks to confirm)
+xo vm stop <id>                     # clean shutdown
 xo vm stop <id> --hard              # power off immediately
-xo vm stop <id> --yes               # skip confirmation (automation)
 xo vm reboot <id>                   # clean reboot
 xo vm reboot <id> --hard            # force a hard reboot
 xo vm pause <id>                    # pause the vCPUs (state: Paused)
@@ -331,10 +341,13 @@ state instead; the completed task is then printed (like `xo task wait`) and
 the exit status reflects the outcome (non-zero if the task fails or is
 interrupted).
 
-Destructive operations (`stop`, `delete`) require confirmation; pass `--yes`
-(or set `XOA_YES`) to run non-interactively. Without either, a non-terminal
-stdin is rejected rather than hanging, so automation never blocks. The
-reversible actions (`pause`, `unpause`, `suspend`, `resume`) never prompt.
+`vm delete` requires confirmation; pass `--yes` (or set `XOA_YES`) to run
+non-interactively. Without either, a non-terminal stdin is rejected rather
+than hanging, so automation never blocks. The power actions (`start`, `stop`,
+`reboot`, `pause`, `unpause`, `suspend`, `resume`) never prompt: each is
+reversible by its counterpart (`stop` by `start`, `suspend` by `resume`, …),
+so a confirmation would only interrupt the normal start/stop/reboot loop —
+matching the AWS CLI, where none of these ask.
 
 `vm export` streams the archive to stdout by default (use `--file` for a
 file, `--format ova` for OVA, `--compress=false` to disable XVA

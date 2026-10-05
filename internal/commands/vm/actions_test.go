@@ -264,7 +264,9 @@ func TestVMStopClean(t *testing.T) {
 	defer server.Close()
 	isolateVM(t, server.URL)
 
-	if _, err := runVM(t, "vm", "stop", "550e8400-e29b-41d4-a716-446655440001", "--yes"); err != nil {
+	// stop no longer asks for confirmation (S7): it must run without --yes,
+	// even when stdin is not a terminal.
+	if _, err := runVM(t, "vm", "stop", "550e8400-e29b-41d4-a716-446655440001"); err != nil {
 		t.Fatalf("vm stop: %v", err)
 	}
 	req, _ := server.post()
@@ -278,43 +280,11 @@ func TestVMStopHard(t *testing.T) {
 	defer server.Close()
 	isolateVM(t, server.URL)
 
-	if _, err := runVM(t, "vm", "stop", "550e8400-e29b-41d4-a716-446655440001", "--hard", "--yes"); err != nil {
+	if _, err := runVM(t, "vm", "stop", "550e8400-e29b-41d4-a716-446655440001", "--hard"); err != nil {
 		t.Fatalf("vm stop --hard: %v", err)
 	}
 	req, _ := server.post()
 	if req.Path != "/rest/v0/vms/550e8400-e29b-41d4-a716-446655440001/actions/hard_shutdown" {
-		t.Fatalf("unexpected action path: %s", req.Path)
-	}
-}
-
-func TestVMStopRequiresConfirmation(t *testing.T) {
-	server := newActionServer(t)
-	defer server.Close()
-	isolateVM(t, server.URL)
-
-	_, err := runVM(t, "vm", "stop", "550e8400-e29b-41d4-a716-446655440001")
-	if err == nil {
-		t.Fatal("expected an error when no confirmation is given and stdin is not a terminal")
-	}
-	if _, ok := server.post(); ok {
-		t.Fatal("the action must not be executed without confirmation")
-	}
-}
-
-// $XOA_YES is the script counterpart of --yes: it skips the confirmation
-// without a terminal.
-
-func TestVMStopSkipsConfirmationWithEnvYes(t *testing.T) {
-	server := newActionServer(t)
-	defer server.Close()
-	isolateVM(t, server.URL)
-	t.Setenv("XOA_YES", "1")
-
-	if _, err := runVM(t, "vm", "stop", "550e8400-e29b-41d4-a716-446655440001"); err != nil {
-		t.Fatalf("vm stop with XOA_YES=1: %v", err)
-	}
-	req, _ := server.post()
-	if req.Path != "/rest/v0/vms/550e8400-e29b-41d4-a716-446655440001/actions/clean_shutdown" {
 		t.Fatalf("unexpected action path: %s", req.Path)
 	}
 }

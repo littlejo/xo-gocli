@@ -257,14 +257,11 @@ func TestIntegrationVMLifecycle(t *testing.T) {
 		t.Fatalf("power_state after resume = %q, want Running", state)
 	}
 
-	// 5. Stop is destructive: without --yes and without a terminal it must
-	// refuse to run, and with --yes it must proceed.
-	if out, err := run("vm", "stop", vmID); err == nil {
-		t.Fatalf("stop without --yes must not proceed without a terminal:\n%s", out)
-	}
-	stopOut, err := run("vm", "stop", vmID, "--yes")
+	// 5. Stop no longer asks for confirmation (S7): it must proceed without
+	// --yes, even though stdin is not a terminal.
+	stopOut, err := run("vm", "stop", vmID)
 	if err != nil {
-		t.Fatalf("xo vm stop --yes: %v\n%s", err, stopOut)
+		t.Fatalf("xo vm stop: %v\n%s", err, stopOut)
 	}
 	stateOut, err = run("vm", "get", vmID, "--output", "json", "--query", "power_state")
 	if err != nil {

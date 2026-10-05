@@ -7,8 +7,6 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/vatesfr/xenorchestra-go-sdk/pkg/services/library"
-
-	"github.com/littlejo/xo-gocli/internal/cli"
 )
 
 const flagHard = "hard"
@@ -24,13 +22,14 @@ func newStopCommand() *cobra.Command {
 By default this performs a clean shutdown (the guest is asked to power off).
 Use --hard to power off the VM immediately without a clean shutdown.
 
-This is a destructive operation and asks for confirmation unless --yes is
-given. The VM is referenced by its UUID, as returned by 'xo vm list'.
+A stopped VM stays halted until you start it again ('xo vm start'), so —
+like the other power actions (reboot, pause, suspend, …) — stop does not
+ask for confirmation. The VM is referenced by its UUID, as returned by
+'xo vm list'.
 
 Examples:
   xo vm stop 550e8400-e29b-41d4-a716-446655440001
-  xo vm stop <id> --hard
-  xo vm stop <id> --yes`,
+  xo vm stop <id> --hard`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			verb := "cleanly stop"
@@ -38,10 +37,8 @@ Examples:
 				verb = "hard stop"
 			}
 			return runAction(cmd, actionSpec{
-				verb:        verb,
-				id:          args[0],
-				destructive: true,
-				yes:         cli.SkipConfirm(cmd),
+				verb: verb,
+				id:   args[0],
 				perform: func(ctx context.Context, xo library.Library, id uuid.UUID) (string, error) {
 					if hard {
 						return xo.VM().HardShutdown(ctx, id)
@@ -53,9 +50,6 @@ Examples:
 	}
 
 	cmd.Flags().BoolVar(&hard, flagHard, false, "power off the VM immediately instead of a clean shutdown")
-	// --yes (or $XOA_YES) skips the confirmation; it is read via
-	// cli.SkipConfirm, which sees both the flag and the environment variable.
-	cmd.Flags().Bool(flagYes, false, "do not ask for confirmation (or set XOA_YES=1)")
 	addWaitFlag(cmd)
 	return cmd
 }
