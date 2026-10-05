@@ -141,6 +141,7 @@ func renderTemplates(w io.Writer, ctx context.Context, format output.Format, tem
 
 	table := output.Table{
 		Headers: []string{"ID", "NAME", "DEFAULT", "MEMORY", "CPUS", "POOL"},
+		Empty:   "templates",
 	}
 	for i, t := range templates {
 		pool := strField(t, "$pool")
@@ -154,7 +155,7 @@ func renderTemplates(w io.Writer, ctx context.Context, format output.Format, tem
 		table.Rows = append(table.Rows, []string{
 			strField(t, "id"),
 			strField(t, "name_label"),
-			fmt.Sprintf("%t", boolField(t, "isDefaultTemplate")),
+			boolText(boolField(t, "isDefaultTemplate")),
 			memoryText(t),
 			fmt.Sprintf("%d", nestedInt(t, "CPUs", "number")),
 			pool,
@@ -177,11 +178,7 @@ func renderTemplates(w io.Writer, ctx context.Context, format output.Format, tem
 
 // memoryText renders the template's memory size in a human readable form.
 func memoryText(t map[string]any) string {
-	size := int64(nestedInt(t, "memory", "size"))
-	if size == 0 {
-		return ""
-	}
-	return units.HumanSize(float64(size))
+	return units.HumanSize(float64(nestedInt(t, "memory", "size")))
 }
 
 // strField returns a string field or "" when absent / not a string.
@@ -198,6 +195,15 @@ func boolField(m map[string]any, key string) bool {
 		return v
 	}
 	return false
+}
+
+// boolText renders a boolean as yes/no, the human convention shared by every
+// list column and detail sheet that shows one.
+func boolText(b bool) string {
+	if b {
+		return "yes"
+	}
+	return "no"
 }
 
 // nestedInt walks a chain of map keys and returns the leaf as an int, or 0.

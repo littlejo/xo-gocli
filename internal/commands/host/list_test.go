@@ -110,7 +110,7 @@ func TestHostListTable(t *testing.T) {
 	if err != nil {
 		t.Fatalf("host list: %v", err)
 	}
-	for _, expected := range []string{"ID", "NAME", "ADDRESS", "POWER STATE", "PLATFORM", "MEMORY", "VMS", "POOL",
+	for _, expected := range []string{"ID", "NAME", "ADDRESS", "POWER STATE", "VERSION", "MEMORY", "CORES", "SOCKETS", "VMS", "POOL",
 		"host-01", "host-02", "10.0.0.11", "10.0.0.12", "Running", "Halted", "8.2.0", "2.147GB", "4.295GB"} {
 		if !strings.Contains(out, expected) {
 			t.Errorf("table output missing %q:\n%s", expected, out)

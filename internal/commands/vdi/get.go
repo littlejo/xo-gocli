@@ -215,12 +215,12 @@ func attachedVMs(ctx context.Context, xo library.Library, vdi *payloads.VDI, r *
 	for _, id := range vmIDs {
 		out = append(out, names[id.String()])
 	}
-	return strings.Join(out, ", ")
+	return output.JoinNames(out)
 }
 
 func sizeText(bytes int64) string {
 	if bytes == 0 {
-		return ""
+		return "-"
 	}
 	return units.HumanSize(float64(bytes))
 }

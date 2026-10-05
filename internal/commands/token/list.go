@@ -104,6 +104,7 @@ func renderTokens(w io.Writer, format output.Format, tokens []map[string]any, qu
 
 	table := output.Table{
 		Headers: []string{"ID", "DESCRIPTION", "CREATED", "EXPIRES", "CLIENT"},
+		Empty:   "tokens",
 	}
 	for _, t := range tokens {
 		table.Rows = append(table.Rows, tokenRow(t))

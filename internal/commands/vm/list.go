@@ -125,7 +125,8 @@ func renderVMs(w io.Writer, ctx context.Context, format output.Format, vms []*pa
 	}
 
 	table := output.Table{
-		Headers: []string{"ID", "NAME", "POWER STATE", "MEMORY", "CPUS", "HOST/POOL"},
+		Headers: []string{"ID", "NAME", "POWER STATE", "MEMORY", "CPUS", "IP", "CONTAINER"},
+		Empty:   "VMs",
 	}
 	for _, vm := range vms {
 		name := vm.Container.String()
@@ -142,6 +143,7 @@ func renderVMs(w io.Writer, ctx context.Context, format output.Format, vms []*pa
 			vm.PowerState,
 			memoryText(vm),
 			fmt.Sprintf("%d", vm.CPUs.Number),
+			output.OrDash(vm.MainIpAddress),
 			name,
 		})
 	}
@@ -161,8 +163,5 @@ func renderVMs(w io.Writer, ctx context.Context, format output.Format, vms []*pa
 }
 
 func memoryText(vm *payloads.VM) string {
-	if vm.Memory.Size == 0 {
-		return ""
-	}
 	return units.HumanSize(float64(vm.Memory.Size))
 }

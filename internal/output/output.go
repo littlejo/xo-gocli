@@ -49,6 +49,11 @@ func ParseFormat(name string) (Format, error) {
 type Table struct {
 	Headers []string
 	Rows    [][]string
+	// Empty is the resource noun shown when there are no rows, e.g. "VMs"
+	// renders "No VMs found." It is optional: when empty, an empty table
+	// renders nothing (the previous behavior), so callers that do not know
+	// their resource noun are unaffected.
+	Empty string
 }
 
 // QueryResult carries the outcome of a --query expression. Present is false
@@ -80,7 +85,7 @@ func Render(w io.Writer, format Format, table Table, raw any, query *QueryResult
 
 	switch format {
 	case FormatTable:
-		return RenderTable(w, table.Headers, table.Rows)
+		return RenderTable(w, table.Headers, table.Rows, table.Empty)
 	case FormatJSON:
 		return renderJSON(w, raw)
 	case FormatYAML:
@@ -191,10 +196,22 @@ func Normalize(data any) (any, error) {
 	return decoded, nil
 }
 
-// RenderTable writes a plain aligned table to w.
-func RenderTable(w io.Writer, headers []string, rows [][]string) error {
+// RenderTable writes a plain aligned table to w. When there are no rows and
+// an empty message noun is given (e.g. "VMs"), it prints the header plus a
+// "No VMs found." line instead of nothing: a silent no-op is a bad first-run
+// experience, while machine output (json/yaml) still emits the empty
+// structure it is supposed to.
+func RenderTable(w io.Writer, headers []string, rows [][]string, empty ...string) error {
+	emptyMsg := ""
+	if len(empty) > 0 {
+		emptyMsg = empty[0]
+	}
 	if len(rows) == 0 {
-		return nil
+		if emptyMsg == "" {
+			return nil
+		}
+		_, err := fmt.Fprintf(w, "%s\n\nNo %s found.\n", strings.Join(headers, "  "), emptyMsg)
+		return err
 	}
 	widths := make([]int, len(headers))
 	for i, header := range headers {

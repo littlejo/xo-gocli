@@ -110,7 +110,8 @@ func renderNetworks(w io.Writer, ctx context.Context, format output.Format, netw
 	}
 
 	table := output.Table{
-		Headers: []string{"ID", "NAME", "BRIDGE", "TYPE", "MTU", "VIFS", "POOL"},
+		Headers: []string{"ID", "NAME", "BRIDGE", "MTU", "VIFS", "POOL"},
+		Empty:   "networks",
 	}
 	for _, n := range networks {
 		pool := n.Pool.String()
@@ -121,7 +122,6 @@ func renderNetworks(w io.Writer, ctx context.Context, format output.Format, netw
 			n.ID.String(),
 			n.NameLabel,
 			n.Bridge,
-			string(n.Type),
 			fmt.Sprintf("%d", n.MTU),
 			fmt.Sprintf("%d", len(n.VIFs)),
 			pool,

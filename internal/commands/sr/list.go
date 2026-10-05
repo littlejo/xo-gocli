@@ -122,6 +122,7 @@ func renderSRs(w io.Writer, ctx context.Context, format output.Format, srs []*pa
 
 	table := output.Table{
 		Headers: []string{"ID", "NAME", "TYPE", "SIZE", "USAGE", "CONTAINER"},
+		Empty:   "SRs",
 	}
 	for _, sr := range srs {
 		container := sr.Container.String()

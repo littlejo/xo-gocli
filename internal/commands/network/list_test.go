@@ -113,7 +113,7 @@ func TestNetworkListTable(t *testing.T) {
 	if err != nil {
 		t.Fatalf("network list: %v", err)
 	}
-	for _, expected := range []string{"ID", "NAME", "BRIDGE", "TYPE", "MTU", "VIFS", "POOL", "Management", "VMs", "xenbr0", "xenbr1", "1500", "9000"} {
+	for _, expected := range []string{"ID", "NAME", "BRIDGE", "MTU", "VIFS", "POOL", "Management", "VMs", "xenbr0", "xenbr1", "1500", "9000"} {
 		if !strings.Contains(out, expected) {
 			t.Errorf("table output missing %q:\n%s", expected, out)
 		}

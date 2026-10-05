@@ -2,13 +2,14 @@
 
 Status snapshot and the minimal checklist for releasing `xo` v1.0.0.
 
-> **Snapshot**: `main` at `72aad49` (2026-10-05). B1, B2, S1 and S2 are done
-> (merged); S3–S7 and the release-day steps remain. The rest of this page is
-> based on the original read-only audit of the full codebase (every command
-> file, the output layer, the test suite, the docs and the release pipeline),
-> with the built binary exercised directly to confirm the key findings. As
-> items are fixed, cross them off in the [release checklist](#release-checklist)
-> and update the snapshot line.
+> **Snapshot**: `main` at `058515b` (2026-10-05). B1, B2, S1, S2 and S4 are
+> done (merged); S3 and S6–S7 and the release-day steps remain. S5 is
+> implemented on branch `s5-human-output`. The rest of this page is based on
+> the original read-only audit of the full codebase (every command file, the
+> output layer, the test suite, the docs and the release pipeline), with the
+> built binary exercised directly to confirm the key findings. As items are
+> fixed, cross them off in the [release checklist](#release-checklist) and
+> update the snapshot line.
 
 ## Table of contents
 
@@ -223,6 +224,18 @@ Also consider the two missing columns a first user expects: `host list` has
 no CPU column while `pool list` shows CORES/SOCKETS (inconsistent), and
 `vm list` has no IP column (`mainIpAddress` is already in the payload).
 
+**Resolved (branch `s5-human-output`):** booleans are `yes`/`no` everywhere
+(pool `HA`, template `DEFAULT` joined vbd/pbd `ATTACHED`); `VERSION` is the
+platform version on both `host list` and `pool list` (the `get` sheets keep
+the `Platform` label for the brand+version+build composition); `CONTAINER`
+is the container column on both `vm list` and `sr list`; the constant
+`network TYPE` column is dropped; zero sizes render `0 B` in list tables and
+`-` in detail sheets (no dangling `Label:` line); `vdi get` "Attached to" is
+capped at 10 names like every other collection line; empty lists print the
+header plus `No <resources> found.` (`Table.Empty`, machine output
+unchanged); `vm list` gained the `IP` column and `host list` gained
+`CORES`/`SOCKETS`.
+
 ### S6: README accuracy
 
 - `--insecure` is listed as a general feature, but it only exists as
@@ -330,9 +343,10 @@ Minimal path from here (B1, B2 and S1 are done) to a published v1.0.0:
 - [x] **S4** — `--json` flag (or documented `-o json`); YAML number decision;
       JSON contract subsection in `usage.md`; mutation-JSON names-vs-ids
       decision
-- [ ] **S5** — one pass over the renderers: booleans, `PLATFORM`, 0-size
+- [x] **S5** — one pass over the renderers: booleans, `PLATFORM`, 0-size
       values, `HOST/POOL` vs `CONTAINER`, drop the constant `network TYPE`
       column, empty-value dashes, cap `vdi get` names, empty-table message
+      (branch `s5-human-output`)
 - [ ] **S6** — README: `--insecure` scope, platforms, command overview
 - [ ] **S7** — decide: `vm reboot --hard` confirmation; double-login fix or
       v1.1
