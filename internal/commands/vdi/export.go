@@ -44,6 +44,11 @@ explicit stdout), so it can be piped:
 
 The VDI is referenced by its UUID, as returned by 'xo vdi list'.
 
+The image is streamed over a single HTTP request, so the global HTTP client
+timeout (--timeout, default 30s) bounds the whole transfer: a large disk over
+a slow link can exceed it. Raise it with --timeout or $XOA_TIMEOUT when
+exporting or importing large disks.
+
 Examples:
   xo vdi export 11111111-1111-4111-8111-111111111111 --file disk.raw
   xo vdi export <id> > disk.raw

@@ -2,9 +2,10 @@
 
 Status snapshot and the minimal checklist for releasing `xo` v1.0.0.
 
-> **Snapshot**: `main` at `698f966` (2026-10-05). B1, B2, S1, S2, S4, S5 and
-> S6 are done (merged); S3 and the release-day steps remain. S7 is
-> implemented on branch `s7-ux-decisions`. The rest of this page is based on
+> **Snapshot**: `main` at `3798df6` (2026-10-05). B1, B2, S1, S2, S4, S5,
+> S6 and S7 are done (merged); S3 is implemented on branch
+> `s3-bounded-waits`; the release-day steps remain. The rest of this page is
+> based on
 > the original read-only audit of the full codebase (every command file, the
 > output layer, the test suite, the docs and the release pipeline), with the
 > built binary exercised directly to confirm the key findings. As items are
@@ -62,9 +63,9 @@ The product is technically close to releaseable. Verified at snapshot time:
   (GoReleaser, amd64/arm64, checksums).
 
 What keeps it from a v1.0.0 tag is the small list below — the two hard
-blockers are resolved (B1, B2), as are S1, S2, S4, S5 and S6; the remaining
-"should fix" item (S3) and the release-day steps still need to be done by
-hand.
+blockers are resolved (B1, B2), as are S1, S2, S4, S5, S6 and S7; S3 is
+implemented on branch `s3-bounded-waits`, and the release-day steps still
+need to be done by hand.
 
 ## Blockers
 
@@ -174,6 +175,49 @@ Three places can block for a very long time with no documented exit:
 
 Decision to make before the tag: a default wait deadline (e.g. 10 min) or
 "Ctrl+C, documented". Either is defensible; *nothing documented* is not.
+
+**Resolved (branch `s3-bounded-waits`):**
+
+- *Decision: "Ctrl+C, documented" — no default wait deadline.* A fixed
+  cutoff would report a timeout for an operation that is legitimately still
+  running (or has already completed) server-side, leaving the caller unsure
+  of the real state; that is a worse failure than a wait that ends when the
+  task ends. Every wait therefore runs as long as the operation does, and
+  Ctrl+C cancels it — the command context (wired with
+  `signal.NotifyContext` in `cmd/xo/main.go`) propagates through the SDK to
+  the HTTP layer. Each individual request is still bounded by the global
+  HTTP client timeout, so a broken connection can never hang a poll
+  forever. The contract is documented in `usage.md` (new "Timeouts and
+  waiting" section, which replaces the inaccurate "Request timeout" one:
+  the global `--timeout` bounds a single request — the whole transfer for
+  `export`/`import`, each poll for the waits — not the duration of a poll
+  loop).
+- *Pool maintenance is now boundable.* `rolling-update`, `rolling-reboot`
+  and `emergency-shutdown` gain a `--timeout` flag: the *wait* deadline,
+  default unbounded, shadowing the global per-request flag — the same
+  convention as `task wait`. `runAction` derives a timed context around the
+  SDK call, and a wait cut off by the deadline (or by Ctrl+C) is reported as
+  such ("…did not complete within 30m0s (raise --timeout, or track the task
+  with 'xo task wait')" / "…was cancelled") instead of leaking the SDK's raw
+  "task wait timed out" string. Test: a backing task stuck in
+  `interrupted` (never terminal for the SDK's own loop) with
+  `--timeout 1s` returns the concise deadline error in ~2 s instead of
+  hanging.
+- *Export/import help note.* `vm export`/`import` and `vdi export`/`import`
+  now say that the transfer is a single HTTP request bounded by the global
+  `--timeout` (30 s default) and that it should be raised
+  (`--timeout` / `$XOA_TIMEOUT`) for large archives over a slow link.
+- *`task wait` help already made the shadowing explicit* (wait deadline vs
+  global per-request timeout, `$XOA_TIMEOUT` for the latter) — no change.
+- *`interrupted` hang: verified and filed upstream.* The SDK's
+  `task.Wait` (v1.20.0, `pkg/services/task/service.go`) stops its poll loop
+  only on `success`/`failure`; a server-side interruption makes it spin
+  forever. Verified in the SDK source (no live instance available in this
+  environment, `XOA_TEST_URL` unset); the CLI's own `internal/taskwait` loop
+  already treats `interrupted` as terminal, and the new pool `--timeout` /
+  Ctrl+C bounds even that path. Filed as
+  [vatesfr/xenorchestra-go-sdk#121](https://github.com/vatesfr/xenorchestra-go-sdk/issues/121)
+  (suggested one-line fix included).
 
 ### S4: machine output and the documented contract
 
@@ -319,9 +363,11 @@ hand-cut release:
   and `payloads.VM.CurrentOperations` keys are now the `VMOperation` string
   type (PR #118), not `string`. No new command surface: the `v2/` services
   are unchanged between v1.19.0 and v1.20.0.
-- **SDK `task.Wait` and `interrupted`.** File upstream: the SDK's wait loop
-  only treats `success`/`failure` as terminal; the CLI works around it in
-  `internal/taskwait`. Relevant to the pool-maintenance hang risk in S3.
+- **SDK `task.Wait` and `interrupted` — filed
+  ([vatesfr/xenorchestra-go-sdk#121](https://github.com/vatesfr/xenorchestra-go-sdk/issues/121)).**
+  The SDK's wait loop only treats `success`/`failure` as terminal; the CLI
+  works around it in `internal/taskwait` and now bounds the pool-maintenance
+  wait with `--timeout` / Ctrl+C (S3). Resolved upstream once #121 lands.
 - **Three duplicated request builders** on top of the SDK HTTP client
   (`rest.doRestRequest`, `vm/xva.xvRequest`, `token.doTokensRequest`), each
   re-implementing URL joining, cookie attachment and error formatting —
@@ -363,20 +409,22 @@ required for a coherent release):
 
 ## Release checklist
 
-Minimal path from here (B1, B2, S1, S2, S4, S5 and S6 are done) to a
-published v1.0.0:
+Minimal path from here (B1, B2, S1, S2, S4, S5, S6 and S7 are done, S3 is
+on branch `s3-bounded-waits`) to a published v1.0.0:
 
 - [x] **B1** — fix the `rest` `-d` shorthand collision; add a test that
       exercises the real root (or `os/exec` smoke test)
 - [x] **B2** — add the MIT `LICENSE` file
 - [x] **S1** — process-level tests: exit codes/stderr, 401, Ctrl+C,
       `--profile` e2e, golden JSON for `vm list`/`vm get`
-- [ ] **S2** — error translation layer (timeout / network / unmarshal) with
+- [x] **S2** — error translation layer (timeout / network / unmarshal) with
       the raw detail behind `--debug`; status-based not-found detection
-- [ ] **S3** — decide + implement (or document) wait bounds: `task wait`
+      (merged in #49; checkbox ticked here as a fix for an oversight)
+- [x] **S3** — decide + implement (or document) wait bounds: `task wait`
       default deadline, pool-maintenance `--timeout`, export/import
       `--timeout` help note; verify the `interrupted` hang against a live
-      instance and file the SDK issue
+      instance and file the SDK issue (branch `s3-bounded-waits`; SDK issue
+      [vatesfr/xenorchestra-go-sdk#121](https://github.com/vatesfr/xenorchestra-go-sdk/issues/121))
 - [x] **S4** — `--json` flag (or documented `-o json`); YAML number decision;
       JSON contract subsection in `usage.md`; mutation-JSON names-vs-ids
       decision
@@ -395,8 +443,9 @@ published v1.0.0:
 - [ ] publish the draft release + release notes (headline; SDK is plain
       upstream v1.20.0, no fork disclosure)
 - [ ] smoke-test `install.sh` (amd64 + arm64) and the README quick start
-- [ ] open tracking issue: SDK `task.Wait` / `interrupted` (the SDK
-      `replace` / PR #119 item is resolved by the v1.20.0 bump)
+- [x] open tracking issue: SDK `task.Wait` / `interrupted` (the SDK
+      `replace` / PR #119 item is resolved by the v1.20.0 bump) — opened as
+      [vatesfr/xenorchestra-go-sdk#121](https://github.com/vatesfr/xenorchestra-go-sdk/issues/121)
 
 Everything in [Deferred to v1.1+](#deferred-to-v11) can wait; the
 [roadmap in development.md](development.md#roadmap) remains the home for

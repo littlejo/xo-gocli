@@ -33,6 +33,17 @@ const fixtureTaskFailure = `{
 	"result": {"message": "no available host"}
 }`
 
+// fixtureTaskInterrupted is a task the server interrupted. It is the case the
+// SDK's own task.Wait never treats as terminal (it only stops on success or
+// failure), so an action run against it would block until the context dies:
+// the tests exercise it with a --timeout to prove the wait is bounded.
+const fixtureTaskInterrupted = `{
+	"id": "task-123",
+	"status": "interrupted",
+	"start": 1700000000000,
+	"end": 1700000001000
+}`
+
 const (
 	testPoolID = "aaaaaaaa-bbbb-cccc-dddd-000000000001"
 	testTaskID = "task-123"
@@ -85,6 +96,8 @@ func newActionServer(t *testing.T) *actionServer {
 			switch s.taskStatus {
 			case "failure":
 				_, _ = fmt.Fprint(w, fixtureTaskFailure)
+			case "interrupted":
+				_, _ = fmt.Fprint(w, fixtureTaskInterrupted)
 			default:
 				_, _ = fmt.Fprint(w, fixtureTaskSuccess)
 			}
@@ -204,6 +217,28 @@ func TestPoolRollingUpdateJSON(t *testing.T) {
 	}
 	if result["action"] != "rolling update" || result["pool"] != "Pool prod" || result["status"] != "done" {
 		t.Fatalf("unexpected rolling-update payload: %s", out)
+	}
+}
+
+// A backing task that the server interrupted is never terminal for the SDK's
+// own wait loop (it stops only on success/failure), so without a bound the
+// command would block until the context dies. With --timeout the wait must
+// end with a concise deadline error instead (S3: bound the unbounded waits).
+func TestPoolRollingUpdateInterruptedTaskIsBoundedByTimeout(t *testing.T) {
+	server := newActionServer(t)
+	server.taskStatus = "interrupted"
+	defer server.Close()
+	isolatePointers(t, server.URL)
+
+	_, _, err := runActionTest(t, "rolling-update", testPoolID, "--timeout", "1s")
+	if err == nil {
+		t.Fatal("expected a timeout error for an interrupted backing task")
+	}
+	if !strings.Contains(err.Error(), "did not complete within 1s") {
+		t.Fatalf("expected a concise deadline error, got: %v", err)
+	}
+	if strings.Contains(err.Error(), "task wait timed out") {
+		t.Fatalf("the raw SDK error must not leak, got: %v", err)
 	}
 }
 

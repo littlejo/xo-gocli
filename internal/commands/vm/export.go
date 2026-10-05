@@ -46,6 +46,11 @@ This operation is not exposed by the SDK v2 typed service yet, so it is
 performed through the SDK's own REST client against GET /vms/<id>.<format>
 (documented in xva.go; to contribute upstream).
 
+The archive is streamed over a single HTTP request, so the global HTTP
+client timeout (--timeout, default 30s) bounds the whole transfer: a large
+XVA or OVA over a slow link can exceed it. Raise it with --timeout or
+$XOA_TIMEOUT when exporting or importing large archives.
+
 Examples:
   xo vm export 550e8400-e29b-41d4-a716-446655440001 --file web-01.xva
   xo vm export <id> > web-01.xva
