@@ -855,12 +855,31 @@ Format behavior:
   `vm`, `vbd`, `pbd`, `vdi`, `sr`, `pool`, `network`, `host`, `template` and
   `task` `get` are all key/value detail sheets that resolve relationships to
   names (see each resource's section). In `list` tables, the columns that
-  reference another object (`MASTER`, `SR`, `VM`/`VDI`, `POOL`, `HOST/POOL`,
-  `CONTAINER`) show the referenced object's **name** instead of its UUID,
-  resolved in one batch per referenced kind (a constant cost, never one lookup
-  per row); a reference to a deleted object keeps its raw UUID.
+  reference another object (`MASTER`, `SR`, `VM`/`VDI`, `POOL`, `CONTAINER`)
+  show the referenced object's **name** instead of its UUID, resolved in one
+  batch per referenced kind (a constant cost, never one lookup per row); a
+  reference to a deleted object keeps its raw UUID.
 - `json` / `yaml`: the full structured data (or the `--query` projection).
   Machine-readable output is the only thing on stdout; errors go to stderr, so
   `xo vm list --output json | jq '.[].name_label'` always works.
 - `text`: a compact key/value form; a list of objects becomes an auto-column
   table, a list of scalars one value per line.
+
+### Human view conventions
+
+The human views (table and detail sheets) share a few conventions:
+
+- **Booleans** are `yes` / `no` everywhere (list columns like `HA`, `DEFAULT`,
+  `ATTACHED`, and detail sheets).
+- **`VERSION`** is the platform version (host: `version`, pool:
+  `platform_version`). The detail sheets of `host` / `pool` / `template`
+  label the composed platform string `Platform` when they show brand +
+  version + build.
+- **`CONTAINER`** names the object a resource lives in, whether it is a pool
+  or a host (`vm list`, `sr list`).
+- **Sizes** that are zero render as `0 B` in list tables and as `-` in detail
+  sheets (a sheet is always complete: no dangling `Label:` line); a value the
+  API does not provide renders as `-`.
+- **An empty list is not silent**: the table header is printed followed by
+  `No <resources> found.` (`xo vm list` on an empty pool). Machine output is
+  unaffected and still emits the empty structure (`[]` / `{}`).

@@ -119,7 +119,27 @@ func TestRenderTableEmpty(t *testing.T) {
 		t.Fatalf("RenderTable(empty): %v", err)
 	}
 	if buf.Len() != 0 {
-		t.Fatalf("expected no output for an empty table, got %q", buf.String())
+		t.Fatalf("expected no output for an empty table without an empty message, got %q", buf.String())
+	}
+}
+
+// TestRenderTableEmptyMessage pins the S5 convention: when the caller knows
+// the resource noun, an empty table prints the header plus "No <noun> found."
+// instead of nothing.
+func TestRenderTableEmptyMessage(t *testing.T) {
+	var buf bytes.Buffer
+	if err := Render(&buf, FormatTable, Table{
+		Headers: []string{"ID", "NAME"},
+		Rows:    nil,
+		Empty:   "VMs",
+	}, nil, nil); err != nil {
+		t.Fatalf("Render(empty): %v", err)
+	}
+	out := buf.String()
+	for _, expected := range []string{"ID", "NAME", "No VMs found."} {
+		if !strings.Contains(out, expected) {
+			t.Fatalf("empty table output missing %q:\n%s", expected, out)
+		}
 	}
 }
 

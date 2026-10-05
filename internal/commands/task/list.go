@@ -112,6 +112,7 @@ func renderTasks(w io.Writer, format output.Format, tasks []map[string]any, quer
 
 	table := output.Table{
 		Headers: []string{"ID", "STATUS", "TYPE", "NAME", "STARTED", "ENDED"},
+		Empty:   "tasks",
 	}
 	for _, t := range tasks {
 		props, _ := t["properties"].(map[string]any)

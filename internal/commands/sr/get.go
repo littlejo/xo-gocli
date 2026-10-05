@@ -226,7 +226,7 @@ func connectedHosts(ctx context.Context, xo library.Library, sr *payloads.Storag
 
 func sizeText(bytes float64) string {
 	if bytes == 0 {
-		return ""
+		return "-"
 	}
 	return units.HumanSize(bytes)
 }

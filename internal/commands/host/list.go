@@ -110,20 +110,32 @@ func renderHosts(w io.Writer, ctx context.Context, format output.Format, hosts [
 	}
 
 	table := output.Table{
-		Headers: []string{"ID", "NAME", "ADDRESS", "POWER STATE", "PLATFORM", "MEMORY", "VMS", "POOL"},
+		Headers: []string{"ID", "NAME", "ADDRESS", "POWER STATE", "VERSION", "MEMORY", "CORES", "SOCKETS", "VMS", "POOL"},
+		Empty:   "hosts",
 	}
 	for _, h := range hosts {
 		pool := h.Pool.String()
 		if n, ok := poolNames[h.Pool.String()]; ok {
 			pool = n
 		}
+		cores, sockets := "-", "-"
+		if c := h.HostCPUCores; c != nil {
+			if c.Cores > 0 {
+				cores = fmt.Sprintf("%d", c.Cores)
+			}
+			if c.Sockets > 0 {
+				sockets = fmt.Sprintf("%d", c.Sockets)
+			}
+		}
 		table.Rows = append(table.Rows, []string{
 			h.ID.String(),
 			h.NameLabel,
 			h.Address,
 			h.PowerState,
-			h.Version,
+			output.OrDash(h.Version),
 			memoryText(h),
+			cores,
+			sockets,
 			fmt.Sprintf("%d", len(h.ResidentVMs)),
 			pool,
 		})
@@ -144,8 +156,8 @@ func renderHosts(w io.Writer, ctx context.Context, format output.Format, hosts [
 }
 
 func memoryText(h *payloads.Host) string {
-	if h.Memory == nil || h.Memory.Size == 0 {
-		return ""
+	if h.Memory == nil {
+		return "-"
 	}
 	return units.HumanSize(float64(h.Memory.Size))
 }

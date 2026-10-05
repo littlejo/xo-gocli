@@ -102,7 +102,7 @@ func TestPoolListTable(t *testing.T) {
 	if err != nil {
 		t.Fatalf("pool list: %v", err)
 	}
-	for _, expected := range []string{"ID", "NAME", "PLATFORM", "CORES", "SOCKETS", "MASTER", "HA", "Pool prod", "Pool lab", "8.2", "16", "true"} {
+	for _, expected := range []string{"ID", "NAME", "VERSION", "CORES", "SOCKETS", "MASTER", "HA", "Pool prod", "Pool lab", "8.2", "16", "yes", "no"} {
 		if !strings.Contains(out, expected) {
 			t.Errorf("table output missing %q:\n%s", expected, out)
 		}

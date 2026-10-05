@@ -129,6 +129,7 @@ func renderVBDs(w io.Writer, ctx context.Context, format output.Format, vbds []*
 
 	table := output.Table{
 		Headers: []string{"ID", "VM", "VDI", "DEVICE", "MODE", "ATTACHED"},
+		Empty:   "VBDs",
 	}
 	for _, vbd := range vbds {
 		vm := vbd.VM.String()

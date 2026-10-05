@@ -102,6 +102,35 @@ func TestSRGetDetail(t *testing.T) {
 	}
 }
 
+// TestSRGetDetailZeroSize pins the S5 rule that a detail sheet never prints a
+// bare "Label:" line: a zero size renders as "-" so the sheet stays complete.
+func TestSRGetDetailZeroSize(t *testing.T) {
+	server := fakeXOGet(t, func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = fmt.Fprint(w, `{"id":"11111111-1111-4111-8111-111111111111","uuid":"11111111-1111-4111-8111-111111111111","type":"SR","name_label":"empty","SR_type":"lvm","size":0,"usage":0,"content_type":"user","shared":false,"$container":"aaaaaaaa-bbbb-cccc-dddd-000000000001"}`)
+	})
+	defer server.Close()
+	isolatePointers(t, server.URL)
+
+	out, err := runGet(t, "get", "11111111-1111-4111-8111-111111111111")
+	if err != nil {
+		t.Fatalf("sr get: %v", err)
+	}
+	for _, expected := range []string{
+		"SR empty",
+		output.DetailField("Size", "-"),
+		output.DetailField("Usage", "-"),
+	} {
+		if !strings.Contains(out, expected) {
+			t.Errorf("get output missing %q:\n%s", expected, out)
+		}
+	}
+	// A dangling "Size:" with no value must not appear.
+	if strings.Contains(out, "Size:\n") {
+		t.Fatalf("dangling Size: line:\n%s", out)
+	}
+}
+
 func TestSRGetJSON(t *testing.T) {
 	server := fakeXOGet(t, nil)
 	defer server.Close()

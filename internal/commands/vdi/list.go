@@ -120,6 +120,7 @@ func renderVDIs(w io.Writer, ctx context.Context, format output.Format, vdis []*
 
 	table := output.Table{
 		Headers: []string{"ID", "NAME", "TYPE", "SIZE", "USAGE", "SR"},
+		Empty:   "VDIs",
 	}
 	for _, vdi := range vdis {
 		sr := vdi.SR.String()

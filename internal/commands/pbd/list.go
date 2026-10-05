@@ -144,6 +144,7 @@ func renderPBDs(w io.Writer, ctx context.Context, format output.Format, pbds []*
 
 	table := output.Table{
 		Headers: []string{"ID", "HOST", "SR", "POOL", "ATTACHED", "DEVICE"},
+		Empty:   "PBDs",
 	}
 	for _, pbd := range pbds {
 		host := pbd.Host.String()

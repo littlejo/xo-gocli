@@ -117,7 +117,7 @@ func TestTemplateListTable(t *testing.T) {
 	if err != nil {
 		t.Fatalf("template list: %v", err)
 	}
-	for _, expected := range []string{"ID", "NAME", "DEFAULT", "MEMORY", "CPUS", "POOL", "Oracle Linux 8", "AlmaLinux 8", "Other install media", "4.295GB", "true", "false"} {
+	for _, expected := range []string{"ID", "NAME", "DEFAULT", "MEMORY", "CPUS", "POOL", "Oracle Linux 8", "AlmaLinux 8", "Other install media", "4.295GB", "yes", "no"} {
 		if !strings.Contains(out, expected) {
 			t.Errorf("table output missing %q:\n%s", expected, out)
 		}
@@ -222,8 +222,10 @@ func TestTemplateListEmpty(t *testing.T) {
 	if err != nil {
 		t.Fatalf("template list (empty): %v", err)
 	}
-	if strings.TrimSpace(out) != "" {
-		t.Fatalf("expected no rows, got:\n%s", out)
+	// An empty list renders the header plus a friendly message instead of
+	// nothing (S5): a silent no-op is the worst first-run experience.
+	if !strings.Contains(out, "No templates found.") {
+		t.Fatalf("expected the empty message, got:\n%s", out)
 	}
 }
 

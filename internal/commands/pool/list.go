@@ -87,6 +87,15 @@ Examples:
 	return cmd
 }
 
+// boolText renders a boolean as yes/no, the human convention shared by every
+// list column and detail sheet that shows one.
+func boolText(b bool) string {
+	if b {
+		return "yes"
+	}
+	return "no"
+}
+
 // renderPools applies the optional --query expression and renders the result
 // in the requested format. The human table shows each pool's master host by
 // name (one batch lookup for every row, never one lookup per pool); the
@@ -109,7 +118,8 @@ func renderPools(w io.Writer, ctx context.Context, format output.Format, pools [
 	}
 
 	table := output.Table{
-		Headers: []string{"ID", "NAME", "PLATFORM", "CORES", "SOCKETS", "MASTER", "HA"},
+		Headers: []string{"ID", "NAME", "VERSION", "CORES", "SOCKETS", "MASTER", "HA"},
+		Empty:   "pools",
 	}
 	for _, p := range pools {
 		master := p.Master.String()
@@ -123,7 +133,7 @@ func renderPools(w io.Writer, ctx context.Context, format output.Format, pools [
 			fmt.Sprintf("%d", p.CPUs.Cores),
 			fmt.Sprintf("%d", p.CPUs.Sockets),
 			master,
-			fmt.Sprintf("%t", p.HAEnabled),
+			boolText(p.HAEnabled),
 		})
 	}
 

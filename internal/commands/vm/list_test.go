@@ -23,6 +23,7 @@ const fixtureVMs = `[
 		"CPUs": {"number": 2},
 		"boot": {"order": "cd"},
 		"type": "vm",
+		"mainIpAddress": "10.0.0.11",
 		"$container": "aaaaaaaa-bbbb-cccc-dddd-000000000001"
 	},
 	{
@@ -104,13 +105,32 @@ func TestVMListTable(t *testing.T) {
 	if err != nil {
 		t.Fatalf("vm list: %v", err)
 	}
-	for _, expected := range []string{"ID", "NAME", "POWER STATE", "MEMORY", "CPUS", "web-01", "db-01", "Running", "Halted", "2.147GB", "4.295GB"} {
+	for _, expected := range []string{"ID", "NAME", "POWER STATE", "MEMORY", "CPUS", "IP", "CONTAINER", "web-01", "db-01", "Running", "Halted", "2.147GB", "4.295GB", "10.0.0.11"} {
 		if !strings.Contains(out, expected) {
 			t.Errorf("table output missing %q:\n%s", expected, out)
 		}
 	}
 	if strings.Count(out, "web-01") != 1 || strings.Count(out, "db-01") != 1 {
 		t.Fatalf("unexpected number of rows:\n%s", out)
+	}
+}
+
+// TestVMListEmpty pins the S5 empty-table message: an empty list renders the
+// header plus "No VMs found." instead of printing nothing.
+func TestVMListEmpty(t *testing.T) {
+	server := fakeXO(t, func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = fmt.Fprint(w, `[]`)
+	})
+	defer server.Close()
+	isolatePointers(t, server.URL)
+
+	out, err := runList(t, "list")
+	if err != nil {
+		t.Fatalf("vm list (empty): %v", err)
+	}
+	if !strings.Contains(out, "No VMs found.") {
+		t.Fatalf("expected the empty message, got:\n%s", out)
 	}
 }
 
