@@ -51,11 +51,16 @@ xo sr list
 ```
 
 ```
-ID                                    NAME            TYPE   SIZE      USAGE     CONTAINER
-------------------------------------  --------------  -----  --------  --------  ------------------------------------
-aaaaaaaa-bbbb-cccc-dddd-000000000001  Local storage   lvm    200GB     95GB      aaaaaaaa-bbbb-cccc-dddd-000000000009
-bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb  NFS data        nfs    2TB       1.2TB     aaaaaaaa-bbbb-cccc-dddd-000000000009
+ID                                    NAME           TYPE  SIZE   USAGE  CONTAINER
+------------------------------------  -------------  ----  -----  -----  ---------
+aaaaaaaa-bbbb-cccc-dddd-000000000001  Local storage  lvm   200GB  95GB   pool-01
+bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb  NFS data       nfs   2TB    1.2TB  pool-01
 ```
+
+The reference columns of a `list` table (here `CONTAINER`) show the resolved
+**name** of the referenced object (the pool the SR belongs to, or the host when
+the SR is host-local) instead of the raw UUID. Machine output
+(`--output json`) keeps the raw references.
 
 Pick the shared SR (e.g. `bbbbbbbb-…`) and a virtual size (`10G`, `50G`, or a
 raw byte count).
@@ -87,7 +92,7 @@ xo vbd create --vm 550e8400-e29b-41d4-a716-446655440001 --vdi 44444444-4444-4444
 ```
 
 ```
-VBD created (id 55555555-5555-4555-8555-555555555555): VDI 44444444-… attached to VM 550e8400-…
+VBD created (id 55555555-5555-4555-8555-555555555555): VDI 44444444-4444-4444-8444-444444444444 attached to VM 550e8400-e29b-41d4-a716-446655440001
 
 If the VM is running, hot-plug the disk with: xo vbd connect 55555555-5555-4555-8555-555555555555
 ```
@@ -103,7 +108,7 @@ xo vbd connect 55555555-5555-4555-8555-555555555555
 ```
 
 ```
-Requested connect of VBD 55555555-… (VM 550e8400-…, VDI 44444444-…) (task-123)
+Requested connect of VBD 55555555-5555-4555-8555-555555555555 (VM 550e8400-e29b-41d4-a716-446655440001, VDI 44444444-4444-4444-8444-444444444444) (task task-123)
 ```
 
 - **VM running** → run `xo vbd connect` to attach the disk without a reboot.
@@ -123,10 +128,10 @@ xo vm vdis 550e8400-e29b-41d4-a716-446655440001
 ```
 
 ```
-ID                                    NAME         TYPE    SIZE    USAGE   SR
-------------------------------------  -----------  ------  -------  ------  ------------------------------------
-11111111-1111-4111-8111-111111111111  system disk  system  10.74GB  5.37GB  aaaaaaaa-bbbb-cccc-dddd-000000000001
-44444444-4444-4444-8444-444444444444  data-01      user    10.74GB  0B      bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb
+ID                                    NAME         TYPE    SIZE     USAGE    SR
+------------------------------------  -----------  ------  -------  -------  -------------
+11111111-1111-4111-8111-111111111111  system disk  system  10.74GB  5.369GB  Local storage
+44444444-4444-4444-8444-444444444444  data-01      user    10.74GB  0B       NFS data
 ```
 
 Or inspect the attachment directly:
@@ -136,11 +141,15 @@ xo vbd list --vm 550e8400-e29b-41d4-a716-446655440001
 ```
 
 ```
-ID                                    VM                                VDI                                DEVICE  MODE  ATTACHED
-------------------------------------  --------------------------------  --------------------------------  ------  ----  --------
-33333333-3333-4333-8333-333333333333  550e8400-e29b-41d4-a716-446655440001  11111111-1111-4111-8111-111111111111  xvda    RW    yes
-55555555-5555-4555-8555-555555555555  550e8400-e29b-41d4-a716-446655440001  44444444-4444-4444-8444-444444444444  -       RW    no
+ID                                    VM      VDI          DEVICE  MODE  ATTACHED
+------------------------------------  ------  -----------  ------  ----  --------
+33333333-3333-4333-8333-333333333333  web-01  system disk  xvda    RW    yes
+55555555-5555-4555-8555-555555555555  web-01  data-01      -       RW    no
 ```
+
+As with every `list` table, the `VM` and `VDI` columns show the resolved
+**names** of the referenced objects (not their raw UUIDs); `--output json`
+keeps the raw ids.
 
 The new VBD shows the assigned `DEVICE` (e.g. `xvdb`) once attached/hot-plugged.
 
