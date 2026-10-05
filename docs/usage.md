@@ -187,23 +187,47 @@ Error: VM "550e8400-…" not found
 Use it when a failure is hard to explain (a 404 you expected to succeed, a
 weird API body, the wrong endpoint reached) and file the output upstream.
 
-### Request timeout
+### Timeouts and waiting
 
-Every command runs with an HTTP client timeout of **30 seconds** by default —
-the value the SDK applies when none is given. Long-running operations that
-wait for a backing task (a pool `rolling-update`, a large VM `export`) or slow
-links can exceed that, in which case the request is cut off with a `timeout`
-error. Raise it with the global `--timeout` flag (a Go duration) or the
-`$XOA_TIMEOUT` environment variable for scripts:
+There are two timeouts, and they bound different things.
+
+**HTTP client timeout** (the global `--timeout`, or `$XOA_TIMEOUT`) — how
+long a single HTTP request may take before it is cut off with a `timeout`
+error. Defaults to **30 seconds** (the SDK's own default); the flag wins over
+the environment variable. For a one-shot
+operation (a `list`, a `get`, a single action, a VM/VDI `export` or `import`
+stream) this bounds the whole operation, because the operation is one
+request. Raise it for a large archive over a slow link:
 
 ```sh
-xo pool rolling-update <id> --timeout 10m      # a pool update can run long
-XOA_TIMEOUT=5m xo vm export <id> -o vm.xva      # large XVA over a slow link
+XOA_TIMEOUT=5m xo vm export <id> --file vm.xva      # large XVA over a slow link
 ```
 
-The flag wins over the environment variable. The timeout bounds the whole
-operation, not only a single request, because the command waits for the task
-to complete.
+**Wait deadline** — for operations that *poll* a backing task until it
+completes (the pool `rolling-update` / `rolling-reboot` / `emergency-shutdown`,
+`task wait`, and the `--wait` flag of the asynchronous actions), the HTTP
+client timeout only bounds each individual poll request, **not** how long the
+command blocks overall. By default that overall wait is **unbounded**: the
+command blocks until the task completes (or Ctrl+C). The flag that *does*
+bound it is the `--timeout` that `task wait` and the three pool maintenance
+commands define locally; on those commands it is the *wait* deadline (not the
+HTTP client timeout) and it shadows the global flag — like `task wait` already
+did:
+
+```sh
+xo pool rolling-update <id> --timeout 30m   # give up on the wait after 30 min
+xo task wait <id> --timeout 5m              # …but give up after 5 minutes
+```
+
+There is **no default wait deadline**: a pool update, a stuck task or a large
+import can legitimately run for a long time, and a fixed cutoff would report
+a timeout even when the operation is still progressing (or has completed)
+server-side — leaving the caller unsure of the real state. Instead the wait
+ends when the task completes or you press Ctrl+C (which propagates from the
+CLI through the SDK to the HTTP layer); use the wait `--timeout` above when
+you want a bound anyway. The wait deadline and the per-request HTTP timeout
+are independent: a 30-minute wait is made of many 30-second-bounded polls, so
+a broken connection can never hang a single poll forever.
 
 ## Commands
 
@@ -449,7 +473,11 @@ confirmation. `rolling-reboot` reboots the hosts in the same rolling fashion
 but is destructive and asks for confirmation. `emergency-shutdown` powers off
 every host at once **without evacuating the VMs first**: the pool is down
 afterwards, so it is a last resort. Like the other destructive commands,
-`--yes` (or `$XOA_YES=1`) skips the confirmation.
+`--yes` (or `$XOA_YES=1`) skips the confirmation. All three block until the
+backing task completes (or Ctrl+C); there is no default wait deadline, and
+their `--timeout` is that *wait* deadline, not the global HTTP client
+timeout — see [Timeouts and
+waiting](#timeouts-and-waiting).
 
 `pool get` shows a single pool as a **detail view** (distinct from `pool
 list`). It shows the **master** host (resolved by name), the pool's **hosts**
