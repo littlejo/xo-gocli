@@ -341,6 +341,15 @@ state instead; the completed task is then printed (like `xo task wait`) and
 the exit status reflects the outcome (non-zero if the task fails or is
 interrupted).
 
+The human `POWER STATE` — the `vm list` column and the `vm get` header —
+shows the operation in flight while a lifecycle action is running. A VM whose
+start has just been requested still reports `Halted` in the raw `power_state`
+until the task completes, so the view reads `Starting` instead (likewise
+`Shutting down` and `Rebooting`). This is display-only: the `--power-state`
+filter is server-side and matches the raw field, and machine output
+(`--output json` / `yaml` / `text`) still emits the raw `power_state` with
+`current_operations` unchanged.
+
 `vm delete` requires confirmation; pass `--yes` (or set `XOA_YES`) to run
 non-interactively. Without either, a non-terminal stdin is rejected rather
 than hanging, so automation never blocks. The power actions (`start`, `stop`,

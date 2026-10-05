@@ -246,3 +246,48 @@ func TestVMGetDetailTemplateMissingFallsBack(t *testing.T) {
 		t.Fatalf("expected the raw template id as fallback:\n%s", out)
 	}
 }
+
+// The detail header shows the in-flight operation instead of the still-lagging
+// raw power_state: a suspended VM resuming reports "Starting", not "Suspended".
+func TestVMGetDetailTransition(t *testing.T) {
+	// A minimal server that answers only the VM route with a suspended VM that
+	// has a resume operation in flight. The detail view's relationship
+	// lookups (host/pool/template) 404 and fall back to raw ids, so they do not
+	// affect the header assertion.
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/rest/v0/vms/"+detailVMID {
+			w.WriteHeader(http.StatusNotFound)
+			_, _ = fmt.Fprint(w, `{"message":"object not found"}`)
+			return
+		}
+		if cookie, err := r.Cookie("authenticationToken"); err != nil || cookie.Value != "test-token" {
+			w.WriteHeader(http.StatusUnauthorized)
+			_, _ = fmt.Fprint(w, `{"message":"unauthorized"}`)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = fmt.Fprint(w, `{
+			"id": "`+detailVMID+`",
+			"name_label": "web-01",
+			"power_state": "Suspended",
+			"current_operations": {"t1": "resume"},
+			"memory": {"size": 4294967296},
+			"CPUs": {"number": 2},
+			"type": "vm",
+			"$container": "`+detailHostID+`"
+		}`)
+	}))
+	defer srv.Close()
+	isolateGet(t, srv.URL)
+
+	out, err := runGet(t, "vm", "get", detailVMID)
+	if err != nil {
+		t.Fatalf("vm get: %v", err)
+	}
+	if !strings.Contains(out, "VM web-01  (Starting)") {
+		t.Fatalf("expected the transition state in the header:\n%s", out)
+	}
+	if strings.Contains(out, "Suspended") {
+		t.Fatalf("transition state must not also show the raw power_state:\n%s", out)
+	}
+}

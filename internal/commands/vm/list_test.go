@@ -11,6 +11,8 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/vatesfr/xenorchestra-go-sdk/pkg/payloads"
+
 	"github.com/littlejo/xo-gocli/internal/cli"
 )
 
@@ -271,5 +273,90 @@ func TestVMListBadEndpoint(t *testing.T) {
 	_, err := runList(t, "list")
 	if err == nil {
 		t.Fatal("expected an error for an invalid endpoint")
+	}
+}
+
+// vmState pins the human state: an in-flight operation (from the SDK v1.20.0
+// CurrentOperations helpers) wins over the lagging raw power_state, and a
+// VM with no current operation shows its raw power_state unchanged.
+func TestVMState(t *testing.T) {
+	cases := []struct {
+		name string
+		vm   *payloads.VM
+		want string
+	}{
+		{name: "no operations, running", vm: &payloads.VM{PowerState: "Running"}, want: "Running"},
+		{name: "no operations, halted", vm: &payloads.VM{PowerState: "Halted"}, want: "Halted"},
+		{
+			name: "starting wins over halted",
+			vm:   &payloads.VM{PowerState: "Halted", CurrentOperations: map[string]payloads.VMOperation{"t1": payloads.VMOperationStart}},
+			want: "Starting",
+		},
+		{
+			name: "shutting down wins over running",
+			vm:   &payloads.VM{PowerState: "Running", CurrentOperations: map[string]payloads.VMOperation{"t1": payloads.VMOperationCleanShutdown}},
+			want: "Shutting down",
+		},
+		{
+			name: "rebooting wins over halted",
+			vm:   &payloads.VM{PowerState: "Halted", CurrentOperations: map[string]payloads.VMOperation{"t1": payloads.VMOperationHardReboot}},
+			want: "Rebooting",
+		},
+		{
+			name: "unrelated operation keeps power state",
+			vm:   &payloads.VM{PowerState: "Running", CurrentOperations: map[string]payloads.VMOperation{"t1": payloads.VMOperationChangingVCPUsLive}},
+			want: "Running",
+		},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			if got := vmState(c.vm); got != c.want {
+				t.Errorf("vmState = %q, want %q", got, c.want)
+			}
+		})
+	}
+}
+
+// A VM whose start is in flight shows "Starting" in the POWER STATE column,
+// not the still-lagging "Halted". Machine output is unaffected (raw fields).
+func TestVMListTableTransition(t *testing.T) {
+	body := `{
+		"id": "550e8400-e29b-41d4-a716-446655440001",
+		"name_label": "web-01",
+		"power_state": "Halted",
+		"current_operations": {"t1": "start"},
+		"memory": {"size": 2147483648},
+		"CPUs": {"number": 2},
+		"type": "vm",
+		"$container": "aaaaaaaa-bbbb-cccc-dddd-000000000001"
+	}`
+	server := fakeXO(t, func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = fmt.Fprint(w, "["+body+"]")
+	})
+	defer server.Close()
+	isolatePointers(t, server.URL)
+
+	out, err := runList(t, "list")
+	if err != nil {
+		t.Fatalf("vm list: %v", err)
+	}
+	if !strings.Contains(out, "Starting") {
+		t.Errorf("expected the POWER STATE column to read Starting:\n%s", out)
+	}
+	if strings.Contains(out, "Halted") {
+		t.Errorf("transition state must not also show the raw power_state:\n%s", out)
+	}
+
+	// Machine output still exposes the raw power_state and current_operations.
+	jout, err := runList(t, "list", "--output", "json")
+	if err != nil {
+		t.Fatalf("vm list --output json: %v", err)
+	}
+	if !strings.Contains(jout, `"power_state": "Halted"`) || !strings.Contains(jout, `"current_operations"`) {
+		t.Errorf("json must keep the raw fields:\n%s", jout)
+	}
+	if strings.Contains(jout, "Starting") {
+		t.Errorf("json must not contain the rendered transition state:\n%s", jout)
 	}
 }

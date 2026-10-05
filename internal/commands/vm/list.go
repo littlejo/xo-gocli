@@ -140,7 +140,7 @@ func renderVMs(w io.Writer, ctx context.Context, format output.Format, vms []*pa
 		table.Rows = append(table.Rows, []string{
 			vm.ID.String(),
 			vm.NameLabel,
-			vm.PowerState,
+			vmState(vm),
 			memoryText(vm),
 			fmt.Sprintf("%d", vm.CPUs.Number),
 			output.OrDash(vm.MainIpAddress),
@@ -164,4 +164,24 @@ func renderVMs(w io.Writer, ctx context.Context, format output.Format, vms []*pa
 
 func memoryText(vm *payloads.VM) string {
 	return units.HumanSize(float64(vm.Memory.Size))
+}
+
+// vmState renders the human power state of a VM. While an operation is in
+// flight, the raw power_state lags behind (a starting VM still reports
+// Halted, a stopping VM still reports Running), so the SDK v2 helpers on
+// current_operations (IsStarting / IsShuttingDown / IsRebooting, SDK v1.20.0)
+// take precedence and the state is shown as the operation, AWS-CLI style.
+// Machine output is unaffected: it exposes the raw power_state and
+// current_operations unchanged.
+func vmState(vm *payloads.VM) string {
+	switch {
+	case vm.IsRebooting():
+		return "Rebooting"
+	case vm.IsShuttingDown():
+		return "Shutting down"
+	case vm.IsStarting():
+		return "Starting"
+	default:
+		return vm.PowerState
+	}
 }

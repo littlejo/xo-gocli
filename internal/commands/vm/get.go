@@ -113,8 +113,8 @@ func renderVMDetail(w io.Writer, ctx context.Context, vm *payloads.VM, r *resolv
 
 	// Header: type, name and (power state) — the one-line identity.
 	header := "VM " + vm.NameLabel
-	if vm.PowerState != "" {
-		header += "  (" + vm.PowerState + ")"
+	if vm.PowerState != "" || vm.CurrentOperations != nil {
+		header += "  (" + vmState(vm) + ")"
 	}
 	lines = append(lines, header)
 
