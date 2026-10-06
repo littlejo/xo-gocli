@@ -20,6 +20,14 @@ const (
 	flagMemory   = "memory"
 )
 
+// A UUID rendered as a string is always 36 chars (8-4-4-4-12), so the
+// composite vm-templates id printed by 'xo template list' is exactly
+// 36 + 1 + 36 = 73 chars: <poolId>-<templateUuid>.
+const (
+	uuidStringLen  = 36
+	compositeIDLen = uuidStringLen + 1 + uuidStringLen
+)
+
 func newCreateCommand() *cobra.Command {
 	var (
 		poolID      string
@@ -34,9 +42,11 @@ func newCreateCommand() *cobra.Command {
 		Short: "Create a virtual machine in a pool",
 		Long: `Create a virtual machine in a pool from a template.
 
-The pool and template are referenced by their UUID, as returned by
-'xo pool list' and 'xo template list' respectively. The template must
-belong to the given pool.
+The pool is referenced by its UUID, as returned by 'xo pool list'. The
+template accepts the id printed by 'xo template list' (the composite
+<poolId>-<templateUuid> id) or the bare template UUID (the 'uuid' field of
+'xo template list --output json'); both refer to the same template. The
+template must belong to the given pool.
 
 Memory, when given, is expressed in bytes or as a human readable size
 (e.g. 2G, 512M). If omitted, the template default is used.
@@ -59,9 +69,13 @@ Examples:
 			if err != nil {
 				return fmt.Errorf("invalid --pool id %q (expected a UUID)", poolID)
 			}
-			template, err := uuid.FromString(templateID)
+			// --template accepts either the bare template UUID or the
+			// composite <poolId>-<templateUuid> id that 'xo template list'
+			// prints. create_vm wants the bare template uuid, so reduce the
+			// composite form to it.
+			template, err := parseTemplateID(templateID)
 			if err != nil {
-				return fmt.Errorf("invalid --template id %q (expected a UUID)", templateID)
+				return err
 			}
 
 			params := &payloads.CreateVMParams{
@@ -97,12 +111,37 @@ Examples:
 
 	flags := cmd.Flags()
 	flags.StringVar(&poolID, flagPool, "", "pool UUID to create the VM in (see 'xo pool list')")
-	flags.StringVar(&templateID, flagTemplate, "", "template UUID to base the VM on (see 'xo template list')")
+	flags.StringVar(&templateID, flagTemplate, "", "template id to base the VM on: the bare template UUID or the composite id printed by 'xo template list'")
 	flags.StringVar(&description, "description", "", "description for the VM")
 	flags.StringVar(&memory, flagMemory, "", "memory size, in bytes or human readable (e.g. 2G, 512M)")
 	flags.BoolVar(&boot, "boot", false, "start the VM as soon as it has been created")
 
 	return cmd
+}
+
+// parseTemplateID parses --template, accepting either the bare template UUID
+// or the composite <poolId>-<templateUuid> id that 'xo template list' prints.
+// create_vm wants the bare template uuid, so the composite form is reduced to
+// its trailing UUID.
+func parseTemplateID(id string) (uuid.UUID, error) {
+	fail := func() error {
+		return fmt.Errorf("invalid --template id %q (expected a UUID, or the composite poolId-templateUuid id printed by 'xo template list')", id)
+	}
+	if len(id) == compositeIDLen {
+		if _, err := uuid.FromString(id[:uuidStringLen]); err != nil {
+			return uuid.Nil, fail()
+		}
+		template, err := uuid.FromString(id[uuidStringLen+1:])
+		if err != nil {
+			return uuid.Nil, fail()
+		}
+		return template, nil
+	}
+	template, err := uuid.FromString(id)
+	if err != nil {
+		return uuid.Nil, fail()
+	}
+	return template, nil
 }
 
 // parseMemory turns a size like "2G", "512M" or "2147483648" into bytes.

@@ -2,8 +2,9 @@
 
 Status snapshot and the minimal checklist for releasing `xo` v1.0.0.
 
-> **Snapshot**: `main` at `cde603c` (2026-10-05). B1, B2, S1, S2, S3, S4,
-> S5, S6 and S7 are all done and merged; the release-day steps remain. The
+> **Snapshot**: `main` at `7d4f9ed` (2026-10-06). B1, B2, S1–S7 are all done
+> and merged; the C1 counter-expertise fix (template id for `vm create`) is
+> in review; the release-day steps remain. The
 > rest of this page is based on
 > the original read-only audit of the full codebase (every command file, the
 > output layer, the test suite, the docs and the release pipeline), with the
@@ -11,10 +12,11 @@ Status snapshot and the minimal checklist for releasing `xo` v1.0.0.
 > independent counter-expertise pass (2026-10-05) re-verified everything
 > against the real binary, a fake XO server and the upstream Xen Orchestra
 > REST source; it found five additional items (C1–C5, see
-> [Counter-expertise findings](#counter-expertise-findings-2026-10-05)) and
-> a verdict of **READY AFTER SMALL FIXES**. As items are fixed, cross them
-> off in the [release checklist](#release-checklist) and update the snapshot
-> line.
+> [Counter-expertise findings](#counter-expertise-findings-2026-10-05)) with
+> an initial verdict of **READY AFTER SMALL FIXES** — C1 is now fixed, which
+> clears the only remaining must-fix for the tag. As items are fixed, cross
+> them off in the [release checklist](#release-checklist) and update the
+> snapshot line.
 
 ## Table of contents
 
@@ -70,8 +72,8 @@ The product is technically close to releaseable. Verified at snapshot time:
 What keeps it from a v1.0.0 tag is the small list below — the two hard
 blockers are resolved (B1, B2), as are S1–S7 (all merged, S3 in `cde603c`).
 The independent counter-expertise pass of 2026-10-05 confirmed the state and
-added five findings (C1–C5); only **C1** (template id for `vm create`) must
-be fixed before the tag, the rest are tracked as follow-ups.
+added five findings (C1–C5); **C1 is fixed** (template id for `vm create`),
+leaving C2–C5 as tracked, non-blocking follow-ups.
 
 ## Blockers
 
@@ -356,7 +358,21 @@ documented with exactly that shape (`{"nameLabel": …, "nameDescription": …}`
 
 Five new findings:
 
-### C1: `vm create --template` rejects the id that `xo template list` prints — HIGH, must fix before the tag
+### C1: `vm create --template` rejects the id that `xo template list` prints — HIGH — **FIXED**
+
+**Resolved:** `--template` now accepts both the bare template UUID and the
+composite `<poolId>-<templateUuid>` id that `xo template list` prints,
+reducing the composite form to the bare UUID that `create_vm` wants
+(`parseTemplateID` in `internal/commands/vm/create.go`). The help text no
+longer claims the template is "referenced by its UUID, as returned by
+'xo template list'"; it now names both accepted forms. The documented flow
+(copy the printed id → paste it in) works. Covered by
+`TestVMCreateCompositeTemplateID` (asserts the create_vm body carries the
+bare uuid) and `TestVMCreateInvalidTemplateID`. The existing integration test
+`lifecycle_integration_test.go` now exercises the working flow, since it
+feeds the `id` from `template list` into `vm create`.
+
+The original finding, for the record:
 
 - `xo template list` prints the REST `id` field, which on real XO is the
   **composite** `poolId-templateUuid` (canonical form confirmed in the
@@ -378,11 +394,10 @@ Five new findings:
 - Workaround today: `xo template list --output json | jq '.[].uuid'` (the
   real REST object carries the bare `uuid` field), but it is undiscoverable.
 
-Fix: accept both forms in `--template` (bare UUID, or composite
-`poolId-uuid` with the trailing UUID extracted) and correct the help text
-(and `usage.md` line 294 et seq.); make the integration test consume `.uuid`
-(or the composite, after the fix). Small change, one flow, must land before
-the tag.
+Fix applied: accepted both forms in `--template` (bare UUID, or composite
+`poolId-uuid` with the trailing UUID extracted) and corrected the help text.
+The `usage.md` examples already used the neutral `<template-id>` placeholder,
+so they needed no change. Small change, one flow, done before the tag.
 
 ### C2: SDK-driven waits spin forever on a stuck `interrupted` task (`vm create`, `network create*`) — MEDIUM, tracked
 
@@ -524,7 +539,7 @@ required for a coherent release):
   resources, `xo watch` — all Layer 3/4 of the SDK roadmap (upstream work
   first).
 - Widen `vm create`/`vm update` flags (C1's template-id acceptance is *not*
-  part of this — it is a v1 must-fix); a wait-deadline `--timeout` on
+  part of this — it is already fixed); a wait-deadline `--timeout` on
   `vm create` / `network create*` (the S3 pattern from pool maintenance;
   C2) — not needed for v1.0.0 while #121 is open, but reconsider when it
   lands; second use case in `usecases.md`;
@@ -562,11 +577,11 @@ published v1.0.0:
       confirmation, power family aligned, documented); double-login fix
       deferred to v1.1 (caveat documented, tracking issue)
       (branch `s7-ux-decisions`)
-- [ ] **C1** — `vm create --template`: accept the composite
-      `poolId-uuid` id printed by `xo template list` (or fix the help to
-      point at the bare `uuid` field); fix the `vm create`/`usage.md`
-      wording; make `lifecycle_integration_test.go` use a working id form
-      (counter-expertise 2026-10-05 — the only remaining must-fix)
+- [x] **C1** — `vm create --template`: accept the composite
+      `poolId-uuid` id printed by `xo template list` (done: `parseTemplateID`
+      accepts bare UUID or composite, reduces to the bare uuid for
+      `create_vm`; help corrected; `TestVMCreateCompositeTemplateID` +
+      `TestVMCreateInvalidTemplateID`)
 - [ ] **C2** — doc note: list `vm create` / `network create*` among the
       unbounded waits in `usage.md` ("Timeouts and waiting") and in their
       help (the `interrupted`-task hang itself is tracked in
