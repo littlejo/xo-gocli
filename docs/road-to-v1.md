@@ -452,11 +452,24 @@ The original finding, for the record: `release.yml` ran only gofmt + vet +
 integration tests and the xo-api-sim `functional` job; `workflow_dispatch`
 could release any tag, including one that never passed CI.
 
-### C4: `vm create --boot` still prints "Start it with: xo vm start …" — LOW, tracked
+### C4: `vm create --boot` still prints "Start it with: xo vm start …" — LOW — **FIXED**
 
-`renderCreatedVM` (`vm/create.go`) prints the start hint unconditionally;
-with `--boot` the VM is created already running, so the hint is wrong.
-One-line fix: skip it when `--boot` is set.
+**Resolved.** The hint is now driven by the **re-fetched VM's actual state**,
+not by the `--boot` flag: `renderCreatedVM` shows the derived state via
+`vmState()` (in-flight `current_operations` take precedence over the lagging
+raw `power_state`, exactly as in `xo vm list` / `xo vm get`) and only prints
+`Start it with: …` when that state is `Halted`.
+
+Keying on the state rather than the flag is the robust choice: it covers a
+`--boot` that fails or has not taken yet (VM still halted → the hint is the
+right next step) and an auto-boot template without `--boot` (VM starting →
+the hint would be noise). As a side effect, the `state:` line now shows the
+derived state (`Starting`) instead of the lagging raw one — a no-op for the
+no-flag case, where the output is byte-identical.
+
+The original finding, for the record: `renderCreatedVM` (`vm/create.go`)
+printed the start hint unconditionally; with `--boot` the VM is created
+already running, so the hint was wrong.
 
 ### C5: `usage.md` "Mutating commands (create, update, delete, start, …) emit a small result document, not the full object" — LOW, tracked
 
@@ -527,8 +540,11 @@ hand-cut release:
   a release only builds after the tag ref passes the exact same gates as CI
   (lint, tests, `-race`, integration, xo-api-sim `functional`). Single source
   of truth; the two cannot drift.
-- **C4 (counter-expertise):** `vm create --boot` should not print the
-  "Start it with: xo vm start …" hint (one-line fix in `renderCreatedVM`).
+- **C4 (counter-expertise) — resolved.** The "Start it with" hint in
+  `vm create` output is now driven by the re-fetched VM's actual state
+  (`vmState`): shown only when the VM is `Halted`, so a `--boot`/auto-boot
+  VM that is already starting no longer gets the hint. The `state:` line
+  now also shows the derived state (no-op for the no-flag case).
 - **C5 (counter-expertise):** `usage.md` "Mutation and action output" says
   mutating commands emit a small result document — but `vm create --output
   json` emits the full VM object; fix the sentence.
@@ -607,7 +623,8 @@ published v1.0.0:
 - [x] **C3** — release `test` job reuses the CI workflow (`ci.yml`
       `workflow_call` + `ref` input), so a release only builds after the tag
       ref passes the exact same gates as CI
-- [ ] **C4** — drop the "Start it with" hint from `vm create --boot` output
+- [x] **C4** — `vm create` only prints the "Start it with" hint when the
+      re-fetched VM is actually `Halted` (state-based, not flag-based)
 - [ ] **C5** — fix the "small result document" sentence in `usage.md`
       (it is wrong for `vm create --output json`, which emits the full VM)
 - [ ] merge → `main`, CI fully green including the `functional` job

@@ -190,8 +190,20 @@ func renderCreatedVM(cmd *cobra.Command, vm *payloads.VM) error {
 		}
 		return output.Render(w, format, output.Table{}, normalized, nil)
 	default:
-		_, err := fmt.Fprintf(w, "VM %q created:\n  id:     %s\n  state:  %s\n  memory: %s\n  cpus:   %d\n\nStart it with: xo vm start %s\n",
-			vm.NameLabel, vm.ID.String(), vm.PowerState, memoryText(vm), vm.CPUs.Number, vm.ID.String())
+		// Show the derived state (in-flight operations take precedence over
+		// the lagging raw power_state, as in 'xo vm list' / 'xo vm get'), and
+		// only suggest starting the VM when it is actually halted. A VM
+		// created with --boot — or from an auto-boot template, without the
+		// flag — is already running or starting, so the hint would be noise;
+		// if the boot has not (yet) taken, the VM is halted and the hint is
+		// the right next step.
+		state := vmState(vm)
+		extra := ""
+		if state == "Halted" {
+			extra = fmt.Sprintf("\nStart it with: xo vm start %s\n", vm.ID.String())
+		}
+		_, err := fmt.Fprintf(w, "VM %q created:\n  id:     %s\n  state:  %s\n  memory: %s\n  cpus:   %d\n%s",
+			vm.NameLabel, vm.ID.String(), state, memoryText(vm), vm.CPUs.Number, extra)
 		return err
 	}
 }
