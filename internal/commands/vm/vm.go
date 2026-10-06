@@ -24,6 +24,7 @@ func NewCommand() *cobra.Command {
 	cmd.AddCommand(newSuspendCommand())
 	cmd.AddCommand(newResumeCommand())
 	cmd.AddCommand(newSnapshotCommand())
+	cmd.AddCommand(newWaitCommand())
 	cmd.AddCommand(newVdisCommand())
 	cmd.AddCommand(newExportCommand())
 	cmd.AddCommand(newImportCommand())

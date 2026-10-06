@@ -34,6 +34,9 @@ type mutationServer struct {
 	// vmResponse overrides the GET /rest/v0/vms/{id} answer (the create
 	// re-fetch); fixtureVM is used when empty.
 	vmResponse string
+	// vm404 makes GET /rest/v0/vms/{id} answer 404 (for the wait not-found
+	// path).
+	vm404 bool
 }
 
 func newMutationServer(t *testing.T) *mutationServer {
@@ -56,6 +59,10 @@ func newMutationServer(t *testing.T) *mutationServer {
 		case r.Method == http.MethodGet && strings.HasPrefix(r.URL.Path, "/rest/v0/tasks/"):
 			_, _ = fmt.Fprint(w, createdVMTask)
 		case r.Method == http.MethodGet && strings.HasPrefix(r.URL.Path, "/rest/v0/vms/"):
+			if s.vm404 {
+				http.NotFound(w, r)
+				return
+			}
 			if s.vmResponse != "" {
 				_, _ = fmt.Fprint(w, s.vmResponse)
 				return

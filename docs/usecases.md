@@ -11,6 +11,7 @@ needed) and the final state is verified.
 ## Table of contents
 
 - [Add a disk to a VM](#add-a-disk-to-a-vm)
+- [Create a VM until it is SSH-reachable](#create-a-vm-until-it-is-ssh-reachable)
 
 ---
 
@@ -268,3 +269,177 @@ still attached to any VM cannot be deleted.
 Every failure is reported as `Error: …` on **stderr**; machine-readable output
 on stdout stays clean, so scripts can branch on the exit code and the stderr
 message.
+
+---
+
+## Create a VM until it is SSH-reachable
+
+Provision a fresh VM from a template and block until the guest is actually
+usable — not just powered on. This is the "deploy a server" flow: create and
+boot with `xo`, then let `xo vm wait --ssh` be the gate between "the
+hypervisor said yes" and "I can log in".
+
+```text
+   1. find the pool + template        xo pool list / xo template list
+   2. create the VM and boot it       xo vm create --boot
+   3. wait until it is ready          xo vm wait --ssh
+   4. connect over SSH                ssh user@<ip>   (inside the guest)
+   5. verify inside the guest         whoami, systemctl status sshd
+```
+
+Steps 1–3 are done with `xo`; step 4 logs in to the guest (the OS is a
+black box to Xen Orchestra), step 5 verifies the final state there.
+
+### Prerequisites
+
+- A configured profile (`xo configure`) that can reach the pool.
+- The **pool UUID** (`xo pool list`) and a **template id** (`xo template
+  list`) belonging to that pool.
+- For `--ssh`: the machine running `xo` must be able to reach the guest's IP
+  over TCP — the probe goes from **your machine** to the guest, not from the
+  pool's hosts. On a lab where the pool is not on your network, wait without
+  `--ssh` and connect through a jump host.
+
+### Step 1 — find the pool and a template
+
+```sh
+xo pool list
+```
+
+```
+ID                                    NAME     VERSION  CORES  SOCKETS  MASTER   HA
+------------------------------------  -------  -------  -----  -------  -------  --
+aaaaaaaa-bbbb-cccc-dddd-000000000009  pool-01  8.2.1    32     2        host-01  no
+```
+
+```sh
+xo template list
+```
+
+```
+ID                                                                         NAME            DEFAULT  MEMORY   CPUS  POOL
+-------------------------------------------------------------------------  --------------  -------  -------  ----  -------
+aaaaaaaa-bbbb-cccc-dddd-000000000009-6959dfe8-534c-4c58-8a8c-3c3792293543  Oracle Linux 8  yes      4.295GB  2     pool-01
+aaaaaaaa-bbbb-cccc-dddd-000000000009-7aa32be8-a06c-4ade-8a1d-49e51e03e9d2  AlmaLinux 8     no       2.147GB  1     pool-01
+```
+
+The `ID` column is the composite template id (`<poolId>-<templateUuid>`);
+`vm create` accepts it as-is (or the bare `uuid` field from
+`--output json`).
+
+### Step 2 — create the VM and boot it
+
+```sh
+xo vm create web-04 --pool aaaaaaaa-bbbb-cccc-dddd-000000000009 \
+  --template aaaaaaaa-bbbb-cccc-dddd-000000000009-6959dfe8-534c-4c58-8a8c-3c3792293543 \
+  --memory 4G --boot
+```
+
+```
+VM "web-04" created:
+  id:     550e8400-e29b-41d4-a716-446655440004
+  state:  Starting
+  memory: 4.295GB
+  cpus:   2
+```
+
+`--boot` asks the pool to start the VM as soon as it exists; the re-fetched
+state is `Starting` (the start is still in flight), so there is no
+"Start it with" hint. Without `--boot`, the VM comes up `Halted` and the
+output ends with `Start it with: xo vm start <id>`.
+
+### Step 3 — wait until the guest is ready
+
+```sh
+xo vm wait 550e8400-e29b-41d4-a716-446655440004 --ssh --timeout 5m
+```
+
+`vm wait` polls the VM every 2 seconds and passes the gate only when **all**
+of these hold:
+
+1. the VM is `Running` (a VM that is still `Starting` — the raw
+   `power_state` lags at `Halted` while the start task runs — does not pass);
+2. it has a **main IP address** (DHCP may take a while after the OS is up);
+3. with `--ssh`, port 22 on that IP **accepts a TCP connection** from the
+   machine running `xo`.
+
+While the gate is not met the command prints one progress line on stderr and
+blocks:
+
+```
+Waiting for VM "web-04" to be ready (state is Starting)...
+```
+
+When the deadline is reached it fails with what was still missing, so a
+script never hangs:
+
+```
+Error: VM "web-04" was not ready within 5m0s (port 22 on 10.0.0.14 is not reachable yet)
+```
+
+When the guest is ready (exit status 0):
+
+```
+VM "web-04" is ready:
+  id:     550e8400-e29b-41d4-a716-446655440004
+  state:  Running
+  ip:     10.0.0.14
+  ssh:    reachable on 10.0.0.14:22
+
+Connect with: ssh <user>@10.0.0.14
+```
+
+`--timeout` bounds the wait (like `task wait`); without it the wait is
+unbounded and Ctrl+C cancels it. The SSH probe checks TCP reachability only,
+not the SSH handshake — if sshd or the guest firewall starts late, re-run the
+wait or `ssh` (it will retry).
+
+### Step 4 — connect over SSH
+
+```sh
+ssh deploy@10.0.0.14
+```
+
+### Step 5 — verify inside the guest
+
+```sh
+whoami; hostname; systemctl is-active sshd
+```
+
+```
+deploy
+web-04
+active
+```
+
+### Scripting it end to end
+
+`vm create --output json` prints the full VM object (capture `.id`), and
+`vm wait` exits non-zero on a timeout, so the whole flow is a few lines:
+
+```sh
+set -euo pipefail
+POOL="aaaaaaaa-bbbb-cccc-dddd-000000000009"
+TEMPLATE="aaaaaaaa-bbbb-cccc-dddd-000000000009-6959dfe8-534c-4c58-8a8c-3c3792293543"
+
+# 1. create + boot, keep the id
+VM_ID=$(xo vm create web-04 --pool "$POOL" --template "$TEMPLATE" --boot \
+  --output json | jq -r '.id')
+
+# 2. gate: block until the guest answers on :22 (bound it so the script can't hang)
+xo vm wait "$VM_ID" --ssh --timeout 10m
+
+# 3. the IP, and in you go
+IP=$(xo vm wait "$VM_ID" --ssh --output json --query ip | jq -r .)
+ssh "deploy@${IP}"
+```
+
+### Troubleshooting
+
+| Symptom | Likely cause / fix |
+| ------- | ------------------ |
+| `was not ready within … (state is Starting)` | The guest is still booting. Give more time (`--timeout 10m`); check progress with `xo vm get <id>`. |
+| `(no main IP address yet)` | DHCP has not assigned an address (or the template has no network). Check the VM's NICs and the pool's default network. |
+| `(port 22 on … is not reachable yet)` | sshd starts late, the guest firewall is still closed, the port is not 22 (`--port`), or a network/firewall between you and the guest blocks it. |
+| Wait passes but `ssh` is refused | The probe is TCP-only, not an SSH handshake: sshd may not be up yet, or the guest listens on another port. |
+| `vm wait` times out on a healthy VM | The probe runs from **your machine**: if you cannot route to the guest IP from where `xo` runs, wait without `--ssh` and connect through a jump host. |

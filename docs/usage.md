@@ -209,8 +209,9 @@ completes (the pool `rolling-update` / `rolling-reboot` / `emergency-shutdown`,
 client timeout only bounds each individual poll request, **not** how long the
 command blocks overall. By default that overall wait is **unbounded**: the
 command blocks until the task completes (or Ctrl+C). The flag that *does*
-bound it is the `--timeout` that `task wait` and the three pool maintenance
-commands define locally; on those commands it is the *wait* deadline (not the
+bound it is the `--timeout` that `task wait`, `vm wait` and the three pool
+maintenance commands define locally; on those commands it is the *wait*
+deadline (not the
 HTTP client timeout) and it shadows the global flag — like `task wait` already
 did:
 
@@ -309,6 +310,13 @@ xo vm vdis <id>                     # list the VM's VDIs
 xo vm vdis <id> --type user         # filter by VDI type
 xo vm vdis <id> --query '[].name_label'
 
+# Readiness gate (blocks until the VM is usable, like a deploy gate)
+xo vm wait <id>                     # …until running with a main IP
+xo vm wait <id> --ssh                # …and until the guest answers on :22
+xo vm wait <id> --ssh --port 2222    # non-standard port (implies --ssh)
+xo vm wait <id> --timeout 5m         # give up after 5 minutes
+xo vm wait <id> --output json --query ip   # the IP, for the next command
+
 # Lifecycle (async actions return a task id; delete is synchronous)
 xo vm start <id>                    # power on
 xo vm start <id> --host <host-id>   # pin to a host
@@ -364,6 +372,25 @@ The lifecycle actions (`start`, `stop`, `reboot`, `pause`, `unpause`,
 state instead; the completed task is then printed (like `xo task wait`) and
 the exit status reflects the outcome (non-zero if the task fails or is
 interrupted).
+
+`vm wait` blocks until the VM is **ready to use**, polling every 2 seconds
+(like `xo task wait`): by default that means the VM is `Running` and has a
+main IP address (the `IP` column of `vm list`). With `--ssh` it also waits
+until the guest's SSH port is reachable over TCP on that IP, so
+`xo vm wait <id> --ssh` is the last gate before `ssh <user>@<ip>`. The probe
+checks TCP reachability only, not the SSH handshake: if the guest starts
+sshd late or opens its firewall late, the port may answer a moment later.
+The exit status is 0 when the VM is ready and non-zero when the `--timeout`
+deadline is reached, the wait is interrupted (Ctrl+C), or the VM does not
+exist, so it works as a gate in scripts:
+
+```sh
+ip=$(xo vm wait <id> --ssh --output json --query ip)   # "10.0.0.11"
+ssh <user>@${ip#\"}
+```
+
+Like `task wait`, this command's `--timeout` is the *wait* deadline (not the
+global HTTP `--timeout`); without it the wait is unbounded.
 
 The human `POWER STATE` — the `vm list` column and the `vm get` header —
 shows the operation in flight while a lifecycle action is running. A VM whose
