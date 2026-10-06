@@ -886,18 +886,25 @@ YAML notes:
 
 ### Mutation and action output
 
-Mutating commands (`create`, `update`, `delete`, `start`, `stop`, …) emit a
-small result document, not the full object. For `json`/`yaml` the shape is:
+Mutating commands fall into two output styles under `json`/`yaml`:
 
-```json
-{ "action": "delete", "vm": "web-01" }
-```
+- **Commands that re-read the resource** — `vm create`, `vm update`,
+  `network create`, `token create` — emit the **full object**, the same shape
+  as `get`: they re-fetch the freshly created/updated resource and return it
+  whole.
+- **Commands that do not** — every `delete`, the action verbs (`start`,
+  `stop`, `reboot`, …), and `vdi create` / `vbd create` — emit a **small
+  result document**:
 
-The resource field carries the **name** the command resolved for the target
-(the name the user sees in `list`), and actions that start a task add a
-`task_id` (or `result`/`task` on `--wait`). The id is not repeated because
-the name is the stable handle in the CLI; for the raw id, use the resource's
-`list`/`get` with `--query '[].id'` or the `--output json` of `get`.
+  ```json
+  { "action": "delete", "vm": "web-01" }
+  ```
+
+  The resource field carries the **name** the command resolved for the target
+  (the name the user sees in `list`), and actions that start a task add a
+  `task_id` (or `result`/`task` on `--wait`). The id is not repeated because
+  the name is the stable handle in the CLI; for the raw id, use the resource's
+  `list`/`get` with `--query '[].id'` or the `--output json` of `get`.
 
 Format behavior:
 

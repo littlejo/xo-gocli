@@ -72,8 +72,11 @@ The product is technically close to releaseable. Verified at snapshot time:
 What keeps it from a v1.0.0 tag is the small list below — the two hard
 blockers are resolved (B1, B2), as are S1–S7 (all merged, S3 in `cde603c`).
 The independent counter-expertise pass of 2026-10-05 confirmed the state and
-added five findings (C1–C5); **C1 is fixed** (template id for `vm create`),
-leaving C2–C5 as tracked, non-blocking follow-ups.
+added five findings (C1–C5). All are now resolved except C2: **C1**
+(template id for `vm create`), **C3** (release `test` job reuses the CI
+workflow), **C4** (the `vm create` start hint is state-based), and **C5**
+(`usage.md` mutation-output wording) are fixed; **C2** (unbounded `task
+wait`) is tracked — the SDK half via #121, the CLI doc note still open.
 
 ## Blockers
 
@@ -471,11 +474,19 @@ The original finding, for the record: `renderCreatedVM` (`vm/create.go`)
 printed the start hint unconditionally; with `--boot` the VM is created
 already running, so the hint was wrong.
 
-### C5: `usage.md` "Mutating commands (create, update, delete, start, …) emit a small result document, not the full object" — LOW, tracked
+### C5: `usage.md` "Mutating commands (create, update, delete, start, …) emit a small result document, not the full object" — LOW — **FIXED**
 
-`vm create --output json` emits the **full VM object** (verified); the
-`{"action": …, "vm": …, "task_id": …}` shape applies to the action commands.
-Doc fix: exclude `create` (and check `update`) from that sentence.
+**Resolved.** `usage.md` now distinguishes the two output styles (verified
+against the binary): commands that re-read the resource — `vm create`,
+`vm update`, `network create`, `token create` — emit the **full object**
+(same shape as `get`), while every `delete`, the action verbs, and `vdi
+create` / `vbd create` emit the **small result document**
+(`{"action": …, <resource>: …}`).
+
+The original finding, for the record: `vm create --output json` emits the
+**full VM object** (verified); the `{"action": …, "vm": …, "task_id": …}`
+shape applies to the action commands, so lumping all mutating commands under
+"emit a small result document" was wrong.
 
 Verdict of the pass: **READY AFTER SMALL FIXES** — C1 before the tag; C2–C5
 are tracked follow-ups (C2's SDK half already tracked via #121).
@@ -545,9 +556,11 @@ hand-cut release:
   (`vmState`): shown only when the VM is `Halted`, so a `--boot`/auto-boot
   VM that is already starting no longer gets the hint. The `state:` line
   now also shows the derived state (no-op for the no-flag case).
-- **C5 (counter-expertise):** `usage.md` "Mutation and action output" says
-  mutating commands emit a small result document — but `vm create --output
-  json` emits the full VM object; fix the sentence.
+- **C5 (counter-expertise) — resolved.** `usage.md` "Mutation and action
+  output" now distinguishes commands that emit the full object (re-read:
+  `vm create`/`update`, `network create`, `token create`) from those that
+  emit the small result document (`delete`, action verbs, `vdi`/`vbd
+  create`).
 
 ## Deferred to v1.1+
 
