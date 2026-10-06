@@ -160,6 +160,58 @@ func TestVMCreateBadMemory(t *testing.T) {
 	}
 }
 
+func TestVMCreateCompositeTemplateID(t *testing.T) {
+	server := newMutationServer(t)
+	defer server.Close()
+	isolateVM(t, server.URL)
+
+	// The composite id exactly as 'xo template list' prints it:
+	// <poolId>-<templateUuid> (36 + 1 + 36 chars).
+	pool := "aaaaaaaa-bbbb-cccc-dddd-000000000001"
+	template := "aaaaaaaa-bbbb-cccc-dddd-000000000009"
+	composite := pool + "-" + template
+
+	out, err := runVM(t, "vm", "create", "web-02", "--pool", pool, "--template", composite)
+	if err != nil {
+		t.Fatalf("vm create with composite --template: %v", err)
+	}
+	if !strings.Contains(out, "created") {
+		t.Fatalf("create output should report the VM was created:\n%s", out)
+	}
+
+	// The create_vm body must carry the BARE template uuid (create_vm wants
+	// XoVmTemplate['uuid']), not the composite id.
+	req, ok := server.requestByMethod(http.MethodPost)
+	if !ok {
+		t.Fatal("expected a POST create_vm request")
+	}
+	var body map[string]any
+	if err := json.Unmarshal([]byte(req.Body), &body); err != nil {
+		t.Fatalf("cannot parse create body: %v\n%s", err, req.Body)
+	}
+	if body["template"] != template {
+		t.Fatalf("expected the bare template uuid %s in the body, got %s", template, body["template"])
+	}
+}
+
+func TestVMCreateInvalidTemplateID(t *testing.T) {
+	server := newMutationServer(t)
+	defer server.Close()
+	isolateVM(t, server.URL)
+
+	pool := "aaaaaaaa-bbbb-cccc-dddd-000000000001"
+	// Same 73-char shape as a composite id, but the trailing segment is not a
+	// UUID (and the leading one is not either): it must be rejected, not
+	// silently truncated.
+	bad := "aaaaaaaa-bbbb-cccc-dddd-000000000009-6959dfe8-534c-4c58-8a8c-3c379229354z"
+	if _, err := runVM(t, "vm", "create", "web-02", "--pool", pool, "--template", bad); err == nil {
+		t.Fatalf("expected an error for the malformed composite id %q", bad)
+	}
+	if _, ok := server.requestByMethod(http.MethodPost); ok {
+		t.Fatal("create_vm must not be executed with an invalid --template")
+	}
+}
+
 // --- tag --------------------------------------------------------------------
 
 func TestVMTagAdd(t *testing.T) {
