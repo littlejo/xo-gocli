@@ -5,10 +5,27 @@ on:
     branches:
       - main
   pull_request:
+  # Invoked by release.yml so a release is only built on a commit that passed
+  # the exact same gates as CI (lint, tests, race, integration, and the
+  # xo-api-sim functional job). Mirroring those steps in release.yml by hand
+  # would drift; calling this workflow keeps a single source of truth.
+  workflow_call:
+    inputs:
+      ref:
+        description: >-
+          Git ref (branch, tag, or SHA) to check out and test. When invoked by
+          release.yml this is the resolved tag ref; it defaults to the
+          triggering commit for push/pull_request.
+        required: false
+        type: string
+        default: ''
 
 # A CI run takes precedence over a concurrent release run of the same commit.
+# When invoked via workflow_call, inputs.ref (the release's tag ref) is
+# appended so a release-triggered run never shares a group — and does not
+# cancel or get cancelled by — a regular push/pull_request run.
 concurrency:
-  group: ci-${{ github.workflow }}-${{ github.ref }}
+  group: ci-${{ github.workflow }}-${{ github.ref }}-${{ inputs.ref }}
   cancel-in-progress: true
 
 permissions:
@@ -18,7 +35,12 @@ jobs:
   ci:
     runs-on: ubuntu-latest
     steps:
+      # When invoked via workflow_call with a ref (release.yml passes the
+      # resolved tag), check that exact ref out; otherwise fall back to the
+      # triggering commit (push / pull_request).
       - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.ref || github.sha }}
 
       - uses: actions/setup-go@v7
         with:
@@ -73,6 +95,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.ref || github.sha }}
 
       - uses: actions/setup-go@v7
         with:

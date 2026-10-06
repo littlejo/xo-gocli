@@ -66,22 +66,15 @@ jobs:
           echo "Releasing ${TAG}"
 
   test:
-    runs-on: ubuntu-latest
+    # Runs the exact same gates as CI — lint, tests, `-race`, integration and
+    # the xo-api-sim functional job — against the resolved tag ref. Calling
+    # the reusable CI workflow (instead of re-listing the steps here) keeps a
+    # single source of truth: a hand-dispatched release can no longer skip a
+    # gate that CI enforces, and the two cannot drift apart.
     needs: resolve
-    steps:
-      - uses: actions/checkout@v7
-        with:
-          ref: ${{ needs.resolve.outputs.ref }}
-          fetch-depth: 0
-      - uses: actions/setup-go@v7
-        with:
-          go-version: '1.27.1'
-      - name: Check formatting
-        run: test -z "$(gofmt -l .)"
-      - name: Vet
-        run: go vet ./...
-      - name: Test
-        run: go test ./...
+    uses: ./.github/workflows/ci.yml
+    with:
+      ref: ${{ needs.resolve.outputs.ref }}
 
   release:
     runs-on: ubuntu-latest
