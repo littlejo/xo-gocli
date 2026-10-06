@@ -68,7 +68,11 @@ func TestVMWaitSSH(t *testing.T) {
 	if err != nil {
 		t.Fatalf("cannot start the fake sshd listener: %v", err)
 	}
-	defer ln.Close()
+	t.Cleanup(func() {
+		if err := ln.Close(); err != nil {
+			t.Errorf("cannot close the fake sshd listener: %v", err)
+		}
+	})
 	_, port, err := net.SplitHostPort(ln.Addr().String())
 	if err != nil {
 		t.Fatalf("cannot split port: %v", err)
