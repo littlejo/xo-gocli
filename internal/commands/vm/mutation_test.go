@@ -31,6 +31,9 @@ type mutationServer struct {
 	*httptest.Server
 	t        *testing.T
 	requests []request
+	// vmResponse overrides the GET /rest/v0/vms/{id} answer (the create
+	// re-fetch); fixtureVM is used when empty.
+	vmResponse string
 }
 
 func newMutationServer(t *testing.T) *mutationServer {
@@ -53,6 +56,10 @@ func newMutationServer(t *testing.T) *mutationServer {
 		case r.Method == http.MethodGet && strings.HasPrefix(r.URL.Path, "/rest/v0/tasks/"):
 			_, _ = fmt.Fprint(w, createdVMTask)
 		case r.Method == http.MethodGet && strings.HasPrefix(r.URL.Path, "/rest/v0/vms/"):
+			if s.vmResponse != "" {
+				_, _ = fmt.Fprint(w, s.vmResponse)
+				return
+			}
 			_, _ = fmt.Fprint(w, fixtureVM)
 		case (r.Method == http.MethodPut || r.Method == http.MethodDelete) && strings.Contains(r.URL.Path, "/tags/"):
 			_, _ = fmt.Fprint(w, `{}`)
@@ -126,6 +133,67 @@ func TestVMCreate(t *testing.T) {
 	if got, _ := body["memory"].(float64); got != 4*1024*1024*1024 {
 		t.Fatalf("expected memory=4294967296 (bytes), got %v", body["memory"])
 	}
+}
+
+// TestVMCreateStartHint checks the "Start it with" hint in the create output
+// (C4): the hint must only be shown when the created VM is actually halted.
+// A VM created with --boot is already starting — the re-fetch reports the
+// start operation in current_operations while the raw power_state still
+// lags at Halted — so a hint there would be noise and is omitted.
+func TestVMCreateStartHint(t *testing.T) {
+	pool := "aaaaaaaa-bbbb-cccc-dddd-000000000001"
+	template := "aaaaaaaa-bbbb-cccc-dddd-000000000009"
+	id := "550e8400-e29b-41d4-a716-446655440001"
+	startHint := "Start it with: xo vm start " + id
+
+	t.Run("halted VM suggests start", func(t *testing.T) {
+		server := newMutationServer(t)
+		defer server.Close()
+		isolateVM(t, server.URL)
+
+		// Default re-fetch: fixtureVM, halted, no operation in flight.
+		out, err := runVM(t, "vm", "create", "web-02", "--pool", pool, "--template", template)
+		if err != nil {
+			t.Fatalf("vm create: %v\n%s", err, out)
+		}
+		if !strings.Contains(out, "state:  Halted") {
+			t.Fatalf("expected the halted state:\n%s", out)
+		}
+		if !strings.Contains(out, startHint) {
+			t.Fatalf("a halted VM should be told how to start it:\n%s", out)
+		}
+	})
+
+	t.Run("booted VM omits the start hint", func(t *testing.T) {
+		server := newMutationServer(t)
+		defer server.Close()
+		isolateVM(t, server.URL)
+
+		// Re-fetch mid-boot: the raw power_state still lags at Halted, but
+		// the start operation is in flight.
+		server.vmResponse = `{
+			"id": "` + id + `",
+			"uuid": "` + id + `",
+			"type": "vm",
+			"name_label": "web-02",
+			"power_state": "Halted",
+			"memory": {"size": 2147483648},
+			"CPUs": {"number": 2},
+			"current_operations": {"00000000-0000-0000-0000-0000000000aa": "start"},
+			"$container": "aaaaaaaa-bbbb-cccc-dddd-000000000001"
+		}`
+
+		out, err := runVM(t, "vm", "create", "web-02", "--pool", pool, "--template", template, "--boot")
+		if err != nil {
+			t.Fatalf("vm create --boot: %v\n%s", err, out)
+		}
+		if !strings.Contains(out, "state:  Starting") {
+			t.Fatalf("expected the starting state:\n%s", out)
+		}
+		if strings.Contains(out, startHint) {
+			t.Fatalf("a starting VM must not be told to start it:\n%s", out)
+		}
+	})
 }
 
 func TestVMCreateRequiresPoolAndTemplate(t *testing.T) {
