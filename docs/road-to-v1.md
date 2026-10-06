@@ -427,14 +427,30 @@ lists the unbounded waits as "the pool …, `task wait`, and the `--wait`
 flag" — `vm create` and `network create*` belong in that list too; and the
 same sentence is worth putting in their `--help`.
 
-### C3: the release workflow's `test` job is weaker than CI — LOW, tracked
+### C3: the release workflow's `test` job is weaker than CI — LOW — **FIXED**
 
-`release.yml` runs only gofmt + vet + `go test ./...`, while `ci.yml`
-additionally runs `go test -race ./...`, the integration tests and the
-xo-api-sim `functional` job. `workflow_dispatch` can release any tag,
-including one that never passed CI. Recommendation: mirror the CI gates (at
-least `-race` + functional) in the release `test` job before the first
-release.
+**Resolved:** the release `test` job now **reuses the CI workflow** instead of
+re-listing a weaker subset of its steps. `ci.yml` gained a `workflow_call`
+entry (with a `ref` input so it can be pointed at the release's tag), and the
+`test` job in `release.yml` is now a callable-workflow job:
+
+```yaml
+test:
+  needs: resolve
+  uses: ./.github/workflows/ci.yml
+  with:
+    ref: ${{ needs.resolve.outputs.ref }}
+```
+
+so a release only builds after the tag ref passes the **exact same gates** as
+CI — lint, tests, `-race`, integration and the xo-api-sim `functional` job.
+Because the gates live in one file, a hand-dispatched release can no longer
+skip a gate CI enforces, and the two cannot drift apart.
+
+The original finding, for the record: `release.yml` ran only gofmt + vet +
+`go test ./...`, while `ci.yml` additionally ran `go test -race ./...`, the
+integration tests and the xo-api-sim `functional` job; `workflow_dispatch`
+could release any tag, including one that never passed CI.
 
 ### C4: `vm create --boot` still prints "Start it with: xo vm start …" — LOW, tracked
 
@@ -506,9 +522,11 @@ hand-cut release:
   [vatesfr/xenorchestra-go-sdk#121](https://github.com/vatesfr/xenorchestra-go-sdk/issues/121);
   until it lands, add `vm create` / `network create*` to the "unbounded
   waits" list in `usage.md` ("Timeouts and waiting") and in their help text.
-- **C3 (counter-expertise):** mirror the CI gates (`go test -race`,
-  integration, xo-api-sim `functional`) in the `test` job of `release.yml`,
-  so a hand-dispatched release can never skip them.
+- **C3 (counter-expertise) — resolved.** The release `test` job reuses the CI
+  workflow (`ci.yml` is now a reusable `workflow_call` with a `ref` input), so
+  a release only builds after the tag ref passes the exact same gates as CI
+  (lint, tests, `-race`, integration, xo-api-sim `functional`). Single source
+  of truth; the two cannot drift.
 - **C4 (counter-expertise):** `vm create --boot` should not print the
   "Start it with: xo vm start …" hint (one-line fix in `renderCreatedVM`).
 - **C5 (counter-expertise):** `usage.md` "Mutation and action output" says
@@ -586,8 +604,9 @@ published v1.0.0:
       unbounded waits in `usage.md` ("Timeouts and waiting") and in their
       help (the `interrupted`-task hang itself is tracked in
       [vatesfr/xenorchestra-go-sdk#121](https://github.com/vatesfr/xenorchestra-go-sdk/issues/121))
-- [ ] **C3** — mirror the CI gates (`-race`, integration, functional) in the
-      `test` job of `release.yml`
+- [x] **C3** — release `test` job reuses the CI workflow (`ci.yml`
+      `workflow_call` + `ref` input), so a release only builds after the tag
+      ref passes the exact same gates as CI
 - [ ] **C4** — drop the "Start it with" hint from `vm create --boot` output
 - [ ] **C5** — fix the "small result document" sentence in `usage.md`
       (it is wrong for `vm create --output json`, which emits the full VM)

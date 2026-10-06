@@ -147,13 +147,17 @@ git diff cmd/xo/testdata/
   `-race` pass to catch data races early), build. A second `functional` job
   spins up the xo-api-sim REST simulator (pinned commit, cookie-auth patch) and
   runs the integration suite against it, so every push is tested end-to-end
-  over real HTTP without a live instance.
+  over real HTTP without a live instance. The workflow is also reusable
+  (`workflow_call` with a `ref` input) so other workflows — in particular the
+  release — can run the exact same gates on a specific ref.
 - **Version** (`.github/workflows/version.yml`): on every push to `main`,
   computes the next semver tag from the conventional-commits history
   (`feat` → minor, anything else → patch, **documentation-only changes → no
   new tag**), pushes it, and triggers the Release workflow.
 - **Release** (`.github/workflows/release.yml`): for a `v*.*.*` tag, runs the
-  test suite, then builds cross-platform binaries with
+  full CI gate suite (reusing the CI workflow against the resolved tag ref, so
+  a release is only built on a commit that passed exactly the same gates as
+  CI), then builds cross-platform binaries with
   [GoReleaser](https://goreleaser.com) and publishes them as a draft GitHub
   release. It can also be run manually from the Actions tab (optionally
   targeting a specific tag).
