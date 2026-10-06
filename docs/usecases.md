@@ -281,7 +281,7 @@ hypervisor said yes" and "I can log in".
 
 ```text
    1. find the pool + template        xo pool list / xo template list
-   2. create the VM and boot it       xo vm create --boot
+   2. create the VM and boot it       xo vm create --boot --ssh-key
    3. wait until it is ready          xo vm wait --ssh
    4. connect over SSH                ssh user@<ip>   (inside the guest)
    5. verify inside the guest         whoami, systemctl status sshd
@@ -295,10 +295,13 @@ black box to Xen Orchestra), step 5 verifies the final state there.
 - A configured profile (`xo configure`) that can reach the pool.
 - The **pool UUID** (`xo pool list`) and a **template id** (`xo template
   list`) belonging to that pool.
-- For `--ssh`: the machine running `xo` must be able to reach the guest's IP
-  over TCP — the probe goes from **your machine** to the guest, not from the
-  pool's hosts. On a lab where the pool is not on your network, wait without
-  `--ssh` and connect through a jump host.
+- For `--ssh` (step 3): the machine running `xo` must be able to reach the
+  guest's IP over TCP — the probe goes from **your machine** to the guest,
+  not from the pool's hosts. On a lab where the pool is not on your network,
+  wait without `--ssh` and connect through a jump host.
+- For key login (step 4): a **public SSH key** to inject at creation
+  (`--ssh-key`), and a guest account allowed to use it (the default for
+  cloud-init templates).
 
 ### Step 1 — find the pool and a template
 
@@ -327,12 +330,12 @@ The `ID` column is the composite template id (`<poolId>-<templateUuid>`);
 `vm create` accepts it as-is (or the bare `uuid` field from
 `--output json`).
 
-### Step 2 — create the VM and boot it
+### Step 2 — create the VM, inject the SSH key, and boot it
 
 ```sh
 xo vm create web-04 --pool aaaaaaaa-bbbb-cccc-dddd-000000000009 \
   --template aaaaaaaa-bbbb-cccc-dddd-000000000009-6959dfe8-534c-4c58-8a8c-3c3792293543 \
-  --memory 4G --boot
+  --memory 4G --boot --ssh-key ~/.ssh/id_ed25519.pub
 ```
 
 ```
@@ -342,6 +345,17 @@ VM "web-04" created:
   memory: 4.295GB
   cpus:   2
 ```
+
+`--ssh-key <file>` reads your **public** key from the file and injects it into
+the guest with cloud-init (`ssh_authorized_keys`), so step 4 works with key
+authentication from the start. This is done **at creation time**:
+`cloud_config` is the only path the REST API offers for getting a key into a
+guest — there is no action to add one to a VM that already exists — so plan
+it in the create call. The flag sends a minimal cloud-init
+document; for full control (hostname, packages, extra users, …)
+pass a complete user-data file with `--cloud-config <file>` instead — the two
+flags are mutually exclusive. The template must support cloud-config (the
+standard Xen Orchestra Linux templates do).
 
 `--boot` asks the pool to start the VM as soon as it exists; the re-fetched
 state is `Starting` (the start is still in flight), so there is no
@@ -422,9 +436,9 @@ set -euo pipefail
 POOL="aaaaaaaa-bbbb-cccc-dddd-000000000009"
 TEMPLATE="aaaaaaaa-bbbb-cccc-dddd-000000000009-6959dfe8-534c-4c58-8a8c-3c3792293543"
 
-# 1. create + boot, keep the id
+# 1. create + boot with your public key injected (cloud-init), keep the id
 VM_ID=$(xo vm create web-04 --pool "$POOL" --template "$TEMPLATE" --boot \
-  --output json | jq -r '.id')
+  --ssh-key ~/.ssh/id_ed25519.pub --output json | jq -r '.id')
 
 # 2. gate: block until the guest answers on :22 (bound it so the script can't hang)
 xo vm wait "$VM_ID" --ssh --timeout 10m
@@ -442,4 +456,5 @@ ssh "deploy@${IP}"
 | `(no main IP address yet)` | DHCP has not assigned an address (or the template has no network). Check the VM's NICs and the pool's default network. |
 | `(port 22 on … is not reachable yet)` | sshd starts late, the guest firewall is still closed, the port is not 22 (`--port`), or a network/firewall between you and the guest blocks it. |
 | Wait passes but `ssh` is refused | The probe is TCP-only, not an SSH handshake: sshd may not be up yet, or the guest listens on another port. |
+| `ssh` authenticates with `publickey` refused | The key was not injected (template without cloud-config support, or the guest user differs from the one cloud-init authorized — check with `--cloud-config`), or you connected with a different key than the `--ssh-key` one. |
 | `vm wait` times out on a healthy VM | The probe runs from **your machine**: if you cannot route to the guest IP from where `xo` runs, wait without `--ssh` and connect through a jump host. |

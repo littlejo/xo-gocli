@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"testing"
 )
@@ -201,6 +202,112 @@ func TestVMCreateStartHint(t *testing.T) {
 			t.Fatalf("a starting VM must not be told to start it:\n%s", out)
 		}
 	})
+}
+
+// TestVMCreateSSHKey checks that --ssh-key / --cloud-config end up in the
+// create_vm body as cloud_config (the mechanism that injects the public key
+// into the guest with cloud-init).
+func TestVMCreateSSHKey(t *testing.T) {
+	pubKey := "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAITestKeyForUnitTestsOnly000000000000000 test@example"
+	keyFile := t.TempDir() + "/id_ed25519.pub"
+	if err := os.WriteFile(keyFile, []byte(pubKey+"\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	t.Run("ssh-key builds a minimal cloud-init document", func(t *testing.T) {
+		server := newMutationServer(t)
+		defer server.Close()
+		isolateVM(t, server.URL)
+
+		pool := "aaaaaaaa-bbbb-cccc-dddd-000000000001"
+		template := "aaaaaaaa-bbbb-cccc-dddd-000000000009"
+		if _, err := runVM(t, "vm", "create", "web-02", "--pool", pool, "--template", template, "--ssh-key", keyFile); err != nil {
+			t.Fatalf("vm create --ssh-key: %v", err)
+		}
+		req, ok := server.requestByMethod(http.MethodPost)
+		if !ok {
+			t.Fatal("expected a POST create_vm request")
+		}
+		var body map[string]any
+		if err := json.Unmarshal([]byte(req.Body), &body); err != nil {
+			t.Fatalf("cannot parse create body: %v\n%s", err, req.Body)
+		}
+		cc, _ := body["cloud_config"].(string)
+		if !strings.Contains(cc, "#cloud-config") || !strings.Contains(cc, "ssh_authorized_keys") || !strings.Contains(cc, pubKey) {
+			t.Fatalf("cloud_config should authorize the key, got:\n%s", cc)
+		}
+	})
+
+	t.Run("cloud-config file is passed verbatim", func(t *testing.T) {
+		server := newMutationServer(t)
+		defer server.Close()
+		isolateVM(t, server.URL)
+
+		userData := "#cloud-config\nhostname: web-02\nruncmd:\n  - systemctl enable sshd\n"
+		cfgFile := t.TempDir() + "/user-data.yaml"
+		if err := os.WriteFile(cfgFile, []byte(userData), 0o600); err != nil {
+			t.Fatal(err)
+		}
+
+		pool := "aaaaaaaa-bbbb-cccc-dddd-000000000001"
+		template := "aaaaaaaa-bbbb-cccc-dddd-000000000009"
+		if _, err := runVM(t, "vm", "create", "web-02", "--pool", pool, "--template", template, "--cloud-config", cfgFile); err != nil {
+			t.Fatalf("vm create --cloud-config: %v", err)
+		}
+		req, ok := server.requestByMethod(http.MethodPost)
+		if !ok {
+			t.Fatal("expected a POST create_vm request")
+		}
+		var body map[string]any
+		if err := json.Unmarshal([]byte(req.Body), &body); err != nil {
+			t.Fatalf("cannot parse create body: %v\n%s", err, req.Body)
+		}
+		if cc := body["cloud_config"]; cc != userData {
+			t.Fatalf("cloud_config should be the file content verbatim, got:\n%v", cc)
+		}
+	})
+}
+
+func TestVMCreateSSHKeyErrors(t *testing.T) {
+	server := newMutationServer(t)
+	defer server.Close()
+	isolateVM(t, server.URL)
+
+	pool := "aaaaaaaa-bbbb-cccc-dddd-000000000001"
+	template := "aaaaaaaa-bbbb-cccc-dddd-000000000009"
+	base := []string{"vm", "create", "web-02", "--pool", pool, "--template", template}
+
+	// Missing key file.
+	if _, err := runVM(t, append(base, "--ssh-key", t.TempDir()+"/nope.pub")...); err == nil || !strings.Contains(err.Error(), "cannot read --ssh-key file") {
+		t.Fatalf("expected a file-read error, got: %v", err)
+	}
+
+	// A private key must be rejected: only public keys work in the guest.
+	privFile := t.TempDir() + "/id_ed25519"
+	if err := os.WriteFile(privFile, []byte("-----BEGIN OPENSSH PRIVATE KEY-----\nabc\n-----END OPENSSH PRIVATE KEY-----\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := runVM(t, append(base, "--ssh-key", privFile)...); err == nil || !strings.Contains(err.Error(), "public SSH key") {
+		t.Fatalf("expected a public-key validation error, got: %v", err)
+	}
+
+	// --ssh-key and --cloud-config are mutually exclusive.
+	pubFile := t.TempDir() + "/pub"
+	if err := os.WriteFile(pubFile, []byte("ssh-ed25519 AAAA test\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	cfgFile := t.TempDir() + "/ud.yaml"
+	if err := os.WriteFile(cfgFile, []byte("#cloud-config\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := runVM(t, append(base, "--ssh-key", pubFile, "--cloud-config", cfgFile)...); err == nil || !strings.Contains(err.Error(), "mutually exclusive") {
+		t.Fatalf("expected a mutually-exclusive error, got: %v", err)
+	}
+
+	// No create_vm request must have been sent for any of the failures above.
+	if _, ok := server.requestByMethod(http.MethodPost); ok {
+		t.Fatal("create_vm must not be executed on flag/file errors")
+	}
 }
 
 func TestVMCreateRequiresPoolAndTemplate(t *testing.T) {

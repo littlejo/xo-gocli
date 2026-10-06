@@ -295,6 +295,8 @@ xo vm get <id>                      # one VM, as a detail view
 xo vm create web-02 --pool <pool-id> --template <template-id>
 xo vm create web-02 --pool <pool-id> --template <template-id> --memory 4G
 xo vm create web-02 --pool <pool-id> --template <template-id> --boot
+xo vm create web-02 --pool <pool-id> --template <template-id> --boot --ssh-key ~/.ssh/id_ed25519.pub
+xo vm create web-02 --pool <pool-id> --template <template-id> --cloud-config user-data.yaml
 
 # Update
 xo vm update <id> --name web-01
@@ -338,6 +340,15 @@ xo vm delete <id> --yes             # skip confirmation (automation)
 ```
 
 `--memory` accepts bytes or human-readable sizes (`2G`, `512M`).
+
+`--ssh-key <file>` injects the public key from the file into the guest with
+cloud-init (`ssh_authorized_keys`) so you can log in right after the VM
+boots; `--cloud-config <file>` passes a full cloud-init user-data document
+instead (mutually exclusive). Both need a template that supports
+cloud-config. A key can only be injected at creation time: `cloud_config` is
+the only path the REST API offers for getting a key into a guest, and there
+is no action to add one to a VM that already exists — plan the key when you
+create the machine.
 
 `vm get` shows a single VM as a **detail view** (distinct from `vm list`,
 which is the one-line-per-VM table used to pick a VM). It shows identity
