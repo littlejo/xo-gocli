@@ -1,5 +1,5 @@
 [tools]
-go = "1.27.1"
+go = "1.27.2"
 # Pinned to the version the CI runs (.github/workflows/ci.yml), so
 # `mise run lint` and CI give the same results.
 golangci-lint = "2.14.0"
