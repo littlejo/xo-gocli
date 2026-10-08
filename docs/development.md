@@ -433,6 +433,7 @@ v1.20.0 version number is the *module* version, not the REST API version
 | `users/me` 307-redirects to the user id | handled by `net/http` following the redirect; `doTokensRequest` relies on 307 body replay for POST |
 | `v2` package `init()` runs `gotenv.Load()` (reads a `.env` in the CWD) | harmless: we build the config with `NewWithValues`, which reads no env vars |
 | Server XO version is not exposed by the REST API (v0) — `GET /ping` only returns `{result, timestamp}` and the `xoa` REST controller has no version route | `xo version` prints the **CLI** version offline (like `aws version`); the server version exists only as the legacy JSON-RPC `getServerVersion` method, which the CLI never calls (v1 is forbidden by AGENTS.md) |
+| The REST API has no **VM → template conversion**: the `vm-templates` resource is read/delete/tag/export only, and `PATCH /vms/{id}` accepts the editable VM fields (`EditVmProps`: name, memory, CPUs, tags, …) but no `isTemplate`; the only conversion is the legacy JSON-RPC `vm.convertToTemplate` | No `xo` command can perform it (v1 is forbidden by AGENTS.md, and a raw-REST workaround does not exist because the endpoint itself is missing). The "image → template" flow is documented in [usecases.md](usecases.md#turn-a-downloaded-image-into-a-vm-template), where the conversion is done in the web UI (VM → Advanced → *Convert to template*, one-way); the capability should be contributed to the XO REST API first, then to the SDK v2 |
 
 ### Which command uses which SDK surface
 
@@ -536,6 +537,13 @@ be built on the SDK v2 as it stands:
 - `xo watch` (live events): `GET /events` is a **SSE** stream and the SDK has
   no SSE support. Per the architecture rules this goes through a SDK
   contribution, not an in-CLI `net/http` stream.
+- VM → template conversion (`xo vm template` or an equivalent): the XO
+  **REST API itself has no endpoint for it** (the `vm-templates` resource is
+  read/delete/tag/export only; `PATCH /vms/{id}` accepts no `isTemplate`).
+  The only conversion is the legacy JSON-RPC `vm.convertToTemplate`, which
+  AGENTS.md forbids using. This needs an XO upstream change first, then an SDK
+  v2 contribution — see the [Known SDK gaps](#known-sdk-gaps-the-cli-works-around)
+  table and the "image → template" [use case](usecases.md#turn-a-downloaded-image-into-a-vm-template).
 
 ### CLI-side polish (no SDK dependency)
 

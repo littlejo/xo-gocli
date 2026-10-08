@@ -589,9 +589,14 @@ required for a coherent release):
   part of this — it is already fixed); a wait-deadline `--timeout` on
   `vm create` / `network create*` (the S3 pattern from pool maintenance;
   C2) — not needed for v1.0.0 while #121 is open, but reconsider when it
-  lands; second use case in `usecases.md`;
-  repository `CHANGELOG.md` (GoReleaser generates per-release notes today);
+  lands;
+- repository `CHANGELOG.md` (GoReleaser generates per-release notes today);
   commit hash in `xo version`; group-level `Long` help text; `.gitattributes`.
+
+> The "second use case in `usecases.md`" item from this list is done:
+> [Turn a downloaded image into a VM template](usecases.md#turn-a-downloaded-image-into-a-vm-template)
+> (it also documents the VM→template REST gap, see
+> [development.md](development.md#known-sdk-gaps-the-cli-works-around)).
 
 ## Release checklist
 
