@@ -441,10 +441,12 @@ card and the shell.
    ```
 
 3. **Write the image into it.** This **overwrites** the disk's content, so it
-   asks for confirmation (`--yes` for scripts):
+   asks for confirmation (`--yes` for scripts). The upload is one single HTTP
+   request bounded by the global timeout (30 s default), so a large image over
+   a slow link needs a bigger `--timeout`:
 
    ```sh
-   xo vdi import 22222222-2222-4222-8222-222222222222 node.raw --format raw --yes
+   xo vdi import 22222222-2222-4222-8222-222222222222 node.raw --format raw --timeout 10m --yes
    ```
 
    ```
@@ -590,6 +592,71 @@ step 6**, what belongs to each clone and what must not:
 > identifier on disk: enumerate it in the guest before you convert, and scrub
 > or re-issue it per clone.
 
+### Cloud-init / nocloud images
+
+Some images are built to be configured at **first boot** by **cloud-init**
+(or a native equivalent) reading a **nocloud seed** — a small FAT volume
+labeled `cidata`, holding `meta-data` / `user-data` / `network-config`.
+Talos Linux built for the `nocloud` platform from the
+[Talos Image Factory](https://factory.talos.dev/) is the usual example;
+several generic Linux cloud images are the same. The Siderolabs guide
+[Xen Orchestra](https://docs.siderolabs.com/talos/v1.14/platform-specific-installations/virtualized-platforms/xenorchestra)
+documents this exact flow for Talos.
+
+If your image is one of those, two things change in the flow above:
+
+- **The shell VM must never be booted** — skip steps 4 and 5 entirely. Booting
+  a cloud-init image without its seed leaves first-boot state (machine-id,
+  per-node artifacts) baked into the template. Create the shell VM, write the
+  image into its disk while it is halted, and go straight to the conversion.
+- **Each clone is configured at creation, not pre-baked.** XO builds the
+  config drive per VM on `POST /pools/{pool}/actions/create_vm`, which takes
+  `cloud_config` (the user-data) and `network_config` in the body — the
+  "custom config" of the web UI. The SDK's `CreateVMParams` already carries
+  `CloudConfig` / `NetworkConfig` / `DestroyCloudConfigVDI`; `xo vm create`
+  does not expose those flags yet (roadmap: "widen `vm create`"), so until
+  then the escape hatch works:
+
+  ```sh
+  xo rest post pools/aaaaaaaa-bbbb-cccc-dddd-000000000001/actions/create_vm \
+    --data '{"name_label": "node-01",
+             "template": "66666666-6666-4666-8666-666666666666",
+             "cloud_config": "<user-data, e.g. a talosctl machine config>",
+             "boot": true}'
+  ```
+
+  `destroy_cloud_config_vdi: true` in the same body removes the seed disk
+  after the first boot, instead of leaving it attached.
+
+#### The `viridian` trap
+
+XO builds that config drive from the VM's `platform.viridian` value — the
+Hyper-V enlightenments flag, which XO uses as its "is this a Windows VM?"
+heuristic:
+
+| `platform.viridian` | Config drive layout |
+| ------------------- | ------------------- |
+| `true`  | an **MBR prepended** to the FAT16 volume (the ConfigDrive v1 layout Windows expects to partition) |
+| `false` | the **raw FAT16 volume at offset 0** (the NoCloud layout Linux guests expect) |
+
+Linux nocloud guests look for the `cidata` FAT filesystem at the start of the
+disk and do not read partition tables. With `viridian: true`, the first
+sector is an MBR (signature `0x55AA`) instead of the filesystem: the seed is
+never found and the guest boots into maintenance / rescue mode with no
+configuration.
+
+**Keep `viridian: false` on the template.** The flag is inherited by every VM
+created from it, and it is read when each VM's config drive is built. If a VM
+was already created with the wrong value, `PATCH /vms/{id}` accepts
+`viridian` — `xo rest patch vms/<id> --data '{"viridian": false}'` — although
+`xo vm update` does not expose the flag yet.
+
+> Worked example: a Talos `nocloud` template is an Image Factory image for
+> the `nocloud` platform with the `siderolabs/xen-guest-agent` system
+> extension, imported as a VDI, attached to an **un-booted** shell VM (UEFI
+> boot mode, no other disks), `viridian: false`, converted to a template
+> without ever being started.
+
 ### Scripting it end to end
 
 Machine-readable output makes the typed steps chainable; the script must
@@ -607,7 +674,7 @@ VM_ID=$(xo vm create node-base --pool "$POOL" --template "$BASE_TEMPLATE" \
 
 # 2. write the image into its system disk (the VM is halted)
 SYS_VDI=$(xo vm vdis "$VM_ID" --output json | jq -r '.[] | select(.VDI_type=="system") | .id')
-xo vdi import "$SYS_VDI" "$IMAGE" --format raw --yes
+xo vdi import "$SYS_VDI" "$IMAGE" --format raw --timeout 10m --yes
 
 # 3. verify it boots, then capture it halted
 xo vm start "$VM_ID" --wait
@@ -640,6 +707,7 @@ UUID it was converted from.
 | The VM still shows in `xo vm list` after the "conversion" | The conversion was not performed (or was cancelled in the UI). It only happens through the web UI's *Convert to template*; there is no CLI/REST command for it yet. |
 | New VMs created from the template present the source machine's identity (duplicate VPN/agent nodes, same hostname, …) | The image carried per-node state — see the [per-node state notes](#per-node-state-in-the-image). |
 | The shell VM booted into a rescue prompt after the import | The image's boot loader expects different disk geometry (e.g. it was captured on a smaller/larger disk). Boot the shell VM from the console, fix the bootloader or partition table inside the guest, then redo steps 5–6. |
+| A cloud-init / nocloud node boots into maintenance mode without its configuration | The seed (config drive) is not being read. Most often `viridian: true` — XO then prepends an MBR to the FAT volume, which nocloud guests cannot mount. Keep it `false` on the template; see the [viridian trap](#the-viridian-trap). |
 | I want the original VM back | The conversion is one-way. Clone before converting (see the note in step 6), or re-import the XVA you exported beforehand (`xo vm export <id> --file backup.xva`). |
 
 Every failure is reported as `Error: …` on **stderr**; machine-readable output
