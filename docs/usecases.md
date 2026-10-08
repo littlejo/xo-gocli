@@ -275,7 +275,7 @@ message.
 ## Turn a downloaded image into a VM template
 
 You have downloaded an image of a machine you want to run repeatedly — for
-example a Linux node with **Tailscale** installed — and you want it to be
+example a Linux node with a **VPN client** installed — and you want it to be
 available in Xen Orchestra as a **VM template**, so that new nodes are a one
 line away: `xo vm create node-01 --pool … --template …`.
 
@@ -329,11 +329,11 @@ conversion is **one-way** — afterwards the object no longer appears in
 ### Step 1 — identify the image
 
 ```sh
-file tailscale.qcow2
+file node.qcow2
 ```
 
 ```
-tailscale.qcow2: QEMU QCOW2 Image, version 3, 8589934592 bytes
+node.qcow2: QEMU QCOW2 Image, version 3, 8589934592 bytes
 ```
 
 Route the result:
@@ -341,12 +341,12 @@ Route the result:
 | `file` says (or the extension) | It is | Path |
 | ------------------------------ | ----- | ---- |
 | XVA (`gzip compressed data…`, `.xva`) or OVA (`POSIX tar archive`, `.ova`) | A **full VM export** | Short path — [step 3a](#step-3a-short-path-xva--ova) |
-| `QEMU QCOW2 Image`, `data` (`.raw`/`.img`), `Microsoft Virtual PC Hard Disk` (`.vhd`), VirtualBox `.vdi` | A **bare disk** | Long path — [step 3b](#step-3b-long-path-bare-disk-the-tailscale-case) |
+| `QEMU QCOW2 Image`, `data` (`.raw`/`.img`), `Microsoft Virtual PC Hard Disk` (`.vhd`), VirtualBox `.vdi` | A **bare disk** | Long path — [step 3b](#step-3b-long-path-bare-disk) |
 
 Convert a qcow2 (or vdi) to a format XO understands, once:
 
 ```sh
-qemu-img convert -f qcow2 -O raw tailscale.qcow2 tailscale.raw
+qemu-img convert -f qcow2 -O raw node.qcow2 node.raw
 ```
 
 A raw disk is a *guest OS on a disk* — no boot order, no network card, no
@@ -383,7 +383,7 @@ Pick the pool (e.g. `aaaaaaaa-…`) and, for the disk path, a **shared** SR
 The archive already *is* a VM, so one command imports it:
 
 ```sh
-xo vm import tailscale.ova --pool aaaaaaaa-bbbb-cccc-dddd-000000000001
+xo vm import node.ova --pool aaaaaaaa-bbbb-cccc-dddd-000000000001
 ```
 
 ```
@@ -396,7 +396,7 @@ large archive over a slow link, raise it: `--timeout 30m` or `$XOA_TIMEOUT`.
 
 Go to [step 4](#step-4--boot-it-and-verify-it-works).
 
-### Step 3b — long path: bare disk (the Tailscale case)
+### Step 3b — long path: bare disk
 
 Wrap the disk in a throwaway VM built from a **base template** of the pool —
 any generic template works (the stock pool template `other_install` is the
@@ -409,13 +409,13 @@ card and the shell.
    the end of this use case).
 
    ```sh
-   xo vm create tailscale-base --pool aaaaaaaa-bbbb-cccc-dddd-000000000001 \
+   xo vm create node-base --pool aaaaaaaa-bbbb-cccc-dddd-000000000001 \
      --template aaaaaaaa-bbbb-cccc-dddd-000000000001-3f9b5e2a-7c1d-4e8f-9a0b-1c2d3e4f5a6b \
      --memory 2G
    ```
 
    ```
-   VM "tailscale-base" created:
+   VM "node-base" created:
      id:     66666666-6666-4666-8666-666666666666
      state:  Halted
      memory: 2.147GB
@@ -444,7 +444,7 @@ card and the shell.
    asks for confirmation (`--yes` for scripts):
 
    ```sh
-   xo vdi import 22222222-2222-4222-8222-222222222222 tailscale.raw --format raw --yes
+   xo vdi import 22222222-2222-4222-8222-222222222222 node.raw --format raw --yes
    ```
 
    ```
@@ -470,9 +470,9 @@ ID                                    STATUS   TYPE  NAME      STARTED          
 `--wait` blocks until the start task completes and prints it (like `xo task
 wait`); the exit status is non-zero if the start failed. Then prove the image
 is healthy — this is the only step the CLI cannot do for you: console or SSH
-in, check the OS boots, the services start, and (for Tailscale) that the
-daemon runs: `systemctl status tailscaled`. Only convert a template you would
-be happy to boot blindly.
+in, check the OS boots and that the services you need run (for a node image,
+the VPN client's daemon and the rest of its software stack). Only convert a
+template you would be happy to boot blindly.
 
 ### Step 5 — shut it down cleanly
 
@@ -512,7 +512,7 @@ What happens:
 
 > Want to keep the running VM as well? Duplicate it first (the REST API has a
 > `POST /vms/{id}/actions/clone` action, not yet a typed CLI command — `xo
-> rest post vms/<id>/actions/clone --data '{"name_label":"tailscale-keep"}'`),
+> rest post vms/<id>/actions/clone --data '{"name_label":"node-keep"}'`),
 > convert the duplicate, and keep or delete the original.
 
 ### Step 7 — verify the template
@@ -522,10 +522,10 @@ xo template list
 ```
 
 ```
-ID                                                                         NAME            DEFAULT  MEMORY   CPUS  POOL
--------------------------------------------------------------------------  --------------  -------  -------  ----  -------
-aaaaaaaa-bbbb-cccc-dddd-000000000001-3f9b5e2a-7c1d-4e8f-9a0b-1c2d3e4f5a6b  other_install   no       2.147GB  1     pool-01
-aaaaaaaa-bbbb-cccc-dddd-000000000001-66666666-6666-4666-8666-666666666666  tailscale-base  no       2.147GB  1     pool-01
+ID                                                                         NAME           DEFAULT  MEMORY   CPUS  POOL
+-------------------------------------------------------------------------  -------------  -------  -------  ----  -------
+aaaaaaaa-bbbb-cccc-dddd-000000000001-3f9b5e2a-7c1d-4e8f-9a0b-1c2d3e4f5a6b  other_install  no       2.147GB  1     pool-01
+aaaaaaaa-bbbb-cccc-dddd-000000000001-66666666-6666-4666-8666-666666666666  node-base      no       2.147GB  1     pool-01
 ```
 
 ```sh
@@ -533,7 +533,7 @@ xo template get aaaaaaaa-bbbb-cccc-dddd-000000000001-66666666-6666-4666-8666-666
 ```
 
 ```
-Template tailscale-base
+Template node-base
 Pool:        pool-01
 Memory:      2.147GB
 CPUs:        1
@@ -547,12 +547,12 @@ conversion (`$POOL-66666666-…` above).
 ### Step 8 — create VMs from the template
 
 ```sh
-xo vm create tailscale-node-01 --pool aaaaaaaa-bbbb-cccc-dddd-000000000001 \
+xo vm create node-01 --pool aaaaaaaa-bbbb-cccc-dddd-000000000001 \
   --template aaaaaaaa-bbbb-cccc-dddd-000000000001-66666666-6666-4666-8666-666666666666
 ```
 
 ```
-VM "tailscale-node-01" created:
+VM "node-01" created:
   id:     88888888-8888-4888-8888-888888888888
   state:  Halted
   memory: 2.147GB
@@ -565,21 +565,30 @@ Start it with: xo vm start 88888888-8888-4888-8888-888888888888
 as soon as it is created. Every VM created this way gets a fresh copy of the
 template's disks on the pool's default SR.
 
-### Tailscale-specific notes
+### Per-node state in the image
 
-A Tailscale image has state that a generic OS image does not:
+An image of a *configured* machine carries state that a generic OS image does
+not. Cloning a template replicates that state on every VM, so decide, **before
+step 6**, what belongs to each clone and what must not:
 
-- **Do not bake in a live node identity.** If the source machine was
-  authenticated to a tailnet, its node key is in `/var/lib/tailscale`.
-  Clones of the template would all present the *same* identity. Before
-  step 6, either wipe the Tailscale state in the guest (e.g.
-  `tailscale down --delete-keys && rm -rf /var/lib/tailscale`) or plan to run
-  `tailscale up --auth-key=<key>` in every clone after first boot.
-- **Hostnames.** Tailscale advertises the machine's hostname; if the guest's
-  hostname is baked in, all clones look identical in the tailnet. Change it
-  per clone (e.g. a first-boot script driven by the VM's `name_label`).
-- **The template's Tailscale config is a starting point** — ACLs, exit-node
-  and subnet-router roles are per-node and must be re-decided for each VM.
+- **Do not bake in a live identity or credential.** If the source machine was
+  registered with some service — a VPN/zero-trust daemon, a monitoring or
+  management agent, a license — its node identity/key lives in the image
+  (e.g. a VPN daemon's state directory). Clones of the template would all
+  present the *same* identity. Either wipe that state in the guest before
+  converting (stop the service, remove its state and keys), or plan to run
+  the daemon's first-boot registration (an auth key / per-node credential) in
+  every clone after first boot.
+- **Hostnames.** Many daemons advertise the machine's hostname; if it is
+  baked in, all clones look identical. Change it per clone (e.g. a first-boot
+  script driven by the VM's `name_label`).
+- **Service configuration is a starting point.** Network roles, ACLs and
+  per-node settings are decided per VM, not inherited from the source machine
+  — re-check them for each clone.
+
+> The same rule applies to any agent that stores a secret or a machine-specific
+> identifier on disk: enumerate it in the guest before you convert, and scrub
+> or re-issue it per clone.
 
 ### Scripting it end to end
 
@@ -590,10 +599,10 @@ Machine-readable output makes the typed steps chainable; the script must
 set -euo pipefail
 POOL="aaaaaaaa-bbbb-cccc-dddd-000000000001"
 BASE_TEMPLATE="aaaaaaaa-bbbb-cccc-dddd-000000000001-3f9b5e2a-7c1d-4e8f-9a0b-1c2d3e4f5a6b"
-IMAGE="tailscale.raw"
+IMAGE="node.raw"
 
 # 1. shell VM from the base template (system disk >= image size)
-VM_ID=$(xo vm create tailscale-base --pool "$POOL" --template "$BASE_TEMPLATE" \
+VM_ID=$(xo vm create node-base --pool "$POOL" --template "$BASE_TEMPLATE" \
   --memory 2G --output json | jq -r '.id')
 
 # 2. write the image into its system disk (the VM is halted)
@@ -602,7 +611,7 @@ xo vdi import "$SYS_VDI" "$IMAGE" --format raw --yes
 
 # 3. verify it boots, then capture it halted
 xo vm start "$VM_ID" --wait
-# … console/SSH: the OS boots, tailscaled runs …
+# … console/SSH: the OS boots, the services you need run …
 xo vm stop "$VM_ID" --wait
 
 # 4. web UI: VM -> Advanced -> Convert to template. Then:
@@ -611,7 +620,7 @@ xo template list --query "[?id=='$TEMPLATE_ID'].name_label"
 
 # 5. create the fleet
 for i in 01 02 03; do
-  xo vm create "tailscale-node-$i" --pool "$POOL" --template "$TEMPLATE_ID"
+  xo vm create "node-$i" --pool "$POOL" --template "$TEMPLATE_ID"
 done
 ```
 
@@ -629,7 +638,7 @@ UUID it was converted from.
 | The image does not fit the system disk | The VDI must be at least as big as the image, and a VDI cannot be shrunk. Either pick a base template with a bigger system disk, or grow it with the REST escape hatch `xo rest patch vdis/<id> --data '{"size": <bytes>}'` (grow-only, size in bytes) — the CLI has no typed resize command yet. |
 | Import (or upload) times out | The whole transfer is one HTTP request bounded by the global timeout (30 s default). Raise it with `--timeout` or `$XOA_TIMEOUT`. |
 | The VM still shows in `xo vm list` after the "conversion" | The conversion was not performed (or was cancelled in the UI). It only happens through the web UI's *Convert to template*; there is no CLI/REST command for it yet. |
-| New VMs created from the template do not join the tailnet / show as duplicate nodes | The image carried the source machine's Tailscale identity — see the [Tailscale-specific notes](#tailscale-specific-notes). |
+| New VMs created from the template present the source machine's identity (duplicate VPN/agent nodes, same hostname, …) | The image carried per-node state — see the [per-node state notes](#per-node-state-in-the-image). |
 | The shell VM booted into a rescue prompt after the import | The image's boot loader expects different disk geometry (e.g. it was captured on a smaller/larger disk). Boot the shell VM from the console, fix the bootloader or partition table inside the guest, then redo steps 5–6. |
 | I want the original VM back | The conversion is one-way. Clone before converting (see the note in step 6), or re-import the XVA you exported beforehand (`xo vm export <id> --file backup.xva`). |
 
