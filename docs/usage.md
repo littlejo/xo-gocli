@@ -712,8 +712,11 @@ Duration:  2s
 Error:     VM_NOT_FOUND — VM not found
 ```
 
-Asynchronous operations (`vm start`, `vm create`, …) return a task id; follow
-it with `xo task get <id>` or `xo task wait <id>`.
+Asynchronous operations (`vm start`, `vm stop`, …) return a task id; follow
+it with `xo task get <id>` or `xo task wait <id>`. `vm create` and the
+`network create` commands are different: they wait for the creation task
+inside the SDK and only return once the resource exists, printing the full
+object (see [Mutation and action output](#mutation-and-action-output)).
 
 `task abort` requests the interruption of a task that is still **pending**;
 the task then reaches the `interrupted` status. It is a destructive operation
