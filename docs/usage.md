@@ -211,9 +211,10 @@ command blocks overall. By default that overall wait is **unbounded**: the
 command blocks until the task completes (or Ctrl+C). The flag that *does*
 bound it is the `--timeout` that `task wait`, `vm wait` and the three pool
 maintenance commands define locally; on those commands it is the *wait*
-deadline (not the
-HTTP client timeout) and it shadows the global flag — like `task wait` already
-did:
+deadline (not the HTTP client timeout). It is a command-local flag that
+happens to reuse the global name — it does **not** alter the per-request
+HTTP timeout, which is still set with the global `--timeout` or
+`$XOA_TIMEOUT`:
 
 ```sh
 xo pool rolling-update <id> --timeout 30m   # give up on the wait after 30 min
@@ -400,8 +401,11 @@ ip=$(xo vm wait <id> --ssh --output json --query ip)   # "10.0.0.11"
 ssh <user>@${ip#\"}
 ```
 
-Like `task wait`, this command's `--timeout` is the *wait* deadline (not the
-global HTTP `--timeout`); without it the wait is unbounded.
+This command's `--timeout` is the *wait* deadline — it bounds how long to
+keep polling, not the per-request HTTP timeout of each poll, which stays at
+the global `--timeout` / `$XOA_TIMEOUT` / 30 s default (a long wait is made
+of many short-timeout polls, so extending the wait does not extend them).
+Without `--timeout` the wait is unbounded.
 
 The human `POWER STATE` — the `vm list` column and the `vm get` header —
 shows the operation in flight while a lifecycle action is running. A VM whose

@@ -58,9 +58,11 @@ ends only when the gate is satisfied or you press Ctrl+C).
 Exit status: 0 when the VM is ready; non-zero when the --timeout deadline is
 reached, the wait is interrupted, or the VM does not exist.
 
-Note: this command's --timeout is the *wait* deadline, not the global HTTP
-client --timeout. It shadows the global flag on this command, so the HTTP
-timeout applied to each poll is still controlled by $XOA_TIMEOUT when needed.
+Note: this command's --timeout bounds the *wait* only (how long to keep
+polling). It does not change the per-request HTTP timeout: each poll still
+uses the global --timeout / $XOA_TIMEOUT / 30s default. To raise the HTTP
+timeout applied to each poll, set the global --timeout or $XOA_TIMEOUT —
+extending the wait alone does not.
 
 The VM is referenced by its UUID, as returned by 'xo vm list'.
 
@@ -91,10 +93,12 @@ Examples:
 	}
 
 	cmd.Flags().StringVarP(&query, flagQuery, "q", "", "JMESPath expression applied to the result, e.g. 'ip'")
-	// Local --timeout: the wait deadline. It shadows the global HTTP --timeout
-	// on this command (see the Long help); the HTTP timeout is set with
-	// $XOA_TIMEOUT when needed.
-	cmd.Flags().DurationVar(&waitTimeout, cli.FlagTimeout, 0, "wait at most this long for the VM to be ready, e.g. 5m (default: wait until it is ready)")
+	// Local --timeout: the wait deadline (how long to keep polling). It is a
+	// distinct local flag that happens to reuse the global name "timeout"; it
+	// does NOT affect the per-request HTTP timeout (cli.Timeout reads the
+	// root's persistent flag, which stays at its own value) — see the Long
+	// help.
+	cmd.Flags().DurationVar(&waitTimeout, cli.FlagTimeout, 0, "wait at most this long for the VM to be ready, e.g. 5m (default: wait until it is ready); bounds the wait only, not the HTTP timeout of each poll")
 	cmd.Flags().BoolVar(&sshGate, flagWaitSSH, false, "also wait until the guest's SSH port is reachable on its main IP (TCP probe)")
 	cmd.Flags().IntVar(&port, flagWaitPort, defaultWaitPort, "port to probe with --ssh (default 22; implies --ssh)")
 	return cmd
