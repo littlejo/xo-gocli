@@ -785,6 +785,11 @@ CPUs:        2
 Power state: Halted
 ```
 
+Templates are created from VMs (import a VM, then convert it); the REST API
+has no conversion endpoint, so `xo` has no `template create` — see the
+["turn a downloaded image into a VM template"](usecases.md#turn-a-downloaded-image-into-a-vm-template)
+use case for the full flow, including the web-UI conversion step.
+
 ### `xo rest`
 
 Call a raw Xen Orchestra REST endpoint.
