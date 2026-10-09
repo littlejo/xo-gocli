@@ -507,7 +507,8 @@ hand-cut release:
    installable (`install.sh` hits `releases/latest` and fails with "no
    release found") until a human publishes it from the Actions/Releases page.
 4. Release notes: the v1.0.0 headline (name resolution on `list`/`get` at a
-   constant anti-N+1 cost; first-class vdi/vbd/pbd; `rest` escape hatch).
+   constant anti-N+1 cost; first-class vdi/vbd/pbd; `rest` escape hatch;
+   `vm wait --ssh` readiness gate for deploy scripts).
    The SDK dependency is now plain upstream `v1.20.0` (the `VBD.Position`
    fix, PR #119, shipped there), so no fork disclosure is needed.
 5. Smoke-test `install.sh` against the published release on Linux amd64 and

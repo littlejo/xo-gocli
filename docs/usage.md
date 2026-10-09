@@ -209,10 +209,12 @@ completes (the pool `rolling-update` / `rolling-reboot` / `emergency-shutdown`,
 client timeout only bounds each individual poll request, **not** how long the
 command blocks overall. By default that overall wait is **unbounded**: the
 command blocks until the task completes (or Ctrl+C). The flag that *does*
-bound it is the `--timeout` that `task wait` and the three pool maintenance
-commands define locally; on those commands it is the *wait* deadline (not the
-HTTP client timeout) and it shadows the global flag — like `task wait` already
-did:
+bound it is the `--timeout` that `task wait`, `vm wait` and the three pool
+maintenance commands define locally; on those commands it is the *wait*
+deadline (not the HTTP client timeout). It is a command-local flag that
+happens to reuse the global name — it does **not** alter the per-request
+HTTP timeout, which is still set with the global `--timeout` or
+`$XOA_TIMEOUT`:
 
 ```sh
 xo pool rolling-update <id> --timeout 30m   # give up on the wait after 30 min
@@ -294,6 +296,8 @@ xo vm get <id>                      # one VM, as a detail view
 xo vm create web-02 --pool <pool-id> --template <template-id>
 xo vm create web-02 --pool <pool-id> --template <template-id> --memory 4G
 xo vm create web-02 --pool <pool-id> --template <template-id> --boot
+xo vm create web-02 --pool <pool-id> --template <template-id> --boot --ssh-key ~/.ssh/id_ed25519.pub
+xo vm create web-02 --pool <pool-id> --template <template-id> --cloud-config user-data.yaml
 
 # Update
 xo vm update <id> --name web-01
@@ -308,6 +312,13 @@ xo vm tag remove <id> production
 xo vm vdis <id>                     # list the VM's VDIs
 xo vm vdis <id> --type user         # filter by VDI type
 xo vm vdis <id> --query '[].name_label'
+
+# Readiness gate (blocks until the VM is usable, like a deploy gate)
+xo vm wait <id>                     # …until running with a main IP
+xo vm wait <id> --ssh                # …and until the guest answers on :22
+xo vm wait <id> --ssh --port 2222    # non-standard port (implies --ssh)
+xo vm wait <id> --timeout 5m         # give up after 5 minutes
+xo vm wait <id> --output json --query ip   # the IP, for the next command
 
 # Lifecycle (async actions return a task id; delete is synchronous)
 xo vm start <id>                    # power on
@@ -330,6 +341,15 @@ xo vm delete <id> --yes             # skip confirmation (automation)
 ```
 
 `--memory` accepts bytes or human-readable sizes (`2G`, `512M`).
+
+`--ssh-key <file>` injects the public key from the file into the guest with
+cloud-init (`ssh_authorized_keys`) so you can log in right after the VM
+boots; `--cloud-config <file>` passes a full cloud-init user-data document
+instead (mutually exclusive). Both need a template that supports
+cloud-config. A key can only be injected at creation time: `cloud_config` is
+the only path the REST API offers for getting a key into a guest, and there
+is no action to add one to a VM that already exists — plan the key when you
+create the machine.
 
 `vm get` shows a single VM as a **detail view** (distinct from `vm list`,
 which is the one-line-per-VM table used to pick a VM). It shows identity
@@ -364,6 +384,28 @@ The lifecycle actions (`start`, `stop`, `reboot`, `pause`, `unpause`,
 state instead; the completed task is then printed (like `xo task wait`) and
 the exit status reflects the outcome (non-zero if the task fails or is
 interrupted).
+
+`vm wait` blocks until the VM is **ready to use**, polling every 2 seconds
+(like `xo task wait`): by default that means the VM is `Running` and has a
+main IP address (the `IP` column of `vm list`). With `--ssh` it also waits
+until the guest's SSH port is reachable over TCP on that IP, so
+`xo vm wait <id> --ssh` is the last gate before `ssh <user>@<ip>`. The probe
+checks TCP reachability only, not the SSH handshake: if the guest starts
+sshd late or opens its firewall late, the port may answer a moment later.
+The exit status is 0 when the VM is ready and non-zero when the `--timeout`
+deadline is reached, the wait is interrupted (Ctrl+C), or the VM does not
+exist, so it works as a gate in scripts:
+
+```sh
+ip=$(xo vm wait <id> --ssh --output json --query ip)   # "10.0.0.11"
+ssh <user>@${ip#\"}
+```
+
+This command's `--timeout` is the *wait* deadline — it bounds how long to
+keep polling, not the per-request HTTP timeout of each poll, which stays at
+the global `--timeout` / `$XOA_TIMEOUT` / 30 s default (a long wait is made
+of many short-timeout polls, so extending the wait does not extend them).
+Without `--timeout` the wait is unbounded.
 
 The human `POWER STATE` — the `vm list` column and the `vm get` header —
 shows the operation in flight while a lifecycle action is running. A VM whose
