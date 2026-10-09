@@ -8,6 +8,7 @@ import (
 
 	"github.com/gofrs/uuid"
 	"github.com/spf13/cobra"
+	"gopkg.in/yaml.v3"
 
 	"github.com/vatesfr/xenorchestra-go-sdk/pkg/payloads"
 
@@ -152,10 +153,18 @@ func cloudConfigFromFlags(sshKey, cloudConfig string) (string, error) {
 		if err != nil {
 			return "", fmt.Errorf("cannot read --cloud-config file: %w", err)
 		}
-		if strings.TrimSpace(string(data)) == "" {
+		text := string(data)
+		if strings.TrimSpace(text) == "" {
 			return "", fmt.Errorf("--cloud-config file %q is empty", cloudConfig)
 		}
-		return string(data), nil
+		// Without the magic header, cloud-init may treat the content as a
+		// script (or ignore it) and boot the VM with none of the intended
+		// configuration applied — a failure only visible inside the guest.
+		// Catch it here, at the CLI.
+		if !strings.HasPrefix(strings.TrimSpace(text), "#cloud-config") {
+			return "", fmt.Errorf("--cloud-config file %q does not start with the '#cloud-config' header; cloud-init will not apply it without it", cloudConfig)
+		}
+		return text, nil
 	}
 
 	data, err := os.ReadFile(sshKey)
@@ -170,7 +179,21 @@ func cloudConfigFromFlags(sshKey, cloudConfig string) (string, error) {
 	if !strings.HasPrefix(key, "ssh-") && !strings.HasPrefix(key, "ecdsa-") {
 		return "", fmt.Errorf("%q does not look like a public SSH key (expected a line starting with ssh-ed25519, ssh-rsa, ecdsa-…, e.g. ~/.ssh/id_ed25519.pub)", sshKey)
 	}
-	return "#cloud-config\nssh_authorized_keys:\n  - " + key + "\n", nil
+	// Multi-line content (e.g. a whole authorized_keys file) would leave
+	// stray lines inside the generated document: the API call would still
+	// succeed, but the guest would fail to parse the user-data and boot
+	// without the key.
+	if strings.ContainsAny(key, "\r\n") {
+		return "", fmt.Errorf("%q contains multiple lines: --ssh-key expects a single public key line (for authorized_keys-style files, use --cloud-config)", sshKey)
+	}
+	// The key (including its optional comment) is embedded in a YAML
+	// document; quote it with yaml.Marshal so a comment containing YAML
+	// special characters (e.g. "user: host") cannot break the document.
+	quoted, err := yaml.Marshal(key)
+	if err != nil {
+		return "", fmt.Errorf("cannot encode --ssh-key content as YAML: %w", err)
+	}
+	return "#cloud-config\nssh_authorized_keys:\n  - " + strings.TrimSpace(string(quoted)) + "\n", nil
 }
 
 // parseTemplateID parses --template, accepting either the bare template UUID
