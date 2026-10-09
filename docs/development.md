@@ -161,6 +161,27 @@ git diff cmd/xo/testdata/
   [GoReleaser](https://goreleaser.com) and publishes them as a draft GitHub
   release. It can also be run manually from the Actions tab (optionally
   targeting a specific tag).
+- **OCR PR Review** (`.github/workflows/ocr-review.yml`): AI code review on
+  pull requests with [OpenCodeReview](https://open-codereview.ai)
+  (`alibaba/open-code-review`), pinned to the commit SHA of a release
+  (`v1.12.13`). It runs the `ocr`
+  review over the PR diff (base → head), using the Vates LiteLLM gateway
+  (`qwen3-coder`, OpenAI-compatible protocol), and posts the findings as
+  inline review comments plus a sticky summary on the PR. It is **advisory,
+  non-blocking by design** — do not add it to the branch-protection required
+  checks; the merge gate stays the `CI` workflow. It triggers on
+  `pull_request` (opened / synchronize / reopened) and on a human
+  (MEMBER / OWNER / COLLABORATOR) comment starting with `/open-code-review`
+  or `@open-code-review` to re-run a review on demand. One required secret:
+  `OCR_LLM_AUTH_TOKEN` (the LLM API key, under
+  *Settings → Secrets and variables → Actions*). Because the trigger is
+  `pull_request` (not `pull_request_target`), repo secrets are not available
+  to fork PRs, so they are skipped outright (job-level condition and
+  concurrency predicate both check
+  `head.repo.full_name == github.repository`) rather than burning a
+  guaranteed-failing run. The raw review JSON and stderr are cat'ed into the
+  workflow log; they are deliberately not uploaded as artifacts, so the LLM
+  token is never persisted to a downloadable artifact.
 
 Normal flow: push to `main` — the tag and the release are created
 automatically. To release a specific commit by hand:

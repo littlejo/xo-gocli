@@ -1,0 +1,199 @@
+# OpenCodeReview — AI code review on pull requests (https://open-codereview.ai)
+#
+# Reviews each PR with [OpenCodeReview](https://github.com/alibaba/open-code-review)
+# (the `ocr` CLI, used here through its official reusable action) and posts the
+# findings as inline review comments plus a sticky summary on the PR.
+#
+# NON-BLOCKING by design: this job is advisory. It should NOT be added to the
+# branch-protection required checks — the gate for merging stays the `CI`
+# workflow. A failed review run (LLM outage, posting error) shows up red but
+# does not prevent a merge.
+#
+# Triggers:
+#   - pull_request: opened / synchronize / reopened  → automatic review
+#     (in-repo PRs only: fork PRs cannot read OCR_LLM_AUTH_TOKEN and would
+#     just burn a guaranteed-failing run, so they are skipped entirely)
+#   - issue_comment starting with /open-code-review  → on-demand re-review
+#     (human commenters only: MEMBER / OWNER / COLLABORATOR)
+#
+# Secrets / vars (Settings → Secrets and variables → Actions):
+#   secret OCR_LLM_AUTH_TOKEN  LLM API key for the Vates LiteLLM gateway.
+#                              This is the only required secret; the endpoint
+#                              and model are not sensitive and live here in the
+#                              workflow (same values as the local opencode
+#                              provider config).
+#
+# Debugging: the raw review JSON and stderr are cat'ed into the workflow log
+# (no artifact upload, so the LLM token is never persisted to a downloadable
+# artifact).
+#
+# LLM: OpenAI-compatible protocol (llm_use_anthropic false), the same gateway
+# and model the maintainers use day to day.
+
+name: OCR PR Review
+
+# Per-PR concurrency: a newer review for the same PR cancels the stale one,
+# while unrelated comments fall into a unique noop group that cannot cancel a
+# running review.
+#
+# The group expression mirrors the job-level `if:` condition almost verbatim.
+# GitHub evaluates concurrency BEFORE the job-level `if:`, so the predicate is
+# repeated here rather than shared: a run that does not match the trigger
+# condition must not share a group with a real review (it would cancel it).
+# Keep the two blocks in sync when the trigger conditions change.
+concurrency:
+  group: >-
+    ${{
+      (
+        (
+          github.event_name == 'pull_request'
+          && github.event.pull_request.head.repo.full_name == github.repository
+        )
+        || (
+          github.event_name == 'issue_comment'
+          && github.event.issue.pull_request
+          && github.event.comment.user.type != 'Bot'
+          && (
+            github.event.comment.author_association == 'MEMBER'
+            || github.event.comment.author_association == 'OWNER'
+            || github.event.comment.author_association == 'COLLABORATOR'
+          )
+          && (
+            startsWith(github.event.comment.body, '/open-code-review')
+            || startsWith(github.event.comment.body, '@open-code-review')
+          )
+        )
+      )
+      && format('ocr-{0}', github.event.pull_request.number || github.event.issue.number)
+      || format('noop-{0}', github.run_id)
+    }}
+  cancel-in-progress: true
+
+on:
+  # pull_request (not pull_request_target): the review secret is only
+  # available for in-repo PRs, and this keeps write permissions away from a
+  # target-branch checkout. Fork PRs are skipped by the job-level condition
+  # (and the concurrency predicate) — under pull_request they cannot read
+  # OCR_LLM_AUTH_TOKEN and would only produce a guaranteed-failing run.
+  pull_request:
+    types: [opened, synchronize, reopened]
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  code-review:
+    runs-on: ubuntu-latest
+    # Generous on purpose: reviews run concurrently (8 subtasks by default),
+    # but a PR with many large files still serializes across rounds, so the
+    # bound is job-wide rather than per-file.
+    timeout-minutes: 60
+    # Run on PR events, or on human-authored comments starting with a trigger
+    # keyword (bot comments excluded as a safety net).
+    if: |
+      (
+        github.event_name == 'pull_request'
+        && github.event.pull_request.head.repo.full_name == github.repository
+      )
+      || (
+        github.event_name == 'issue_comment'
+        && github.event.issue.pull_request
+        && github.event.comment.user.type != 'Bot'
+        && (
+          github.event.comment.author_association == 'MEMBER'
+          || github.event.comment.author_association == 'OWNER'
+          || github.event.comment.author_association == 'COLLABORATOR'
+        )
+        && (
+          startsWith(github.event.comment.body, '/open-code-review')
+          || startsWith(github.event.comment.body, '@open-code-review')
+        )
+      )
+    steps:
+      # For issue_comment events there is no top-level pull_request payload,
+      # so resolve the PR's base/head explicitly for the action.
+      - name: Get PR context
+        id: pr-context
+        if: github.event_name == 'issue_comment'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const crypto = require('crypto');
+            const { data: pullRequest } = await github.rest.pulls.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.issue.number,
+            });
+            // core.setOutput is deprecated; write GITHUB_OUTPUT directly.
+            // Multi-line values (a PR title can contain newlines) use a
+            // heredoc delimiter as documented by the Actions runner. The
+            // delimiter carries a random suffix: PR titles are
+            // attacker-controllable, and a title line equal to a fixed
+            // delimiter would terminate the heredoc early.
+            const setOutput = (name, value) => {
+              value = String(value);
+              if (!value.includes('\n')) {
+                fs.appendFileSync(process.env.GITHUB_OUTPUT, `${name}=${value}\n`);
+                return;
+              }
+              const delim = `OCR_EOF_${crypto.randomUUID()}`;
+              fs.appendFileSync(
+                process.env.GITHUB_OUTPUT,
+                `${name}<<${delim}\n${value}\n${delim}\n`,
+              );
+            };
+            setOutput('base_ref', pullRequest.base.ref);
+            setOutput('head_sha', pullRequest.head.sha);
+            setOutput('title', pullRequest.title);
+
+      - name: Run OpenCodeReview
+        # No actions/checkout here on purpose: the composite action performs
+        # its own checkout (full depth, the trusted base branch) and fetches
+        # the PR head separately before computing the merge-base range.
+        #
+        # Pinned to the commit SHA of release v1.12.13 (not a mutable tag and
+        # not @main): tags can be moved to point at a malicious commit, and
+        # this action runs with pull-requests: write on every triggered PR.
+        uses: alibaba/open-code-review@f33ea5896c67cfee0236e9ba65ccecaa9c998c54 # v1.12.13
+        with:
+          llm_url: https://ai-gateway.vates.tech/v1/chat/completions
+          llm_auth_token: ${{ secrets.OCR_LLM_AUTH_TOKEN }}
+          llm_model: qwen3-coder
+          llm_use_anthropic: 'false'
+          # qwen3-coder (a reasoning model behind the LiteLLM gateway) is
+          # slower than the OCR 300 s per-LLM-request default — a full-file
+          # review can exceed it (observed: LLM request timeout at ~10 min).
+          # Give each request 15 min, and each file a 20-min task deadline
+          # (job-wide timeout: 60 min).
+          # review_task_timeout is in MINUTES (1–120, per the action input).
+          llm_timeout: '900'
+          review_task_timeout: '20'
+          language: English
+          # Show live [ocr] progress in the workflow log.
+          stream_progress: 'true'
+          # No artifact upload: the raw result JSON and stderr are already
+          # cat'ed into the workflow log above, and an artifact would also
+          # retain anything the LLM gateway echoes to stderr (including, in
+          # principle, the token) for the whole retention period.
+          upload_artifacts: 'false'
+          # Pass the PR title as review background (safe: the action receives
+          # it as an action input, never interpolated into a shell line).
+          # issue_comment events carry no top-level pull_request payload, so
+          # the title comes from the pr-context step resolved above.
+          background: >-
+            ${{
+              github.event_name == 'issue_comment'
+              && steps.pr-context.outputs.title
+              || github.event.pull_request.title
+            }}
+          # For issue_comment triggers, pass the refs resolved above. On
+          # pull_request these are empty, and the action's "Resolve PR refs"
+          # step falls back to the event payload (verified in the action
+          # source at the pinned SHA: BASE_REF="${INPUT_BASE_REF:-
+          # $EVENT_BASE_REF}") — that path is what runs 1-4 exercised.
+          base_ref: ${{ steps.pr-context.outputs.base_ref }}
+          head_sha: ${{ steps.pr-context.outputs.head_sha }}
