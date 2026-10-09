@@ -238,6 +238,36 @@ func TestVMCreateSSHKey(t *testing.T) {
 		}
 	})
 
+	t.Run("ssh-key accepts an FIDO2 security key (sk- prefix)", func(t *testing.T) {
+		skKey := "sk-ssh-ed25519@openssh.com AAAAGnNliNzaC1lZDI1NTE5AAABAIQzRUNSTUZpQ1RPREVLWWZvckNIRVNUQ0hFQ0tTQ0hFQ0tTQ0hFQ0t0ZXN0AAABAFNLRkNIRVNUQ0hFQ0t0ZXN0AAADZGV2 test-security-key@example"
+		skFile := t.TempDir() + "/id_sk.pub"
+		if err := os.WriteFile(skFile, []byte(skKey+"\n"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+
+		server := newMutationServer(t)
+		defer server.Close()
+		isolateVM(t, server.URL)
+
+		pool := "aaaaaaaa-bbbb-cccc-dddd-000000000001"
+		template := "aaaaaaaa-bbbb-cccc-dddd-000000000009"
+		if _, err := runVM(t, "vm", "create", "web-02", "--pool", pool, "--template", template, "--ssh-key", skFile); err != nil {
+			t.Fatalf("vm create --ssh-key (FIDO2 sk- key) must be accepted: %v", err)
+		}
+		req, ok := server.requestByMethod(http.MethodPost)
+		if !ok {
+			t.Fatal("expected a POST create_vm request")
+		}
+		var body map[string]any
+		if err := json.Unmarshal([]byte(req.Body), &body); err != nil {
+			t.Fatalf("cannot parse create body: %v\n%s", err, req.Body)
+		}
+		cc, _ := body["cloud_config"].(string)
+		if !strings.Contains(cc, "#cloud-config") || !strings.Contains(cc, "ssh_authorized_keys") || !strings.Contains(cc, skKey) {
+			t.Fatalf("cloud_config should authorize the FIDO2 key, got:\n%s", cc)
+		}
+	})
+
 	t.Run("cloud-config file is passed verbatim", func(t *testing.T) {
 		server := newMutationServer(t)
 		defer server.Close()

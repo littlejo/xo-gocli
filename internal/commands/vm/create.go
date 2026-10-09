@@ -174,10 +174,13 @@ func cloudConfigFromFlags(sshKey, cloudConfig string) (string, error) {
 	key := strings.TrimSpace(string(data))
 	// A public key line starts with an algorithm tag (ssh-ed25519,
 	// ecdsa-sha2-nistp256, ssh-rsa, …) followed by base64 and an optional
-	// comment. A private key ("-----BEGIN …") or anything else would be
-	// a mistake (and would not work in the guest anyway).
-	if !strings.HasPrefix(key, "ssh-") && !strings.HasPrefix(key, "ecdsa-") {
-		return "", fmt.Errorf("%q does not look like a public SSH key (expected a line starting with ssh-ed25519, ssh-rsa, ecdsa-…, e.g. ~/.ssh/id_ed25519.pub)", sshKey)
+	// comment. Security-key (FIDO2, RFC 8704) keys are prefixed sk-
+	// (sk-ssh-ed25519@openssh.com, sk-ecdsa-sha2-nistp256@openssh.com) and
+	// work in authorized_keys. A private key ("-----BEGIN …") or anything
+	// else would be a mistake (and would not work in the guest anyway).
+	if !strings.HasPrefix(key, "ssh-") && !strings.HasPrefix(key, "ecdsa-") &&
+		!strings.HasPrefix(key, "sk-ssh-") && !strings.HasPrefix(key, "sk-ecdsa-") {
+		return "", fmt.Errorf("%q does not look like a public SSH key (expected a line starting with ssh-ed25519, ssh-rsa, ecdsa-…, sk-…, e.g. ~/.ssh/id_ed25519.pub)", sshKey)
 	}
 	// Multi-line content (e.g. a whole authorized_keys file) would leave
 	// stray lines inside the generated document: the API call would still
