@@ -708,6 +708,32 @@ Never hard-code credentials.
 
 Integration tests should be explicitly enabled/configured.
 
+### Use case tests (each use case is tested in CI)
+
+Every use case documented in `docs/usecases.md` must be pinned by an
+integration test in `internal/commands/usecases_integration_test.go`. The test
+drives the real command tree end to end with typed `xo` commands (no `xo rest`),
+asserts the machine output at each step, and verifies the final state.
+
+These tests run in CI without a live instance or any credential: the `functional`
+job of `.github/workflows/ci.yml` starts the xo-api-sim REST simulator, exports
+`XOA_TEST_URL` / `XOA_TEST_TOKEN`, and runs `go test -tags=integration ./...`, so
+each documented use case is exercised end to end with real HTTP requests.
+
+Rules:
+
+* A use case is only *complete* when every step that is a typed `xo` command is
+  covered by the test (see the definition of a complete use case in
+  `docs/usecases.md`).
+* Steps that cannot be automated are excluded **and** the reason is stated in a
+  comment in the test — for example guest-internal work (`mkfs`/`mount`), the
+  VM -> template conversion (no REST endpoint, done in the web UI), or the OS
+  actually booting (the test proves the power-state transitions, not the guest).
+* When a new use case is added to `docs/usecases.md`, its integration test must
+  be added in the same change and must be green in CI before the change is done.
+* Without `XOA_TEST_URL` / `XOA_TEST_TOKEN` the use case tests are **skipped**,
+  never treated as passed — the same contract as every other integration test.
+
 ---
 
 # Dependency rules
