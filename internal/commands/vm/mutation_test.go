@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"testing"
 )
@@ -34,6 +35,9 @@ type mutationServer struct {
 	// vmResponse overrides the GET /rest/v0/vms/{id} answer (the create
 	// re-fetch); fixtureVM is used when empty.
 	vmResponse string
+	// vm404 makes GET /rest/v0/vms/{id} answer 404 (for the wait not-found
+	// path).
+	vm404 bool
 }
 
 func newMutationServer(t *testing.T) *mutationServer {
@@ -56,6 +60,10 @@ func newMutationServer(t *testing.T) *mutationServer {
 		case r.Method == http.MethodGet && strings.HasPrefix(r.URL.Path, "/rest/v0/tasks/"):
 			_, _ = fmt.Fprint(w, createdVMTask)
 		case r.Method == http.MethodGet && strings.HasPrefix(r.URL.Path, "/rest/v0/vms/"):
+			if s.vm404 {
+				http.NotFound(w, r)
+				return
+			}
 			if s.vmResponse != "" {
 				_, _ = fmt.Fprint(w, s.vmResponse)
 				return
@@ -196,6 +204,142 @@ func TestVMCreateStartHint(t *testing.T) {
 	})
 }
 
+// TestVMCreateSSHKey checks that --ssh-key / --cloud-config end up in the
+// create_vm body as cloud_config (the mechanism that injects the public key
+// into the guest with cloud-init).
+func TestVMCreateSSHKey(t *testing.T) {
+	pubKey := "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAITestKeyForUnitTestsOnly000000000000000 test@example"
+	keyFile := t.TempDir() + "/id_ed25519.pub"
+	if err := os.WriteFile(keyFile, []byte(pubKey+"\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	t.Run("ssh-key builds a minimal cloud-init document", func(t *testing.T) {
+		server := newMutationServer(t)
+		defer server.Close()
+		isolateVM(t, server.URL)
+
+		pool := "aaaaaaaa-bbbb-cccc-dddd-000000000001"
+		template := "aaaaaaaa-bbbb-cccc-dddd-000000000009"
+		if _, err := runVM(t, "vm", "create", "web-02", "--pool", pool, "--template", template, "--ssh-key", keyFile); err != nil {
+			t.Fatalf("vm create --ssh-key: %v", err)
+		}
+		req, ok := server.requestByMethod(http.MethodPost)
+		if !ok {
+			t.Fatal("expected a POST create_vm request")
+		}
+		var body map[string]any
+		if err := json.Unmarshal([]byte(req.Body), &body); err != nil {
+			t.Fatalf("cannot parse create body: %v\n%s", err, req.Body)
+		}
+		cc, _ := body["cloud_config"].(string)
+		if !strings.Contains(cc, "#cloud-config") || !strings.Contains(cc, "ssh_authorized_keys") || !strings.Contains(cc, pubKey) {
+			t.Fatalf("cloud_config should authorize the key, got:\n%s", cc)
+		}
+	})
+
+	t.Run("ssh-key accepts an FIDO2 security key (sk- prefix)", func(t *testing.T) {
+		skKey := "sk-ssh-ed25519@openssh.com AAAAGnNliNzaC1lZDI1NTE5AAABAIQzRUNSTUZpQ1RPREVLWWZvckNIRVNUQ0hFQ0tTQ0hFQ0tTQ0hFQ0t0ZXN0AAABAFNLRkNIRVNUQ0hFQ0t0ZXN0AAADZGV2 test-security-key@example"
+		skFile := t.TempDir() + "/id_sk.pub"
+		if err := os.WriteFile(skFile, []byte(skKey+"\n"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+
+		server := newMutationServer(t)
+		defer server.Close()
+		isolateVM(t, server.URL)
+
+		pool := "aaaaaaaa-bbbb-cccc-dddd-000000000001"
+		template := "aaaaaaaa-bbbb-cccc-dddd-000000000009"
+		if _, err := runVM(t, "vm", "create", "web-02", "--pool", pool, "--template", template, "--ssh-key", skFile); err != nil {
+			t.Fatalf("vm create --ssh-key (FIDO2 sk- key) must be accepted: %v", err)
+		}
+		req, ok := server.requestByMethod(http.MethodPost)
+		if !ok {
+			t.Fatal("expected a POST create_vm request")
+		}
+		var body map[string]any
+		if err := json.Unmarshal([]byte(req.Body), &body); err != nil {
+			t.Fatalf("cannot parse create body: %v\n%s", err, req.Body)
+		}
+		cc, _ := body["cloud_config"].(string)
+		if !strings.Contains(cc, "#cloud-config") || !strings.Contains(cc, "ssh_authorized_keys") || !strings.Contains(cc, skKey) {
+			t.Fatalf("cloud_config should authorize the FIDO2 key, got:\n%s", cc)
+		}
+	})
+
+	t.Run("cloud-config file is passed verbatim", func(t *testing.T) {
+		server := newMutationServer(t)
+		defer server.Close()
+		isolateVM(t, server.URL)
+
+		userData := "#cloud-config\nhostname: web-02\nruncmd:\n  - systemctl enable sshd\n"
+		cfgFile := t.TempDir() + "/user-data.yaml"
+		if err := os.WriteFile(cfgFile, []byte(userData), 0o600); err != nil {
+			t.Fatal(err)
+		}
+
+		pool := "aaaaaaaa-bbbb-cccc-dddd-000000000001"
+		template := "aaaaaaaa-bbbb-cccc-dddd-000000000009"
+		if _, err := runVM(t, "vm", "create", "web-02", "--pool", pool, "--template", template, "--cloud-config", cfgFile); err != nil {
+			t.Fatalf("vm create --cloud-config: %v", err)
+		}
+		req, ok := server.requestByMethod(http.MethodPost)
+		if !ok {
+			t.Fatal("expected a POST create_vm request")
+		}
+		var body map[string]any
+		if err := json.Unmarshal([]byte(req.Body), &body); err != nil {
+			t.Fatalf("cannot parse create body: %v\n%s", err, req.Body)
+		}
+		if cc := body["cloud_config"]; cc != userData {
+			t.Fatalf("cloud_config should be the file content verbatim, got:\n%v", cc)
+		}
+	})
+}
+
+func TestVMCreateSSHKeyErrors(t *testing.T) {
+	server := newMutationServer(t)
+	defer server.Close()
+	isolateVM(t, server.URL)
+
+	pool := "aaaaaaaa-bbbb-cccc-dddd-000000000001"
+	template := "aaaaaaaa-bbbb-cccc-dddd-000000000009"
+	base := []string{"vm", "create", "web-02", "--pool", pool, "--template", template}
+
+	// Missing key file.
+	if _, err := runVM(t, append(base, "--ssh-key", t.TempDir()+"/nope.pub")...); err == nil || !strings.Contains(err.Error(), "cannot read --ssh-key file") {
+		t.Fatalf("expected a file-read error, got: %v", err)
+	}
+
+	// A private key must be rejected: only public keys work in the guest.
+	privFile := t.TempDir() + "/id_ed25519"
+	if err := os.WriteFile(privFile, []byte("-----BEGIN OPENSSH PRIVATE KEY-----\nabc\n-----END OPENSSH PRIVATE KEY-----\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := runVM(t, append(base, "--ssh-key", privFile)...); err == nil || !strings.Contains(err.Error(), "public SSH key") {
+		t.Fatalf("expected a public-key validation error, got: %v", err)
+	}
+
+	// --ssh-key and --cloud-config are mutually exclusive.
+	pubFile := t.TempDir() + "/pub"
+	if err := os.WriteFile(pubFile, []byte("ssh-ed25519 AAAA test\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	cfgFile := t.TempDir() + "/ud.yaml"
+	if err := os.WriteFile(cfgFile, []byte("#cloud-config\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := runVM(t, append(base, "--ssh-key", pubFile, "--cloud-config", cfgFile)...); err == nil || !strings.Contains(err.Error(), "mutually exclusive") {
+		t.Fatalf("expected a mutually-exclusive error, got: %v", err)
+	}
+
+	// No create_vm request must have been sent for any of the failures above.
+	if _, ok := server.requestByMethod(http.MethodPost); ok {
+		t.Fatal("create_vm must not be executed on flag/file errors")
+	}
+}
+
 func TestVMCreateRequiresPoolAndTemplate(t *testing.T) {
 	server := newMutationServer(t)
 	defer server.Close()
@@ -225,6 +369,71 @@ func TestVMCreateBadMemory(t *testing.T) {
 
 	if _, err := runVM(t, "vm", "create", "web-02", "--pool", pool, "--template", template, "--memory", "not-a-size"); err == nil {
 		t.Fatal("expected an error for an invalid --memory value")
+	}
+}
+
+func TestVMCreateBadDiskSize(t *testing.T) {
+	server := newMutationServer(t)
+	defer server.Close()
+	isolateVM(t, server.URL)
+
+	pool := "aaaaaaaa-bbbb-cccc-dddd-000000000001"
+	template := "aaaaaaaa-bbbb-cccc-dddd-000000000009"
+
+	if _, err := runVM(t, "vm", "create", "web-02", "--pool", pool, "--template", template, "--disk-size", "not-a-size"); err == nil {
+		t.Fatal("expected an error for an invalid --disk-size value")
+	}
+	// A size-parse error must not send a create_vm request.
+	if _, ok := server.requestByMethod(http.MethodPost); ok {
+		t.Fatal("create_vm must not be executed with an invalid --disk-size")
+	}
+}
+
+// TestVMCreateDiskSize checks that --disk-size resizes the template's system
+// disk: the create_vm body must carry a single vdis entry matching user device
+// "0" with the requested size in bytes (and no SR, so the template's SR is
+// reused).
+func TestVMCreateDiskSize(t *testing.T) {
+	server := newMutationServer(t)
+	defer server.Close()
+	isolateVM(t, server.URL)
+
+	pool := "aaaaaaaa-bbbb-cccc-dddd-000000000001"
+	template := "aaaaaaaa-bbbb-cccc-dddd-000000000009"
+
+	out, err := runVM(t, "vm", "create", "web-02", "--pool", pool, "--template", template, "--memory", "2G", "--disk-size", "20G")
+	if err != nil {
+		t.Fatalf("vm create --disk-size: %v\n%s", err, out)
+	}
+	req, ok := server.requestByMethod(http.MethodPost)
+	if !ok {
+		t.Fatal("expected a POST create_vm request")
+	}
+	var body map[string]any
+	if err := json.Unmarshal([]byte(req.Body), &body); err != nil {
+		t.Fatalf("cannot parse create body: %v\n%s", err, req.Body)
+	}
+	// 20G must be converted to bytes and target user device 0.
+	vdis, ok := body["vdis"].([]any)
+	if !ok || len(vdis) != 1 {
+		t.Fatalf("expected a single vdis entry, got %v", body["vdis"])
+	}
+	vdi, ok := vdis[0].(map[string]any)
+	if !ok {
+		t.Fatalf("expected the vdis entry to be an object, got %v", vdis[0])
+	}
+	if vdi["userdevice"] != "0" {
+		t.Fatalf("expected userdevice=0 (system disk), got %v", vdi["userdevice"])
+	}
+	if got, _ := vdi["size"].(float64); got != 20*1024*1024*1024 {
+		t.Fatalf("expected size=21474836480 (bytes), got %v", vdi["size"])
+	}
+	if _, present := vdi["sr"]; present {
+		t.Fatalf("sr must not be set when --disk-size is given: %s", req.Body)
+	}
+	// memory must still be sent alongside.
+	if got, _ := body["memory"].(float64); got != 2*1024*1024*1024 {
+		t.Fatalf("expected memory=2147483648 (bytes), got %v", body["memory"])
 	}
 }
 
@@ -404,9 +613,9 @@ func TestVMUpdateRequiresField(t *testing.T) {
 	}
 }
 
-// --- parseMemory unit tests --------------------------------------------------
+// --- parseSize unit tests ----------------------------------------------------
 
-func TestParseMemory(t *testing.T) {
+func TestParseSize(t *testing.T) {
 	cases := []struct {
 		in   string
 		want int64
@@ -420,18 +629,18 @@ func TestParseMemory(t *testing.T) {
 		{" 1G ", 1 << 30},
 	}
 	for _, c := range cases {
-		got, err := parseMemory(c.in)
+		got, err := parseSize(c.in)
 		if err != nil {
-			t.Fatalf("parseMemory(%q): %v", c.in, err)
+			t.Fatalf("parseSize(%q): %v", c.in, err)
 		}
 		if got != c.want {
-			t.Fatalf("parseMemory(%q) = %d, want %d", c.in, got, c.want)
+			t.Fatalf("parseSize(%q) = %d, want %d", c.in, got, c.want)
 		}
 	}
 
 	for _, bad := range []string{"", "0", "-1", "abc", "1.5G"} {
-		if _, err := parseMemory(bad); err == nil {
-			t.Fatalf("parseMemory(%q) should fail", bad)
+		if _, err := parseSize(bad); err == nil {
+			t.Fatalf("parseSize(%q) should fail", bad)
 		}
 	}
 }

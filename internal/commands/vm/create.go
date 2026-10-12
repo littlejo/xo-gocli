@@ -2,11 +2,13 @@ package vm
 
 import (
 	"fmt"
+	"os"
 	"strconv"
 	"strings"
 
 	"github.com/gofrs/uuid"
 	"github.com/spf13/cobra"
+	"gopkg.in/yaml.v3"
 
 	"github.com/vatesfr/xenorchestra-go-sdk/pkg/payloads"
 
@@ -15,9 +17,12 @@ import (
 )
 
 const (
-	flagPool     = "pool"
-	flagTemplate = "template"
-	flagMemory   = "memory"
+	flagPool        = "pool"
+	flagTemplate    = "template"
+	flagMemory      = "memory"
+	flagDiskSize    = "disk-size"
+	flagSSHKey      = "ssh-key"
+	flagCloudConfig = "cloud-config"
 )
 
 // A UUID rendered as a string is always 36 chars (8-4-4-4-12), so the
@@ -34,7 +39,10 @@ func newCreateCommand() *cobra.Command {
 		templateID  string
 		description string
 		memory      string
+		diskSize    string
 		boot        bool
+		sshKey      string
+		cloudConfig string
 	)
 
 	cmd := &cobra.Command{
@@ -51,12 +59,32 @@ template must belong to the given pool.
 Memory, when given, is expressed in bytes or as a human readable size
 (e.g. 2G, 512M). If omitted, the template default is used.
 
+--disk-size sets the size of the template's system (boot) disk, expressed
+in bytes or as a human readable size (e.g. 10G, 512M). The system disk is
+the template's disk at user device 0; it is resized in place on the
+template's storage repository. Xen Orchestra only allows growing a disk, so
+the value must be at least the template's current system disk size — a
+smaller value is rejected by Xen Orchestra. If omitted, the template's
+default disk size is used.
+
+Note: Xen Orchestra does not allow setting the number of vCPUs at creation
+time through the REST API — the new VM inherits the template's vCPU count.
+Adjust it on the VM afterwards if needed.
+
 Use --boot to start the VM as soon as it has been created.
+
+--ssh-key <file> injects the public SSH key from the file into the guest
+with cloud-init (it must be a template that supports cloud-config, e.g. the
+standard Xen Orchestra Linux templates); --cloud-config <file> passes a full
+cloud-init user-data file instead (hostname, packages, users, …). The two
+flags are mutually exclusive.
 
 Examples:
   xo vm create web-02 --pool <pool-id> --template <template-id>
   xo vm create web-02 --pool <pool-id> --template <template-id> --memory 4G --description "web server"
-  xo vm create web-02 --pool <pool-id> --template <template-id> --boot`,
+  xo vm create web-02 --pool <pool-id> --template <template-id> --memory 4G --disk-size 20G
+  xo vm create web-02 --pool <pool-id> --template <template-id> --boot
+  xo vm create web-02 --pool <pool-id> --template <template-id> --boot --ssh-key ~/.ssh/id_ed25519.pub`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if poolID == "" {
@@ -64,6 +92,9 @@ Examples:
 			}
 			if templateID == "" {
 				return fmt.Errorf("--template is required (see 'xo template list')")
+			}
+			if sshKey != "" && cloudConfig != "" {
+				return fmt.Errorf("--ssh-key and --cloud-config are mutually exclusive")
 			}
 			pool, err := uuid.FromString(poolID)
 			if err != nil {
@@ -88,12 +119,34 @@ Examples:
 				params.Boot = &b
 			}
 			if memory != "" {
-				bytes, err := parseMemory(memory)
+				bytes, err := parseSize(memory)
 				if err != nil {
-					return err
+					return fmt.Errorf("--memory: %w", err)
 				}
 				m := int(bytes)
 				params.Memory = &m
+			}
+			if diskSize != "" {
+				// Resizing the system disk: the template's disk at user
+				// device 0 is matched by its userdevice, so Xen Orchestra
+				// resizes it in place on the template's storage repository
+				// (see the 'xo vm create' help). It can only grow, not shrink.
+				size, err := parseSize(diskSize)
+				if err != nil {
+					return fmt.Errorf("--disk-size: %w", err)
+				}
+				userDevice := "0"
+				params.VDIs = append(params.VDIs, payloads.VDIParams{
+					UserDevice: &userDevice,
+					Size:       &size,
+				})
+			}
+			if sshKey != "" || cloudConfig != "" {
+				cc, err := cloudConfigFromFlags(sshKey, cloudConfig)
+				if err != nil {
+					return err
+				}
+				params.CloudConfig = &cc
 			}
 
 			xo, cfg, err := newClient(cmd)
@@ -114,9 +167,67 @@ Examples:
 	flags.StringVar(&templateID, flagTemplate, "", "template id to base the VM on: the bare template UUID or the composite id printed by 'xo template list'")
 	flags.StringVar(&description, "description", "", "description for the VM")
 	flags.StringVar(&memory, flagMemory, "", "memory size, in bytes or human readable (e.g. 2G, 512M)")
+	flags.StringVar(&diskSize, flagDiskSize, "", "size of the template's system disk, in bytes or human readable (e.g. 10G); only grows the disk")
 	flags.BoolVar(&boot, "boot", false, "start the VM as soon as it has been created")
+	flags.StringVar(&sshKey, flagSSHKey, "", "path to a public SSH key to inject into the guest with cloud-init (the template must support cloud-config)")
+	flags.StringVar(&cloudConfig, flagCloudConfig, "", "path to a cloud-init user-data file (YAML) passed to the guest; mutually exclusive with --ssh-key")
 
 	return cmd
+}
+
+// cloudConfigFromFlags builds the cloud-init user-data passed to create_vm
+// (CreateVMParams.CloudConfig): either the file given with --cloud-config, or
+// a minimal document that authorizes the public key from --ssh-key.
+func cloudConfigFromFlags(sshKey, cloudConfig string) (string, error) {
+	if cloudConfig != "" {
+		data, err := os.ReadFile(cloudConfig)
+		if err != nil {
+			return "", fmt.Errorf("cannot read --cloud-config file: %w", err)
+		}
+		text := string(data)
+		if strings.TrimSpace(text) == "" {
+			return "", fmt.Errorf("--cloud-config file %q is empty", cloudConfig)
+		}
+		// Without the magic header, cloud-init may treat the content as a
+		// script (or ignore it) and boot the VM with none of the intended
+		// configuration applied — a failure only visible inside the guest.
+		// Catch it here, at the CLI.
+		if !strings.HasPrefix(strings.TrimSpace(text), "#cloud-config") {
+			return "", fmt.Errorf("--cloud-config file %q does not start with the '#cloud-config' header; cloud-init will not apply it without it", cloudConfig)
+		}
+		return text, nil
+	}
+
+	data, err := os.ReadFile(sshKey)
+	if err != nil {
+		return "", fmt.Errorf("cannot read --ssh-key file: %w", err)
+	}
+	key := strings.TrimSpace(string(data))
+	// A public key line starts with an algorithm tag (ssh-ed25519,
+	// ecdsa-sha2-nistp256, ssh-rsa, …) followed by base64 and an optional
+	// comment. Security-key (FIDO2, RFC 8704) keys are prefixed sk-
+	// (sk-ssh-ed25519@openssh.com, sk-ecdsa-sha2-nistp256@openssh.com) and
+	// work in authorized_keys. A private key ("-----BEGIN …") or anything
+	// else would be a mistake (and would not work in the guest anyway).
+	if !strings.HasPrefix(key, "ssh-") && !strings.HasPrefix(key, "ecdsa-") &&
+		!strings.HasPrefix(key, "sk-ssh-") && !strings.HasPrefix(key, "sk-ecdsa-") {
+		return "", fmt.Errorf("%q does not look like a public SSH key (expected a line starting with ssh-ed25519, ssh-rsa, ecdsa-…, sk-…, e.g. ~/.ssh/id_ed25519.pub)", sshKey)
+	}
+	// Multi-line content (e.g. a whole authorized_keys file) would leave
+	// stray lines inside the generated document: the API call would still
+	// succeed, but the guest would fail to parse the user-data and boot
+	// without the key.
+	if strings.ContainsAny(key, "\r\n") {
+		return "", fmt.Errorf("%q contains multiple lines: --ssh-key expects a single public key line (for authorized_keys-style files, use --cloud-config)", sshKey)
+	}
+	// The key (including its optional comment) is embedded in a YAML
+	// document; quote it with yaml.Marshal so a comment containing YAML
+	// special characters (e.g. "user: host") cannot break the document.
+	quoted, err := yaml.Marshal(key)
+	if err != nil {
+		return "", fmt.Errorf("cannot encode --ssh-key content as YAML: %w", err)
+	}
+	return "#cloud-config\nssh_authorized_keys:\n  - " + strings.TrimSpace(string(quoted)) + "\n", nil
 }
 
 // parseTemplateID parses --template, accepting either the bare template UUID
@@ -144,11 +255,12 @@ func parseTemplateID(id string) (uuid.UUID, error) {
 	return template, nil
 }
 
-// parseMemory turns a size like "2G", "512M" or "2147483648" into bytes.
-func parseMemory(value string) (int64, error) {
+// parseSize turns a size like "2G", "512M" or "2147483648" into bytes. It is
+// shared by the human-readable size flags (memory, disk-size, ...).
+func parseSize(value string) (int64, error) {
 	trimmed := strings.TrimSpace(value)
 	if trimmed == "" {
-		return 0, fmt.Errorf("--memory cannot be empty")
+		return 0, fmt.Errorf("size cannot be empty")
 	}
 
 	multiplier := int64(1)
@@ -167,10 +279,10 @@ func parseMemory(value string) (int64, error) {
 
 	n, err := strconv.ParseInt(strings.TrimSpace(digits), 10, 64)
 	if err != nil {
-		return 0, fmt.Errorf("invalid --memory %q (expected a whole number of bytes or a human readable size, e.g. 2G, 512M)", value)
+		return 0, fmt.Errorf("invalid size %q (expected a whole number of bytes or a human readable size, e.g. 2G, 512M)", value)
 	}
 	if n <= 0 {
-		return 0, fmt.Errorf("--memory must be greater than zero")
+		return 0, fmt.Errorf("size must be greater than zero")
 	}
 	return n * multiplier, nil
 }
