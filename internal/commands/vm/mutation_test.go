@@ -372,6 +372,71 @@ func TestVMCreateBadMemory(t *testing.T) {
 	}
 }
 
+func TestVMCreateBadDiskSize(t *testing.T) {
+	server := newMutationServer(t)
+	defer server.Close()
+	isolateVM(t, server.URL)
+
+	pool := "aaaaaaaa-bbbb-cccc-dddd-000000000001"
+	template := "aaaaaaaa-bbbb-cccc-dddd-000000000009"
+
+	if _, err := runVM(t, "vm", "create", "web-02", "--pool", pool, "--template", template, "--disk-size", "not-a-size"); err == nil {
+		t.Fatal("expected an error for an invalid --disk-size value")
+	}
+	// A size-parse error must not send a create_vm request.
+	if _, ok := server.requestByMethod(http.MethodPost); ok {
+		t.Fatal("create_vm must not be executed with an invalid --disk-size")
+	}
+}
+
+// TestVMCreateDiskSize checks that --disk-size resizes the template's system
+// disk: the create_vm body must carry a single vdis entry matching user device
+// "0" with the requested size in bytes (and no SR, so the template's SR is
+// reused).
+func TestVMCreateDiskSize(t *testing.T) {
+	server := newMutationServer(t)
+	defer server.Close()
+	isolateVM(t, server.URL)
+
+	pool := "aaaaaaaa-bbbb-cccc-dddd-000000000001"
+	template := "aaaaaaaa-bbbb-cccc-dddd-000000000009"
+
+	out, err := runVM(t, "vm", "create", "web-02", "--pool", pool, "--template", template, "--memory", "2G", "--disk-size", "20G")
+	if err != nil {
+		t.Fatalf("vm create --disk-size: %v\n%s", err, out)
+	}
+	req, ok := server.requestByMethod(http.MethodPost)
+	if !ok {
+		t.Fatal("expected a POST create_vm request")
+	}
+	var body map[string]any
+	if err := json.Unmarshal([]byte(req.Body), &body); err != nil {
+		t.Fatalf("cannot parse create body: %v\n%s", err, req.Body)
+	}
+	// 20G must be converted to bytes and target user device 0.
+	vdis, ok := body["vdis"].([]any)
+	if !ok || len(vdis) != 1 {
+		t.Fatalf("expected a single vdis entry, got %v", body["vdis"])
+	}
+	vdi, ok := vdis[0].(map[string]any)
+	if !ok {
+		t.Fatalf("expected the vdis entry to be an object, got %v", vdis[0])
+	}
+	if vdi["userdevice"] != "0" {
+		t.Fatalf("expected userdevice=0 (system disk), got %v", vdi["userdevice"])
+	}
+	if got, _ := vdi["size"].(float64); got != 20*1024*1024*1024 {
+		t.Fatalf("expected size=21474836480 (bytes), got %v", vdi["size"])
+	}
+	if _, present := vdi["sr"]; present {
+		t.Fatalf("sr must not be set when --disk-size is given: %s", req.Body)
+	}
+	// memory must still be sent alongside.
+	if got, _ := body["memory"].(float64); got != 2*1024*1024*1024 {
+		t.Fatalf("expected memory=2147483648 (bytes), got %v", body["memory"])
+	}
+}
+
 func TestVMCreateCompositeTemplateID(t *testing.T) {
 	server := newMutationServer(t)
 	defer server.Close()
@@ -548,9 +613,9 @@ func TestVMUpdateRequiresField(t *testing.T) {
 	}
 }
 
-// --- parseMemory unit tests --------------------------------------------------
+// --- parseSize unit tests ----------------------------------------------------
 
-func TestParseMemory(t *testing.T) {
+func TestParseSize(t *testing.T) {
 	cases := []struct {
 		in   string
 		want int64
@@ -564,18 +629,18 @@ func TestParseMemory(t *testing.T) {
 		{" 1G ", 1 << 30},
 	}
 	for _, c := range cases {
-		got, err := parseMemory(c.in)
+		got, err := parseSize(c.in)
 		if err != nil {
-			t.Fatalf("parseMemory(%q): %v", c.in, err)
+			t.Fatalf("parseSize(%q): %v", c.in, err)
 		}
 		if got != c.want {
-			t.Fatalf("parseMemory(%q) = %d, want %d", c.in, got, c.want)
+			t.Fatalf("parseSize(%q) = %d, want %d", c.in, got, c.want)
 		}
 	}
 
 	for _, bad := range []string{"", "0", "-1", "abc", "1.5G"} {
-		if _, err := parseMemory(bad); err == nil {
-			t.Fatalf("parseMemory(%q) should fail", bad)
+		if _, err := parseSize(bad); err == nil {
+			t.Fatalf("parseSize(%q) should fail", bad)
 		}
 	}
 }

@@ -295,6 +295,7 @@ xo vm get <id>                      # one VM, as a detail view
 # Create
 xo vm create web-02 --pool <pool-id> --template <template-id>
 xo vm create web-02 --pool <pool-id> --template <template-id> --memory 4G
+xo vm create web-02 --pool <pool-id> --template <template-id> --memory 4G --disk-size 20G
 xo vm create web-02 --pool <pool-id> --template <template-id> --boot
 xo vm create web-02 --pool <pool-id> --template <template-id> --boot --ssh-key ~/.ssh/id_ed25519.pub
 xo vm create web-02 --pool <pool-id> --template <template-id> --cloud-config user-data.yaml
@@ -340,7 +341,16 @@ xo vm delete <id>                   # delete the VM (asks to confirm)
 xo vm delete <id> --yes             # skip confirmation (automation)
 ```
 
-`--memory` accepts bytes or human-readable sizes (`2G`, `512M`).
+`--memory` and `--disk-size` both accept bytes or human-readable sizes
+(`2G`, `512M`).
+
+`--disk-size` sets the size of the template's system (boot) disk — the disk
+at user device 0 — which is resized in place on the template's storage
+repository. Xen Orchestra only allows growing a disk, so the value must be
+at least the template's current system disk size.
+
+Note: the number of vCPUs cannot be set at creation time through Xen
+Orchestra's REST API; the new VM inherits the template's vCPU count.
 
 `--ssh-key <file>` injects the public key from the file into the guest with
 cloud-init (`ssh_authorized_keys`) so you can log in right after the VM

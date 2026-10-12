@@ -560,8 +560,12 @@ be built on the SDK v2 as it stands:
 
 ### CLI-side polish (no SDK dependency)
 
-- Widen `xo vm create` beyond `--memory`/`--boot` (affinity, autoPoweron,
-  clone, cloudConfig, install, extra VDIs/VIFs — all in `CreateVMParams`)
+- Widen `xo vm create` beyond `--memory`/`--disk-size`/`--boot` (affinity,
+  autoPoweron, clone, install, extra VDIs/VIFs — all in `CreateVMParams`).
+  vCPU count is *not* settable at creation time: Xen Orchestra's REST
+  `create_vm` schema rejects a `cpus` field (`400 excess property`), so the
+  VM inherits the template's vCPU count and it can only be changed after the
+  VM exists (XOCE, not XOA, accepts `cpus`).
 - Widen `xo vm update` beyond name/description/tags
 
 ### SDK bug to verify upstream

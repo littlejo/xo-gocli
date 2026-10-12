@@ -20,6 +20,7 @@ const (
 	flagPool        = "pool"
 	flagTemplate    = "template"
 	flagMemory      = "memory"
+	flagDiskSize    = "disk-size"
 	flagSSHKey      = "ssh-key"
 	flagCloudConfig = "cloud-config"
 )
@@ -38,6 +39,7 @@ func newCreateCommand() *cobra.Command {
 		templateID  string
 		description string
 		memory      string
+		diskSize    string
 		boot        bool
 		sshKey      string
 		cloudConfig string
@@ -57,6 +59,18 @@ template must belong to the given pool.
 Memory, when given, is expressed in bytes or as a human readable size
 (e.g. 2G, 512M). If omitted, the template default is used.
 
+--disk-size sets the size of the template's system (boot) disk, expressed
+in bytes or as a human readable size (e.g. 10G, 512M). The system disk is
+the template's disk at user device 0; it is resized in place on the
+template's storage repository. Xen Orchestra only allows growing a disk, so
+the value must be at least the template's current system disk size — a
+smaller value is rejected by Xen Orchestra. If omitted, the template's
+default disk size is used.
+
+Note: Xen Orchestra does not allow setting the number of vCPUs at creation
+time through the REST API — the new VM inherits the template's vCPU count.
+Adjust it on the VM afterwards if needed.
+
 Use --boot to start the VM as soon as it has been created.
 
 --ssh-key <file> injects the public SSH key from the file into the guest
@@ -68,6 +82,7 @@ flags are mutually exclusive.
 Examples:
   xo vm create web-02 --pool <pool-id> --template <template-id>
   xo vm create web-02 --pool <pool-id> --template <template-id> --memory 4G --description "web server"
+  xo vm create web-02 --pool <pool-id> --template <template-id> --memory 4G --disk-size 20G
   xo vm create web-02 --pool <pool-id> --template <template-id> --boot
   xo vm create web-02 --pool <pool-id> --template <template-id> --boot --ssh-key ~/.ssh/id_ed25519.pub`,
 		Args: cobra.ExactArgs(1),
@@ -104,12 +119,27 @@ Examples:
 				params.Boot = &b
 			}
 			if memory != "" {
-				bytes, err := parseMemory(memory)
+				bytes, err := parseSize(memory)
 				if err != nil {
-					return err
+					return fmt.Errorf("--memory: %w", err)
 				}
 				m := int(bytes)
 				params.Memory = &m
+			}
+			if diskSize != "" {
+				// Resizing the system disk: the template's disk at user
+				// device 0 is matched by its userdevice, so Xen Orchestra
+				// resizes it in place on the template's storage repository
+				// (see the 'xo vm create' help). It can only grow, not shrink.
+				size, err := parseSize(diskSize)
+				if err != nil {
+					return fmt.Errorf("--disk-size: %w", err)
+				}
+				userDevice := "0"
+				params.VDIs = append(params.VDIs, payloads.VDIParams{
+					UserDevice: &userDevice,
+					Size:       &size,
+				})
 			}
 			if sshKey != "" || cloudConfig != "" {
 				cc, err := cloudConfigFromFlags(sshKey, cloudConfig)
@@ -137,6 +167,7 @@ Examples:
 	flags.StringVar(&templateID, flagTemplate, "", "template id to base the VM on: the bare template UUID or the composite id printed by 'xo template list'")
 	flags.StringVar(&description, "description", "", "description for the VM")
 	flags.StringVar(&memory, flagMemory, "", "memory size, in bytes or human readable (e.g. 2G, 512M)")
+	flags.StringVar(&diskSize, flagDiskSize, "", "size of the template's system disk, in bytes or human readable (e.g. 10G); only grows the disk")
 	flags.BoolVar(&boot, "boot", false, "start the VM as soon as it has been created")
 	flags.StringVar(&sshKey, flagSSHKey, "", "path to a public SSH key to inject into the guest with cloud-init (the template must support cloud-config)")
 	flags.StringVar(&cloudConfig, flagCloudConfig, "", "path to a cloud-init user-data file (YAML) passed to the guest; mutually exclusive with --ssh-key")
@@ -224,11 +255,12 @@ func parseTemplateID(id string) (uuid.UUID, error) {
 	return template, nil
 }
 
-// parseMemory turns a size like "2G", "512M" or "2147483648" into bytes.
-func parseMemory(value string) (int64, error) {
+// parseSize turns a size like "2G", "512M" or "2147483648" into bytes. It is
+// shared by the human-readable size flags (memory, disk-size, ...).
+func parseSize(value string) (int64, error) {
 	trimmed := strings.TrimSpace(value)
 	if trimmed == "" {
-		return 0, fmt.Errorf("--memory cannot be empty")
+		return 0, fmt.Errorf("size cannot be empty")
 	}
 
 	multiplier := int64(1)
@@ -247,10 +279,10 @@ func parseMemory(value string) (int64, error) {
 
 	n, err := strconv.ParseInt(strings.TrimSpace(digits), 10, 64)
 	if err != nil {
-		return 0, fmt.Errorf("invalid --memory %q (expected a whole number of bytes or a human readable size, e.g. 2G, 512M)", value)
+		return 0, fmt.Errorf("invalid size %q (expected a whole number of bytes or a human readable size, e.g. 2G, 512M)", value)
 	}
 	if n <= 0 {
-		return 0, fmt.Errorf("--memory must be greater than zero")
+		return 0, fmt.Errorf("size must be greater than zero")
 	}
 	return n * multiplier, nil
 }
