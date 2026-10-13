@@ -48,6 +48,10 @@ Examples:
   xo configure --profile lab --username admin --password <secret>
   xo configure list
   xo configure remove lab`,
+		// No positional argument: without this, a typo of a sub-command
+		// ('xo configure lsit') would run the store path and silently
+		// overwrite the selected profile with the XOA_* environment values.
+		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			in := cmd.InOrStdin()
 			out := cmd.ErrOrStderr()
@@ -149,7 +153,7 @@ func isTerminal(in io.Reader) bool {
 
 func prompt(in io.Reader, out io.Writer, label string, interactive bool) (string, error) {
 	if !interactive {
-		return "", fmt.Errorf("--%s is required (or set the corresponding XO_ environment variable)", label)
+		return "", fmt.Errorf("--%s is required (or set the corresponding XOA_ environment variable)", label)
 	}
 	if _, err := fmt.Fprintf(out, "%s: ", label); err != nil {
 		return "", err

@@ -359,6 +359,89 @@ func TestExitCodesAndStderrDiscipline(t *testing.T) {
 	}
 }
 
+func TestUnknownSubcommandFails(t *testing.T) {
+	// Cobra only rejects unknown subcommands on the root: a group like
+	// 'xo vm' used to print its help and exit 0 on 'xo vm strat <id>', so a
+	// typo in a script passed as a success.
+	bin := requireBinary(t)
+	env := cleanEnv("XOA_CONFIG_FILE=" + filepath.Join(t.TempDir(), "config"))
+	cases := [][]string{
+		{"frobnicate"},
+		{"vm", "strat", firstVMID},
+		{"host", "frobnicate"},
+		{"pool", "frobnicate"},
+		{"sr", "frobnicate"},
+		{"network", "frobnicate"},
+		{"template", "frobnicate"},
+		{"task", "frobnicate"},
+		{"vdi", "frobnicate"},
+		{"vbd", "frobnicate"},
+		{"pbd", "frobnicate"},
+		{"token", "frobnicate"},
+		{"vm", "tag", "frobnicate"},
+		{"configure", "lsit"},
+	}
+	for _, args := range cases {
+		res := run(t, bin, env, args...)
+		if res.code != 1 {
+			t.Errorf("%v: exit %d (want 1), stderr:\n%s", args, res.code, res.stderr)
+		}
+		if !strings.HasPrefix(res.stderr, "Error: unknown command") {
+			t.Errorf("%v: stderr should start with 'Error: unknown command', got:\n%s", args, res.stderr)
+		}
+		if res.stdout != "" {
+			t.Errorf("%v: expected empty stdout, got:\n%s", args, res.stdout)
+		}
+	}
+
+	// A typo gets a suggestion.
+	res := run(t, bin, env, "vm", "strat", firstVMID)
+	if !strings.Contains(res.stderr, "(did you mean start?)") {
+		t.Errorf("vm strat: expected a 'did you mean start?' suggestion, got:\n%s", res.stderr)
+	}
+
+	// A bare group still prints its help and succeeds.
+	res = run(t, bin, env, "vm")
+	if res.code != 0 {
+		t.Fatalf("bare 'xo vm': exit %d (want 0), stderr:\n%s", res.code, res.stderr)
+	}
+	if !strings.Contains(res.stdout, "Available Commands:") {
+		t.Fatalf("bare 'xo vm': expected the help on stdout, got:\n%s", res.stdout)
+	}
+}
+
+func TestConfigureTypoKeepsProfile(t *testing.T) {
+	// 'xo configure lsit' (a typo of 'list') used to run the store path with
+	// the XOA_* environment values and silently overwrite the profile.
+	bin := requireBinary(t)
+	cfg := filepath.Join(t.TempDir(), "config")
+	res := run(t, bin, cleanEnv("XOA_CONFIG_FILE="+cfg),
+		"configure", "--endpoint", "https://prod.example", "--token", "prod-token")
+	if res.code != 0 {
+		t.Fatalf("seed profile: exit %d, stderr:\n%s", res.code, res.stderr)
+	}
+	before, err := os.ReadFile(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	res = run(t, bin, cleanEnv(
+		"XOA_CONFIG_FILE="+cfg,
+		"XOA_ENDPOINT=https://lab.example",
+		"XOA_TOKEN=lab-token",
+	), "configure", "lsit")
+	if res.code != 1 {
+		t.Fatalf("configure lsit: exit %d (want 1), stderr:\n%s", res.code, res.stderr)
+	}
+	after, err := os.ReadFile(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(before, after) {
+		t.Fatalf("configure lsit rewrote the config file:\nbefore:\n%s\nafter:\n%s", before, after)
+	}
+}
+
 func TestRejectedToken401(t *testing.T) {
 	bin := requireBinary(t)
 	ok := newFakeXO(t, 0, false)

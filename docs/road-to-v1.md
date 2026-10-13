@@ -2,9 +2,9 @@
 
 Status snapshot and the minimal checklist for releasing `xo` v1.0.0.
 
-> **Snapshot**: `main` at `7d4f9ed` (2026-10-06). B1, B2, S1–S7 are all done
-> and merged; the C1 counter-expertise fix (template id for `vm create`) is
-> in review; the release-day steps remain. The
+> **Snapshot**: `main` at `192f0fe` (2026-10-13). B1, B2, S1–S7 and C1–C5
+> are done; the D1/D2 fixes (unknown subcommands, `configure` typo) are in
+> review; the release-day steps remain. The
 > rest of this page is based on
 > the original read-only audit of the full codebase (every command file, the
 > output layer, the test suite, the docs and the release pipeline), with the
@@ -491,6 +491,37 @@ shape applies to the action commands, so lumping all mutating commands under
 Verdict of the pass: **READY AFTER SMALL FIXES** — C1 before the tag; C2–C5
 are tracked follow-ups (C2's SDK half already tracked via #121).
 
+## Findings of 2026-10-13
+
+A third pass ran the built binary on usage errors, which the earlier passes
+had only checked for the root command and missing arguments. It found two
+bugs that break the scripting contract:
+
+### D1: unknown subcommands under a group exit 0 — HIGH — **FIXED**
+
+Cobra only rejects unknown subcommands on the root. Every group below it
+(`vm`, `host`, `pool`, `sr`, `network`, `vdi`, `vbd`, `pbd`, `task`,
+`token`, `template`, and the `tag` groups) had no `Run`, so cobra printed
+the group help and exited **0** on `xo vm strat <id>`. A typo in a script
+passed as a success.
+
+**Resolved:** `NewRoot` gives every group a `RunE` that prints the help when
+called bare (exit 0, as before) and otherwise fails with
+`Error: unknown command "strat" for "xo vm" (did you mean start?), …`
+(exit 1). Covered by `TestUnknownSubcommandFails` (process level).
+
+### D2: `xo configure <typo>` overwrites the selected profile — HIGH — **FIXED**
+
+`xo configure` accepted and ignored positional arguments, so
+`xo configure lsit` (a typo of `list`) ran the store path. With `XOA_*` set,
+it silently replaced the stored endpoint and token of the selected profile
+with the environment values, then exited 0.
+
+**Resolved:** `configure` takes `Args: cobra.NoArgs`, so the typo is an
+`unknown command` error (exit 1) and the file is left untouched. Covered by
+`TestConfigureTypoKeepsProfile`. While there, the non-interactive error
+names the right variable prefix (`XOA_`, not `XO_`).
+
 ## Release-day process (manual steps)
 
 The normal flow ("push to main → auto tag + release") **cannot produce a
@@ -629,7 +660,7 @@ published v1.0.0:
       accepts bare UUID or composite, reduces to the bare uuid for
       `create_vm`; help corrected; `TestVMCreateCompositeTemplateID` +
       `TestVMCreateInvalidTemplateID`)
-- [ ] **C2** — doc note: list `vm create` / `network create*` among the
+- [x] **C2** — doc note: list `vm create` / `network create*` among the
       unbounded waits in `usage.md` ("Timeouts and waiting") and in their
       help (the `interrupted`-task hang itself is tracked in
       [vatesfr/xenorchestra-go-sdk#121](https://github.com/vatesfr/xenorchestra-go-sdk/issues/121))
@@ -638,8 +669,12 @@ published v1.0.0:
       ref passes the exact same gates as CI
 - [x] **C4** — `vm create` only prints the "Start it with" hint when the
       re-fetched VM is actually `Halted` (state-based, not flag-based)
-- [ ] **C5** — fix the "small result document" sentence in `usage.md`
+- [x] **C5** — fix the "small result document" sentence in `usage.md`
       (it is wrong for `vm create --output json`, which emits the full VM)
+- [x] **D1** — an unknown subcommand under a group (`xo vm strat <id>`)
+      exits 1 instead of printing the help and exiting 0
+- [x] **D2** — `xo configure <typo>` is rejected instead of overwriting the
+      selected profile with the `XOA_*` environment values
 - [ ] merge → `main`, CI fully green including the `functional` job
 - [ ] hand-push the `v1.0.0` tag
 - [ ] publish the draft release + release notes (headline; SDK is plain
