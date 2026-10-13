@@ -53,6 +53,10 @@ Memory, when given, is expressed in bytes or as a human readable size
 
 Use --boot to start the VM as soon as it has been created.
 
+The creation is asynchronous server-side; this command waits for the backing
+task to finish before printing the created VM. The wait has no deadline: it
+ends when the task completes, or on Ctrl+C.
+
 Examples:
   xo vm create web-02 --pool <pool-id> --template <template-id>
   xo vm create web-02 --pool <pool-id> --template <template-id> --memory 4G --description "web server"

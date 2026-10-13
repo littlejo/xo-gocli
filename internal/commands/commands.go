@@ -2,6 +2,9 @@
 package commands
 
 import (
+	"fmt"
+	"strings"
+
 	"github.com/spf13/cobra"
 
 	"github.com/littlejo/xo-gocli/internal/cli"
@@ -54,5 +57,36 @@ Configure a profile first with 'xo configure'.`,
 	root.AddCommand(vdi.NewCommand())
 	root.AddCommand(vm.NewCommand())
 
+	for _, c := range root.Commands() {
+		rejectUnknownSubcommands(c)
+	}
+
 	return root
+}
+
+// rejectUnknownSubcommands makes every command group below the root (xo vm,
+// xo vm tag, …) fail on an unknown subcommand. Cobra only checks unknown
+// subcommands on the root: a non-runnable group prints its help and exits 0
+// on 'xo vm strat <id>', so a typo in a script passes as a success. Giving
+// each group a RunE turns that into a usage error (exit 1); bare 'xo vm'
+// still prints the help and exits 0.
+func rejectUnknownSubcommands(cmd *cobra.Command) {
+	for _, c := range cmd.Commands() {
+		rejectUnknownSubcommands(c)
+	}
+	if cmd.Runnable() || !cmd.HasSubCommands() {
+		return
+	}
+	// Cobra only defaults this (to 2) inside its own root-level check.
+	cmd.SuggestionsMinimumDistance = 2
+	cmd.RunE = func(cmd *cobra.Command, args []string) error {
+		if len(args) == 0 {
+			return cmd.Help()
+		}
+		msg := fmt.Sprintf("unknown command %q for %q", args[0], cmd.CommandPath())
+		if suggestions := cmd.SuggestionsFor(args[0]); len(suggestions) > 0 {
+			msg += fmt.Sprintf(" (did you mean %s?)", strings.Join(suggestions, ", "))
+		}
+		return fmt.Errorf("%s, run '%s --help' for the available commands", msg, cmd.CommandPath())
+	}
 }

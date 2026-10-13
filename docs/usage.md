@@ -205,7 +205,9 @@ XOA_TIMEOUT=5m xo vm export <id> --file vm.xva      # large XVA over a slow link
 
 **Wait deadline** — for operations that *poll* a backing task until it
 completes (the pool `rolling-update` / `rolling-reboot` / `emergency-shutdown`,
-`task wait`, and the `--wait` flag of the asynchronous actions), the HTTP
+`task wait`, the `--wait` flag of the asynchronous actions, and `vm create` /
+`network create` / `create-internal` / `create-bonded`, which always wait for
+their creation task), the HTTP
 client timeout only bounds each individual poll request, **not** how long the
 command blocks overall. By default that overall wait is **unbounded**: the
 command blocks until the task completes (or Ctrl+C). The flag that *does*
@@ -228,6 +230,13 @@ CLI through the SDK to the HTTP layer); use the wait `--timeout` above when
 you want a bound anyway. The wait deadline and the per-request HTTP timeout
 are independent: a 30-minute wait is made of many 30-second-bounded polls, so
 a broken connection can never hang a single poll forever.
+
+`vm create` and `network create*` have no wait `--timeout`: only Ctrl+C ends
+their wait early. They wait through the SDK, which does not yet treat an
+`interrupted` task as finished
+([vatesfr/xenorchestra-go-sdk#121](https://github.com/vatesfr/xenorchestra-go-sdk/issues/121)),
+so if their creation task is interrupted (for example with `xo task abort`)
+they keep waiting until you press Ctrl+C.
 
 ## Commands
 

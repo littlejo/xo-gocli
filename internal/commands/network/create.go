@@ -54,7 +54,8 @@ is referenced by its UUID as well; PIFs can be listed with 'xo rest get pifs'
 (there is no typed PIF command yet).
 
 The creation is asynchronous server-side; this command waits for the backing
-task to finish before printing the created network.
+task to finish before printing the created network. The wait has no
+deadline: it ends when the task completes, or on Ctrl+C.
 
 Examples:
   xo network create web --pool <pool-id> --pif <pif-id>
@@ -116,7 +117,8 @@ dedicated VM-to-VM network).
 
 The pool is referenced by its UUID, as returned by 'xo pool list'. The
 creation is asynchronous server-side; this command waits for the backing
-task to finish before printing the created network.
+task to finish before printing the created network. The wait has no
+deadline: it ends when the task completes, or on Ctrl+C.
 
 Examples:
   xo network create-internal internal --pool <pool-id>
@@ -173,7 +175,8 @@ by their UUIDs, as listed by 'xo rest get pifs'. --bond-mode selects the
 bonding mode: active-backup, balance-slb or lacp.
 
 The creation is asynchronous server-side; this command waits for the backing
-task to finish before printing the created network.
+task to finish before printing the created network. The wait has no
+deadline: it ends when the task completes, or on Ctrl+C.
 
 Examples:
   xo network create-bonded bond0 --pool <pool-id> --pifs <pif-1>,<pif-2> --bond-mode active-backup
