@@ -2,7 +2,9 @@
 
 This page is the detailed reference: installation, configuration, every
 command, and the output/querying model. For the overview and a five-minute
-quickstart, see the [README](../README.md).
+quickstart, see the [README](../README.md). The exhaustive list of every
+command and flag, generated from `--help`, is the
+[command reference](reference/cli/xo.md).
 
 ## Table of contents
 
@@ -73,6 +75,14 @@ Download `xo_<version>_<os>_<arch>.tar.gz` (or `.zip` on Windows) from the
 [Releases page](https://github.com/littlejo/xo-gocli/releases), verify it against
 `xo_<version>_checksums.txt`, extract it and put the `xo` binary on your
 `PATH`.
+
+Each archive also holds the man pages, one per command, under `man/`. To
+install them on Linux or macOS:
+
+```sh
+sudo install -m 0644 man/*.1 /usr/local/share/man/man1/
+man xo-vm-start
+```
 
 ### From source
 
