@@ -13,6 +13,7 @@ import (
 
 	"github.com/littlejo/xo-gocli/internal/cli"
 	"github.com/littlejo/xo-gocli/internal/output"
+	"github.com/littlejo/xo-gocli/internal/testenv"
 )
 
 const fixtureSR = `{
@@ -82,7 +83,7 @@ func runGet(t *testing.T, args ...string) (string, error) {
 func TestSRGetDetail(t *testing.T) {
 	server := fakeXOGet(t, nil)
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 
 	out, err := runGet(t, "get", "11111111-1111-4111-8111-111111111111")
 	if err != nil {
@@ -110,7 +111,7 @@ func TestSRGetDetailZeroSize(t *testing.T) {
 		_, _ = fmt.Fprint(w, `{"id":"11111111-1111-4111-8111-111111111111","uuid":"11111111-1111-4111-8111-111111111111","type":"SR","name_label":"empty","SR_type":"lvm","size":0,"usage":0,"content_type":"user","shared":false,"$container":"aaaaaaaa-bbbb-cccc-dddd-000000000001"}`)
 	})
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 
 	out, err := runGet(t, "get", "11111111-1111-4111-8111-111111111111")
 	if err != nil {
@@ -134,7 +135,7 @@ func TestSRGetDetailZeroSize(t *testing.T) {
 func TestSRGetJSON(t *testing.T) {
 	server := fakeXOGet(t, nil)
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 
 	out, err := runGet(t, "get", "11111111-1111-4111-8111-111111111111", "--output", "json")
 	if err != nil {
@@ -153,7 +154,7 @@ func TestSRGetJSON(t *testing.T) {
 func TestSRGetQuery(t *testing.T) {
 	server := fakeXOGet(t, nil)
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 
 	out, err := runGet(t, "get", "11111111-1111-4111-8111-111111111111", "--query", "name_label")
 	if err != nil {
@@ -170,7 +171,7 @@ func TestSRGetNotFound(t *testing.T) {
 		_, _ = fmt.Fprint(w, `{"message":"not found"}`)
 	})
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 
 	_, err := runGet(t, "get", "11111111-1111-4111-8111-111111111111")
 	if err == nil {
@@ -187,7 +188,7 @@ func TestSRGetAPIError(t *testing.T) {
 		_, _ = fmt.Fprint(w, `{"message":"boom"}`)
 	})
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 
 	_, err := runGet(t, "get", "11111111-1111-4111-8111-111111111111")
 	if err == nil {
@@ -201,7 +202,7 @@ func TestSRGetAPIError(t *testing.T) {
 func TestSRGetBadID(t *testing.T) {
 	server := fakeXOGet(t, nil)
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 
 	if _, err := runGet(t, "get", "not-a-uuid"); err == nil {
 		t.Fatal("expected an error for an invalid id")
@@ -285,7 +286,7 @@ func countPaths(paths *[]string, prefix string) int {
 // hosts by name.
 func TestSRGetDetailResolved(t *testing.T) {
 	srv, _ := srDetailServer(t, true)
-	isolatePointers(t, srv.URL)
+	testenv.Isolate(t, srv.URL)
 
 	out, err := runGet(t, "get", "11111111-1111-4111-8111-111111111111")
 	if err != nil {
@@ -308,7 +309,7 @@ func TestSRGetDetailResolved(t *testing.T) {
 // never one host lookup per PBD (anti-N+1).
 func TestSRGetDetailCostConstant(t *testing.T) {
 	srv, paths := srDetailServer(t, true)
-	isolatePointers(t, srv.URL)
+	testenv.Isolate(t, srv.URL)
 
 	if _, err := runGet(t, "get", "11111111-1111-4111-8111-111111111111"); err != nil {
 		t.Fatalf("sr get: %v", err)

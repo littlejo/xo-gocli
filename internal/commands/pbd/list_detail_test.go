@@ -6,6 +6,8 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+
+	"github.com/littlejo/xo-gocli/internal/testenv"
 )
 
 // listTestPBDs share a host and pool, and span two SRs.
@@ -71,7 +73,7 @@ func (s *listDetailServer) count(prefix string) int {
 // The table shows the host, SR and pool each PBD connects by name.
 func TestPBDListResolved(t *testing.T) {
 	srv := newListDetailServer(t)
-	isolatePointers(t, srv.URL)
+	testenv.Isolate(t, srv.URL)
 
 	out, err := runPBD(t, "pbd", "list")
 	if err != nil {
@@ -98,7 +100,7 @@ func TestPBDListResolved(t *testing.T) {
 // per PBD.
 func TestPBDListCostConstant(t *testing.T) {
 	srv := newListDetailServer(t)
-	isolatePointers(t, srv.URL)
+	testenv.Isolate(t, srv.URL)
 
 	if _, err := runPBD(t, "pbd", "list"); err != nil {
 		t.Fatalf("pbd list: %v", err)
@@ -117,7 +119,7 @@ func TestPBDListCostConstant(t *testing.T) {
 // --output json keeps the raw references and makes no batch request.
 func TestPBDListJSONNoBatches(t *testing.T) {
 	srv := newListDetailServer(t)
-	isolatePointers(t, srv.URL)
+	testenv.Isolate(t, srv.URL)
 
 	out, err := runPBD(t, "pbd", "list", "--output", "json")
 	if err != nil {

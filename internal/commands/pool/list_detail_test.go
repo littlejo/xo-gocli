@@ -6,6 +6,8 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+
+	"github.com/littlejo/xo-gocli/internal/testenv"
 )
 
 // listTestPools has two pools with distinct master hosts.
@@ -63,7 +65,7 @@ func (s *listDetailServer) count(prefix string) int {
 // The table shows the master host by name, from a single host batch.
 func TestPoolListResolved(t *testing.T) {
 	srv := newListDetailServer(t)
-	isolatePointers(t, srv.URL)
+	testenv.Isolate(t, srv.URL)
 
 	out, err := runList(t, "list")
 	if err != nil {
@@ -84,7 +86,7 @@ func TestPoolListResolved(t *testing.T) {
 // Every master is resolved with one host batch — never one lookup per pool.
 func TestPoolListCostConstant(t *testing.T) {
 	srv := newListDetailServer(t)
-	isolatePointers(t, srv.URL)
+	testenv.Isolate(t, srv.URL)
 
 	if _, err := runList(t, "list"); err != nil {
 		t.Fatalf("pool list: %v", err)
@@ -97,7 +99,7 @@ func TestPoolListCostConstant(t *testing.T) {
 // --output json keeps the raw master reference and makes no batch request.
 func TestPoolListJSONNoBatches(t *testing.T) {
 	srv := newListDetailServer(t)
-	isolatePointers(t, srv.URL)
+	testenv.Isolate(t, srv.URL)
 
 	out, err := runList(t, "list", "--output", "json")
 	if err != nil {

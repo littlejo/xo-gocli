@@ -14,6 +14,7 @@ import (
 
 	"github.com/littlejo/xo-gocli/internal/cli"
 	"github.com/littlejo/xo-gocli/internal/taskwait"
+	"github.com/littlejo/xo-gocli/internal/testenv"
 )
 
 const fixtureTaskPending = `{
@@ -116,7 +117,7 @@ func TestTaskWaitSuccess(t *testing.T) {
 		*calls++
 	})
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 	shortenPoll(t, time.Millisecond)
 
 	out, stderr, err := runWaitCmd(t, "wait", "s1")
@@ -138,7 +139,7 @@ func TestTaskWaitFailure(t *testing.T) {
 	// message; wait must render it and exit non-zero with that message.
 	server := fakeXOGet(t, nil)
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 
 	out, _, err := runWaitCmd(t, "wait", "f6e5d4c3b2a1")
 	if err == nil {
@@ -158,7 +159,7 @@ func TestTaskWaitInterrupted(t *testing.T) {
 		_, _ = fmt.Fprint(w, fixtureTaskInterrupted)
 	})
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 
 	_, _, err := runWaitCmd(t, "wait", "i1")
 	if err == nil {
@@ -178,7 +179,7 @@ func TestTaskWaitStringResult(t *testing.T) {
 		_, _ = fmt.Fprint(w, fixtureTaskSuccessStringResult)
 	})
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 
 	out, _, err := runWaitCmd(t, "wait", "s2", "--output", "json")
 	if err != nil {
@@ -199,7 +200,7 @@ func TestTaskWaitTimeout(t *testing.T) {
 		_, _ = fmt.Fprint(w, fixtureTaskPending)
 	})
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 	shortenPoll(t, 5*time.Millisecond)
 
 	_, _, err := runWaitCmd(t, "wait", "p1", "--timeout", "150ms")
@@ -217,7 +218,7 @@ func TestTaskWaitNotFound(t *testing.T) {
 		_, _ = fmt.Fprint(w, `{"message":"not found"}`)
 	})
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 
 	_, _, err := runWaitCmd(t, "wait", "nope")
 	if err == nil {
@@ -234,7 +235,7 @@ func TestTaskWaitBadID(t *testing.T) {
 		_, _ = fmt.Fprint(w, fixtureTaskSuccess)
 	})
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 
 	if _, _, err := runWaitCmd(t, "wait", "a/b"); err == nil {
 		t.Fatal("expected an error for an invalid id")
@@ -247,7 +248,7 @@ func TestTaskWaitJSON(t *testing.T) {
 		_, _ = fmt.Fprint(w, fixtureTaskSuccess)
 	})
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 
 	out, _, err := runWaitCmd(t, "wait", "s1", "--output", "json")
 	if err != nil {
@@ -268,7 +269,7 @@ func TestTaskWaitQuery(t *testing.T) {
 		_, _ = fmt.Fprint(w, fixtureTaskSuccess)
 	})
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 
 	out, _, err := runWaitCmd(t, "wait", "s1", "--query", "status")
 	if err != nil {

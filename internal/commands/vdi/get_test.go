@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/littlejo/xo-gocli/internal/output"
+	"github.com/littlejo/xo-gocli/internal/testenv"
 )
 
 const (
@@ -90,7 +91,7 @@ func (s *detailServer) count(prefix string) int {
 // The detail sheet resolves the SR by name and lists the attaching VMs by name.
 func TestVDIGetDetailResolved(t *testing.T) {
 	srv := newDetailServer(t, true, true)
-	isolatePointers(t, srv.URL)
+	testenv.Isolate(t, srv.URL)
 
 	out, err := runGet(t, "vdi", "get", getVDIID)
 	if err != nil {
@@ -112,7 +113,7 @@ func TestVDIGetDetailResolved(t *testing.T) {
 // one VM lookup per attaching VM (anti-N+1).
 func TestVDIGetDetailCostConstant(t *testing.T) {
 	srv := newDetailServer(t, true, true)
-	isolatePointers(t, srv.URL)
+	testenv.Isolate(t, srv.URL)
 
 	if _, err := runGet(t, "vdi", "get", getVDIID); err != nil {
 		t.Fatalf("vdi get: %v", err)
@@ -130,7 +131,7 @@ func TestVDIGetDetailCostConstant(t *testing.T) {
 // is shown instead, and an unresolvable "attached to" is simply omitted.
 func TestVDIGetDetailFallback(t *testing.T) {
 	srv := newDetailServer(t, false, false)
-	isolatePointers(t, srv.URL)
+	testenv.Isolate(t, srv.URL)
 
 	out, err := runGet(t, "vdi", "get", getVDIID)
 	if err != nil {

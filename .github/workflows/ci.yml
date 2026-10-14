@@ -61,6 +61,23 @@ jobs:
       - name: Test
         run: go test ./...
 
+      # The suite must not depend on the developer's environment: every test
+      # package starts from internal/testenv, which clears XOA_* and the
+      # config file. Run it once with hostile values to keep it that way.
+      - name: Test (hostile XOA_* environment)
+        env:
+          XOA_PROFILE: does-not-exist
+          XOA_ENDPOINT: http://127.0.0.1:1
+          XOA_TOKEN: wrong-token
+          XOA_DEFAULT_OUTPUT: json
+          XOA_DEBUG: '1'
+          XOA_TIMEOUT: 1ms
+          XOA_YES: '1'
+          XOA_WAIT: '1'
+          XOA_INSECURE: '1'
+          XOA_CONFIG_FILE: /nonexistent/xo/config
+        run: go test ./...
+
       # Data races are a classic source of flaky field reports; the race
       # detector is cheap enough to run on every push (ubuntu-latest ships a
       # C toolchain, which -race requires).

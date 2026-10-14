@@ -14,6 +14,7 @@ import (
 	"github.com/vatesfr/xenorchestra-go-sdk/pkg/payloads"
 
 	"github.com/littlejo/xo-gocli/internal/cli"
+	"github.com/littlejo/xo-gocli/internal/testenv"
 )
 
 const fixtureVMs = `[
@@ -62,18 +63,6 @@ func fakeXO(t *testing.T, handler func(w http.ResponseWriter, r *http.Request)) 
 	}))
 }
 
-// isolatePointers points the CLI at the fake server and at a throwaway config
-// file, and clears any ambient XOA_ variables.
-func isolatePointers(t *testing.T, url string) {
-	t.Helper()
-	t.Setenv("XOA_CONFIG_FILE", t.TempDir()+"/config")
-	for _, key := range []string{"XOA_PROFILE", "XOA_ENDPOINT", "XOA_TOKEN", "XOA_USERNAME", "XOA_PASSWORD", "XOA_INSECURE"} {
-		t.Setenv(key, "")
-	}
-	t.Setenv("XOA_ENDPOINT", url)
-	t.Setenv("XOA_TOKEN", "test-token")
-}
-
 func newTestRoot() *cobra.Command {
 	root := &cobra.Command{
 		Use:           "xo",
@@ -101,7 +90,7 @@ func runList(t *testing.T, args ...string) (string, error) {
 func TestVMListTable(t *testing.T) {
 	server := fakeXO(t, nil)
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 
 	out, err := runList(t, "list")
 	if err != nil {
@@ -125,7 +114,7 @@ func TestVMListEmpty(t *testing.T) {
 		_, _ = fmt.Fprint(w, `[]`)
 	})
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 
 	out, err := runList(t, "list")
 	if err != nil {
@@ -139,7 +128,7 @@ func TestVMListEmpty(t *testing.T) {
 func TestVMListJSON(t *testing.T) {
 	server := fakeXO(t, nil)
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 
 	out, err := runList(t, "list", "--output", "json")
 	if err != nil {
@@ -161,7 +150,7 @@ func TestVMListJSON(t *testing.T) {
 func TestVMListYAML(t *testing.T) {
 	server := fakeXO(t, nil)
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 
 	out, err := runList(t, "list", "--output", "yaml")
 	if err != nil {
@@ -175,7 +164,7 @@ func TestVMListYAML(t *testing.T) {
 func TestVMListQuery(t *testing.T) {
 	server := fakeXO(t, nil)
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 
 	out, err := runList(t, "list", "--query", "[?power_state==`Running`].name_label", "--output", "text")
 	if err != nil {
@@ -189,7 +178,7 @@ func TestVMListQuery(t *testing.T) {
 func TestVMListQueryInvalid(t *testing.T) {
 	server := fakeXO(t, nil)
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 
 	if _, err := runList(t, "list", "--query", "bad["); err == nil {
 		t.Fatal("expected an error for an invalid query")
@@ -205,7 +194,7 @@ func TestVMListLimit(t *testing.T) {
 		_, _ = fmt.Fprint(w, fixtureVMs)
 	})
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 
 	if _, err := runList(t, "list", "--limit", "3"); err != nil {
 		t.Fatalf("vm list --limit: %v", err)
@@ -221,7 +210,7 @@ func TestVMListPowerState(t *testing.T) {
 		_, _ = fmt.Fprint(w, fixtureVMs)
 	})
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 
 	if _, err := runList(t, "list", "--power-state", "Running"); err != nil {
 		t.Fatalf("vm list --power-state: %v", err)
@@ -234,7 +223,7 @@ func TestVMListAPIError(t *testing.T) {
 		_, _ = fmt.Fprint(w, `{"message":"boom"}`)
 	})
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 
 	_, err := runList(t, "list")
 	if err == nil {
@@ -335,7 +324,7 @@ func TestVMListTableTransition(t *testing.T) {
 		_, _ = fmt.Fprint(w, "["+body+"]")
 	})
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 
 	out, err := runList(t, "list")
 	if err != nil {

@@ -12,6 +12,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/littlejo/xo-gocli/internal/cli"
+	"github.com/littlejo/xo-gocli/internal/testenv"
 )
 
 const fixtureSRs = `[
@@ -65,16 +66,6 @@ func fakeXO(t *testing.T, handler func(w http.ResponseWriter, r *http.Request)) 
 	}))
 }
 
-func isolatePointers(t *testing.T, url string) {
-	t.Helper()
-	t.Setenv("XOA_CONFIG_FILE", t.TempDir()+"/config")
-	for _, key := range []string{"XOA_PROFILE", "XOA_ENDPOINT", "XOA_TOKEN", "XOA_USERNAME", "XOA_PASSWORD", "XOA_INSECURE", "XOA_WAIT"} {
-		t.Setenv(key, "")
-	}
-	t.Setenv("XOA_ENDPOINT", url)
-	t.Setenv("XOA_TOKEN", "test-token")
-}
-
 func newTestRoot() *cobra.Command {
 	root := &cobra.Command{
 		Use:           "xo",
@@ -102,7 +93,7 @@ func runList(t *testing.T, args ...string) (string, error) {
 func TestSRListTable(t *testing.T) {
 	server := fakeXO(t, nil)
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 
 	out, err := runList(t, "list")
 	if err != nil {
@@ -118,7 +109,7 @@ func TestSRListTable(t *testing.T) {
 func TestSRListJSON(t *testing.T) {
 	server := fakeXO(t, nil)
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 
 	out, err := runList(t, "list", "--output", "json")
 	if err != nil {
@@ -140,7 +131,7 @@ func TestSRListJSON(t *testing.T) {
 func TestSRListQuery(t *testing.T) {
 	server := fakeXO(t, nil)
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 
 	out, err := runList(t, "list", "--query", "[?SR_type==`nfs`].name_label", "--output", "text")
 	if err != nil {
@@ -154,7 +145,7 @@ func TestSRListQuery(t *testing.T) {
 func TestSRListQueryInvalid(t *testing.T) {
 	server := fakeXO(t, nil)
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 
 	if _, err := runList(t, "list", "--query", "bad["); err == nil {
 		t.Fatal("expected an error for an invalid query")
@@ -170,7 +161,7 @@ func TestSRListType(t *testing.T) {
 		_, _ = fmt.Fprint(w, fixtureSRs)
 	})
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 
 	if _, err := runList(t, "list", "--type", "lvm"); err != nil {
 		t.Fatalf("sr list --type: %v", err)
@@ -186,7 +177,7 @@ func TestSRListLimit(t *testing.T) {
 		_, _ = fmt.Fprint(w, fixtureSRs)
 	})
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 
 	if _, err := runList(t, "list", "--limit", "3"); err != nil {
 		t.Fatalf("sr list --limit: %v", err)
@@ -199,7 +190,7 @@ func TestSRListAPIError(t *testing.T) {
 		_, _ = fmt.Fprint(w, `{"message":"boom"}`)
 	})
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 
 	_, err := runList(t, "list")
 	if err == nil {

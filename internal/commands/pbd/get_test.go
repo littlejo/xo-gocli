@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/littlejo/xo-gocli/internal/output"
+	"github.com/littlejo/xo-gocli/internal/testenv"
 )
 
 // detailServer serves the surface a `pbd get` detail view uses and records
@@ -79,7 +80,7 @@ func (s *detailServer) count(prefix string) int {
 // The detail sheet resolves host, SR and pool by name.
 func TestPBDGetDetailResolved(t *testing.T) {
 	srv := newDetailServer(t, true)
-	isolatePointers(t, srv.URL)
+	testenv.Isolate(t, srv.URL)
 
 	out, err := runPBD(t, "pbd", "get", getPBDID)
 	if err != nil {
@@ -102,7 +103,7 @@ func TestPBDGetDetailResolved(t *testing.T) {
 // constant number of extra requests, never one per field (anti-N+1).
 func TestPBDGetDetailCostConstant(t *testing.T) {
 	srv := newDetailServer(t, true)
-	isolatePointers(t, srv.URL)
+	testenv.Isolate(t, srv.URL)
 
 	if _, err := runPBD(t, "pbd", "get", getPBDID); err != nil {
 		t.Fatalf("pbd get: %v", err)
@@ -122,7 +123,7 @@ func TestPBDGetDetailCostConstant(t *testing.T) {
 // is shown instead.
 func TestPBDGetDetailFallback(t *testing.T) {
 	srv := newDetailServer(t, false)
-	isolatePointers(t, srv.URL)
+	testenv.Isolate(t, srv.URL)
 
 	out, err := runPBD(t, "pbd", "get", getPBDID)
 	if err != nil {

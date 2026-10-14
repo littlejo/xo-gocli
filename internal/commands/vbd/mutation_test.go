@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/littlejo/xo-gocli/internal/output"
+	"github.com/littlejo/xo-gocli/internal/testenv"
 )
 
 const (
@@ -123,7 +124,7 @@ func readBody(r *http.Request) (string, error) {
 func TestVBDGetDetail(t *testing.T) {
 	server := newMutationServer(t)
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 
 	out, err := runVBD(t, "vbd", "get", getVBDID)
 	if err != nil {
@@ -144,7 +145,7 @@ func TestVBDGetDetail(t *testing.T) {
 func TestVBDGetJSON(t *testing.T) {
 	server := newMutationServer(t)
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 
 	out, err := runVBD(t, "vbd", "get", getVBDID, "--output", "json")
 	if err != nil {
@@ -162,7 +163,7 @@ func TestVBDGetJSON(t *testing.T) {
 func TestVBDGetNotFound(t *testing.T) {
 	server := newMutationServer(t)
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 
 	missing := "99999999-9999-4999-8999-999999999999"
 	_, err := runVBD(t, "vbd", "get", missing)
@@ -179,7 +180,7 @@ func TestVBDGetNotFound(t *testing.T) {
 func TestVBDCreate(t *testing.T) {
 	server := newMutationServer(t)
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 
 	out, err := runVBD(t, "vbd", "create", "--vm", vmID, "--vdi", vdiID)
 	if err != nil {
@@ -224,7 +225,7 @@ func TestVBDCreate(t *testing.T) {
 func TestVBDCreateWithModeAndBootable(t *testing.T) {
 	server := newMutationServer(t)
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 
 	if _, err := runVBD(t, "vbd", "create", "--vm", vmID, "--vdi", vdiID, "--mode", "RO", "--bootable"); err != nil {
 		t.Fatalf("vbd create --mode RO --bootable: %v", err)
@@ -245,7 +246,7 @@ func TestVBDCreateWithModeAndBootable(t *testing.T) {
 func TestVBDCreateRequiresVMAndVDI(t *testing.T) {
 	server := newMutationServer(t)
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 
 	if _, err := runVBD(t, "vbd", "create", "--vdi", vdiID); err == nil {
 		t.Fatal("expected an error when --vm is missing")
@@ -268,7 +269,7 @@ func TestVBDCreateRequiresVMAndVDI(t *testing.T) {
 func TestVBDDelete(t *testing.T) {
 	server := newMutationServer(t)
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 
 	out, err := runVBD(t, "vbd", "delete", getVBDID, "--yes")
 	if err != nil {
@@ -289,7 +290,7 @@ func TestVBDDelete(t *testing.T) {
 func TestVBDDeleteRequiresConfirmation(t *testing.T) {
 	server := newMutationServer(t)
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 
 	_, err := runVBD(t, "vbd", "delete", getVBDID)
 	if err == nil {
@@ -303,7 +304,7 @@ func TestVBDDeleteRequiresConfirmation(t *testing.T) {
 func TestVBDDeleteNotFound(t *testing.T) {
 	server := newMutationServer(t)
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 
 	missing := "99999999-9999-4999-8999-999999999999"
 	_, err := runVBD(t, "vbd", "delete", missing, "--yes")
@@ -323,7 +324,7 @@ func TestVBDDeleteNotFound(t *testing.T) {
 func TestVBDConnect(t *testing.T) {
 	server := newMutationServer(t)
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 
 	out, err := runVBD(t, "vbd", "connect", getVBDID)
 	if err != nil {
@@ -344,7 +345,7 @@ func TestVBDConnect(t *testing.T) {
 func TestVBDDisconnect(t *testing.T) {
 	server := newMutationServer(t)
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 
 	out, err := runVBD(t, "vbd", "disconnect", getVBDID)
 	if err != nil {
@@ -365,7 +366,7 @@ func TestVBDDisconnect(t *testing.T) {
 func TestVBDConnectNotFound(t *testing.T) {
 	server := newMutationServer(t)
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 
 	missing := "99999999-9999-4999-8999-999999999999"
 	_, err := runVBD(t, "vbd", "connect", missing)
@@ -385,7 +386,7 @@ func TestVBDConnectNotFound(t *testing.T) {
 func TestVBDConnectWait(t *testing.T) {
 	server := newMutationServer(t)
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 
 	out, err := runVBD(t, "vbd", "connect", getVBDID, "--wait")
 	if err != nil {
