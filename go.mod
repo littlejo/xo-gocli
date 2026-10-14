@@ -7,7 +7,7 @@ require (
 	github.com/gofrs/uuid v4.4.0+incompatible
 	github.com/jmespath-community/go-jmespath v1.1.1
 	github.com/spf13/cobra v1.10.2
-	github.com/spf13/pflag v1.0.9
+	github.com/spf13/pflag v1.0.10
 	github.com/vatesfr/xenorchestra-go-sdk v1.20.0
 	golang.org/x/term v0.47.0
 	gopkg.in/yaml.v3 v3.0.1
