@@ -42,6 +42,7 @@ func Main(m *testing.M) {
 	// unless a test writes one, never the developer's ~/.config/xo/config.
 	if err := os.Setenv(envConfigFile, filepath.Join(dir, "config")); err != nil {
 		fmt.Fprintln(os.Stderr, "testenv:", err)
+		_ = os.RemoveAll(dir)
 		os.Exit(1)
 	}
 	code := m.Run()

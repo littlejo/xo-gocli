@@ -76,7 +76,8 @@ jobs:
           XOA_WAIT: '1'
           XOA_INSECURE: '1'
           XOA_CONFIG_FILE: /nonexistent/xo/config
-        run: go test ./...
+        # -count=1: never reuse the cached results of the plain Test step.
+        run: go test -count=1 ./...
 
       # Data races are a classic source of flaky field reports; the race
       # detector is cheap enough to run on every push (ubuntu-latest ships a
