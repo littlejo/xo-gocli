@@ -29,10 +29,8 @@ prints it. Track it with 'xo task get <task-id>' or
 
 Note: after the migration completes, the VDI has a NEW id. Look it up again
 with 'xo vdi list' (filter by name) or 'xo vm vdis <vm-id>' to get the new
-reference.
-
-Examples:
-  xo vdi migrate 11111111-1111-4111-8111-111111111111 --sr aaaaaaaa-bbbb-cccc-dddd-000000000002
+reference.`,
+		Example: `  xo vdi migrate 11111111-1111-4111-8111-111111111111 --sr aaaaaaaa-bbbb-cccc-dddd-000000000002
   xo vdi migrate <id> --sr <sr-id> --output json`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {

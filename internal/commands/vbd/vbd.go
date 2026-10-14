@@ -18,6 +18,14 @@ func NewCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "vbd",
 		Short: "Manage virtual block devices (VBDs)",
+		Long: `Manage virtual block devices (VBDs). A VBD is the attachment between a VM
+and a VDI: creating one plugs a disk into a VM, deleting it unplugs the
+disk without deleting the VDI.
+
+VBDs are referenced by their UUID, as printed by 'xo vbd list'.`,
+		Example: `  xo vbd list
+  xo vbd create --vm <vm-id> --vdi <vdi-id>
+  xo vbd connect <id> --wait`,
 	}
 	cmd.AddCommand(newGetCommand())
 	cmd.AddCommand(newListCommand())

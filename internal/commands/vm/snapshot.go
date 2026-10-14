@@ -20,10 +20,8 @@ func newSnapshotCommand() *cobra.Command {
 		Long: `Take a snapshot of a virtual machine.
 
 The VM is referenced by its UUID, as returned by 'xo vm list'. Use --name to
-give the snapshot a label; if omitted, Xen Orchestra generates a default name.
-
-Examples:
-  xo vm snapshot 550e8400-e29b-41d4-a716-446655440001
+give the snapshot a label; if omitted, Xen Orchestra generates a default name.`,
+		Example: `  xo vm snapshot 550e8400-e29b-41d4-a716-446655440001
   xo vm snapshot <id> --name before-upgrade`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {

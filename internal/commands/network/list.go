@@ -30,10 +30,8 @@ func newListCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "List networks",
-		Long: `List networks from Xen Orchestra.
-
-Examples:
-  xo network list
+		Long:  `List networks from Xen Orchestra.`,
+		Example: `  xo network list
   xo network list --output json
   xo network list --query '[].name_label'
   xo network list --limit 10`,

@@ -40,10 +40,8 @@ stored profile at run time.
 Sub-commands:
   xo configure list           list the stored profiles
   xo configure show [name]    show one profile (the selected one by default)
-  xo configure remove <name>  remove a stored profile
-
-Examples:
-  xo configure
+  xo configure remove <name>  remove a stored profile`,
+		Example: `  xo configure
   xo configure --profile lab --endpoint https://xo.example.com --token <token>
   xo configure --profile lab --username admin --password <secret>
   xo configure list

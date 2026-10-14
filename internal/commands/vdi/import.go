@@ -44,10 +44,8 @@ given.
 The upload is a single HTTP request, so the global HTTP client timeout
 (--timeout, default 30s) bounds the whole transfer: a large disk over a slow
 link can exceed it. Raise it with --timeout or $XOA_TIMEOUT when importing
-large disks.
-
-Examples:
-  xo vdi import 11111111-1111-4111-8111-111111111111 disk.raw
+large disks.`,
+		Example: `  xo vdi import 11111111-1111-4111-8111-111111111111 disk.raw
   xo vdi import <id> - --format vhd --yes < disk.vhd`,
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {

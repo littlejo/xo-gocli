@@ -42,10 +42,8 @@ rejected with a clear error.
 
 This is a destructive operation and asks for confirmation unless --yes is
 given. The task is referenced by its id, as returned by 'xo task list' or by
-an asynchronous operation (for example 'xo vm start').
-
-Examples:
-  xo task abort a1b2c3d4e5f6
+an asynchronous operation (for example 'xo vm start').`,
+		Example: `  xo task abort a1b2c3d4e5f6
   xo task abort <id> --yes
   xo task wait <id> --wait-timeout 5m   # then abort if it is stuck`,
 		Args: cobra.ExactArgs(1),

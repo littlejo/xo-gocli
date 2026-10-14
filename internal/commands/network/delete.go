@@ -35,10 +35,8 @@ refused while the network still has attached virtual interfaces (VIFs): the
 connected VMs must be dealt with first.
 
 This is a destructive operation and asks for confirmation unless --yes is
-given. The network is referenced by its UUID, as returned by 'xo network list'.
-
-Examples:
-  xo network delete 11111111-1111-4111-8111-111111111111
+given. The network is referenced by its UUID, as returned by 'xo network list'.`,
+		Example: `  xo network delete 11111111-1111-4111-8111-111111111111
   xo network delete <id> --yes`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {

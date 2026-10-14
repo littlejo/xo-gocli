@@ -30,10 +30,8 @@ func newListCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "List pools",
-		Long: `List XenServer pools from Xen Orchestra.
-
-Examples:
-  xo pool list
+		Long:  `List XenServer pools from Xen Orchestra.`,
+		Example: `  xo pool list
   xo pool list --output json
   xo pool list --query '[].name_label'
   xo pool list --limit 10`,

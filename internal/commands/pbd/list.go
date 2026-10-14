@@ -34,10 +34,8 @@ func newListCommand() *cobra.Command {
 
 A PBD is the connection between a host and a storage repository (SR); it is
 what "plugs" an SR into a host. Use 'xo pbd plug' / 'xo pbd unplug' to
-connect or disconnect it.
-
-Examples:
-  xo pbd list
+connect or disconnect it.`,
+		Example: `  xo pbd list
   xo pbd list --output json
   xo pbd list --query '[].attached'
   xo pbd list --limit 10`,

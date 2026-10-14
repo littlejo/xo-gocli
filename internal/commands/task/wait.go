@@ -41,10 +41,8 @@ The global --timeout (or $XOA_TIMEOUT) still bounds each HTTP request, that
 is each poll, not the whole wait.
 
 The task is referenced by its id, as returned by 'xo task list' or by an
-asynchronous operation (for example 'xo vm start').
-
-Examples:
-  xo task wait a1b2c3d4e5f6
+asynchronous operation (for example 'xo vm start').`,
+		Example: `  xo task wait a1b2c3d4e5f6
   xo task wait <id> --wait-timeout 5m
   xo task wait <id> --output json
   xo task wait <id> --query 'status'`,

@@ -34,10 +34,8 @@ The relationships are resolved to names by a small number of extra lookups
 shown instead and the command still succeeds.
 
 --output json / yaml / text and --query still emit the raw object, so the
-machine readable behavior of 'xo vm get <id> --output json' is unchanged.
-
-Examples:
-  xo vm get 550e8400-e29b-41d4-a716-446655440001
+machine readable behavior of 'xo vm get <id> --output json' is unchanged.`,
+		Example: `  xo vm get 550e8400-e29b-41d4-a716-446655440001
   xo vm get <id> --output json
   xo vm get <id> --query 'name_label'`,
 		Args: cobra.ExactArgs(1),

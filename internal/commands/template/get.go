@@ -33,10 +33,8 @@ be resolved, the raw id is shown instead and the command still succeeds.
 
 --output json / yaml / text and --query still emit the raw object, so the
 machine readable behavior of 'xo template get <id> --output json' is
-unchanged.
-
-Examples:
-  xo template get d31e47fd-a70e-d849-883e-c17193472710-6959dfe8-534c-4c58-8a8c-3c3792293543
+unchanged.`,
+		Example: `  xo template get d31e47fd-a70e-d849-883e-c17193472710-6959dfe8-534c-4c58-8a8c-3c3792293543
   xo template get <id> --output json
   xo template get <id> --query 'name_label'`,
 		Args: cobra.ExactArgs(1),

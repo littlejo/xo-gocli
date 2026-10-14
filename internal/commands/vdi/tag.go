@@ -19,6 +19,12 @@ func newTagCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "tag",
 		Short: "Manage the tags of a virtual disk (VDI)",
+		Long: `Add or remove the tags of a virtual disk (VDI). Tags are free-form labels; filter on
+them with --query, for example:
+
+  xo vdi list --query "[?contains(tags, 'production')].name_label"`,
+		Example: `  xo vdi tag add <id> production
+  xo vdi tag remove <id> production`,
 	}
 	cmd.AddCommand(newTagAddCommand())
 	cmd.AddCommand(newTagRemoveCommand())
@@ -71,10 +77,8 @@ func newTagAddCommand() *cobra.Command {
 		Short: "Add a tag to a virtual disk (VDI)",
 		Long: `Add a tag to a virtual disk (VDI).
 
-The VDI is referenced by its UUID, as returned by 'xo vdi list'.
-
-Examples:
-  xo vdi tag add 11111111-1111-4111-8111-111111111111 production
+The VDI is referenced by its UUID, as returned by 'xo vdi list'.`,
+		Example: `  xo vdi tag add 11111111-1111-4111-8111-111111111111 production
   xo vdi tag add <id> web`,
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -97,10 +101,8 @@ func newTagRemoveCommand() *cobra.Command {
 		Short: "Remove a tag from a virtual disk (VDI)",
 		Long: `Remove a tag from a virtual disk (VDI).
 
-The VDI is referenced by its UUID, as returned by 'xo vdi list'.
-
-Examples:
-  xo vdi tag remove 11111111-1111-4111-8111-111111111111 production
+The VDI is referenced by its UUID, as returned by 'xo vdi list'.`,
+		Example: `  xo vdi tag remove 11111111-1111-4111-8111-111111111111 production
   xo vdi tag remove <id> web`,
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {

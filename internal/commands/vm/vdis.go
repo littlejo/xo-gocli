@@ -31,10 +31,8 @@ func newVdisCommand() *cobra.Command {
 		Short: "List the virtual disks (VDIs) of a virtual machine",
 		Long: `List the virtual disks (VDIs) attached to a virtual machine.
 
-The VM is referenced by its UUID, as returned by 'xo vm list'.
-
-Examples:
-  xo vm vdis 550e8400-e29b-41d4-a716-446655440001
+The VM is referenced by its UUID, as returned by 'xo vm list'.`,
+		Example: `  xo vm vdis 550e8400-e29b-41d4-a716-446655440001
   xo vm vdis <id> --output json
   xo vm vdis <id> --query '[].name_label'
   xo vm vdis <id> --type user

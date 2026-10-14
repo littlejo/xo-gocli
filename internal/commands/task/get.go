@@ -32,10 +32,8 @@ the object it targeted. For a failed task the error (code and message) is
 shown; for a successful one with a result, that result is shown.
 
 --output json / yaml / text and --query still emit the raw object, so the
-machine readable behavior of 'xo task get <id> --output json' is unchanged.
-
-Examples:
-  xo task get a1b2c3d4e5f6
+machine readable behavior of 'xo task get <id> --output json' is unchanged.`,
+		Example: `  xo task get a1b2c3d4e5f6
   xo task get <id> --output json
   xo task get <id> --query 'result'`,
 		Args: cobra.ExactArgs(1),

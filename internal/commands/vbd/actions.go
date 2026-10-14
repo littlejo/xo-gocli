@@ -33,11 +33,9 @@ func newConnectCommand() *cobra.Command {
 
 The VBD is referenced by its UUID, as returned by 'xo vbd list'. The VM must
 be running for a hot-plug; if it is halted the disk is attached at boot
-instead (no action needed).
-
-Examples:
-  xo vbd connect 33333333-3333-4333-8333-333333333333`,
-		Args: cobra.ExactArgs(1),
+instead (no action needed).`,
+		Example: `  xo vbd connect 33333333-3333-4333-8333-333333333333`,
+		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runAction(cmd, args[0], "connect", func(ctx context.Context, xo library.Library, id uuid.UUID) (string, error) {
 				return xo.VBD().Connect(ctx, id)
@@ -56,11 +54,9 @@ func newDisconnectCommand() *cobra.Command {
 
 The VBD is referenced by its UUID, as returned by 'xo vbd list'. Use
 'xo vbd delete <id>' instead to remove the attachment entirely (keeping the
-VDI).
-
-Examples:
-  xo vbd disconnect 33333333-3333-4333-8333-333333333333`,
-		Args: cobra.ExactArgs(1),
+VDI).`,
+		Example: `  xo vbd disconnect 33333333-3333-4333-8333-333333333333`,
+		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runAction(cmd, args[0], "disconnect", func(ctx context.Context, xo library.Library, id uuid.UUID) (string, error) {
 				return xo.VBD().Disconnect(ctx, id)

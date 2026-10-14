@@ -49,10 +49,8 @@ func newListCommand() *cobra.Command {
 
 Templates are first-class objects in Xen Orchestra (REST resource
 "vm-templates"); unlike ordinary VMs they are not part of the "vms"
-collection, which is why 'xo vm list' does not show them.
-
-Examples:
-  xo template list
+collection, which is why 'xo vm list' does not show them.`,
+		Example: `  xo template list
   xo template list --output json
   xo template list --query '[].name_label'
   xo template list --limit 10`,

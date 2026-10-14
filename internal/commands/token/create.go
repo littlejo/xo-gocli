@@ -35,10 +35,8 @@ now: it can be listed later but only masked, unless you kept the value.
 
 If --client-id is given and a non-expired token already exists for that
 client id, the existing token is updated and returned instead of creating a
-new one.
-
-Examples:
-  xo token create
+new one.`,
+		Example: `  xo token create
   xo token create --description "ci pipeline" --expires-in "30 days"
   xo token create --client-id my-cli --expires-in "1 hour"`,
 		Args: cobra.NoArgs,

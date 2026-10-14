@@ -37,10 +37,8 @@ to. Use 'xo pbd unplug <id>' to do the opposite.
 
 The PBD is referenced by its UUID, as returned by 'xo pbd list'. The action
 is asynchronous: the command prints the task id and returns. Track it with
-'xo task get <task-id>' or 'xo task wait <task-id>'.
-
-Examples:
-  xo pbd plug 550e8400-e29b-41d4-a716-446655440001
+'xo task get <task-id>' or 'xo task wait <task-id>'.`,
+		Example: `  xo pbd plug 550e8400-e29b-41d4-a716-446655440001
   xo pbd plug <id> --output json`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -64,10 +62,8 @@ belongs to. Use 'xo pbd plug <id>' to re-connect it.
 
 The PBD is referenced by its UUID, as returned by 'xo pbd list'. The action
 is asynchronous: the command prints the task id and returns. Track it with
-'xo task get <task-id>' or 'xo task wait <task-id>'.
-
-Examples:
-  xo pbd unplug 550e8400-e29b-41d4-a716-446655440001
+'xo task get <task-id>' or 'xo task wait <task-id>'.`,
+		Example: `  xo pbd unplug 550e8400-e29b-41d4-a716-446655440001
   xo pbd unplug <id> --output json`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {

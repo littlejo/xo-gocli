@@ -33,10 +33,8 @@ func newListCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "List virtual machines",
-		Long: `List virtual machines from Xen Orchestra.
-
-Examples:
-  xo vm list
+		Long:  `List virtual machines from Xen Orchestra.`,
+		Example: `  xo vm list
   xo vm list --output json
   xo vm list --query '[].name_label'
   xo vm list --power-state Running

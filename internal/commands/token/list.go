@@ -32,10 +32,8 @@ func newListCommand() *cobra.Command {
 
 Tokens are what the CLI itself uses to authenticate (see 'xo configure').
 The token id is the secret, so it is masked in the output by default;
-pass --no-secret to reveal the full values (use with care).
-
-Examples:
-  xo token list
+pass --no-secret to reveal the full values (use with care).`,
+		Example: `  xo token list
   xo token list --output json
   xo token list --query '[].description'
   xo token list --no-secret --query '[].id'`,

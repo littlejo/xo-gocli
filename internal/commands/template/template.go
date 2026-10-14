@@ -18,6 +18,11 @@ func NewCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "template",
 		Short: "Manage VM templates",
+		Long: `List and inspect the VM templates available in each pool. A template id
+printed here is what 'xo vm create --template' takes.`,
+		Example: `  xo template list
+  xo template list --query '[].name_label'
+  xo template get <id>`,
 	}
 	cmd.AddCommand(newGetCommand())
 	cmd.AddCommand(newListCommand())

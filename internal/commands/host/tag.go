@@ -19,6 +19,12 @@ func newTagCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "tag",
 		Short: "Manage the tags of a host",
+		Long: `Add or remove the tags of a host. Tags are free-form labels; filter on
+them with --query, for example:
+
+  xo host list --query "[?contains(tags, 'production')].name_label"`,
+		Example: `  xo host tag add <id> production
+  xo host tag remove <id> production`,
 	}
 	cmd.AddCommand(newTagAddCommand())
 	cmd.AddCommand(newTagRemoveCommand())
@@ -67,10 +73,8 @@ func newTagAddCommand() *cobra.Command {
 		Short: "Add a tag to a host",
 		Long: `Add a tag to a host.
 
-The host is referenced by its UUID, as returned by 'xo host list'.
-
-Examples:
-  xo host tag add aaaaaaaa-bbbb-cccc-dddd-000000000001 production
+The host is referenced by its UUID, as returned by 'xo host list'.`,
+		Example: `  xo host tag add aaaaaaaa-bbbb-cccc-dddd-000000000001 production
   xo host tag add <id> web`,
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -100,10 +104,8 @@ func newTagRemoveCommand() *cobra.Command {
 		Short: "Remove a tag from a host",
 		Long: `Remove a tag from a host.
 
-The host is referenced by its UUID, as returned by 'xo host list'.
-
-Examples:
-  xo host tag remove aaaaaaaa-bbbb-cccc-dddd-000000000001 production
+The host is referenced by its UUID, as returned by 'xo host list'.`,
+		Example: `  xo host tag remove aaaaaaaa-bbbb-cccc-dddd-000000000001 production
   xo host tag remove <id> web`,
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {

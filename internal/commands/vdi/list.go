@@ -35,10 +35,8 @@ func newListCommand() *cobra.Command {
 		Long: `List virtual disks (VDIs) from Xen Orchestra.
 
 A VDI is a virtual disk that lives on a storage repository (SR). Use
-'xo vm vdis <id>' to list only the disks attached to a specific VM.
-
-Examples:
-  xo vdi list
+'xo vm vdis <id>' to list only the disks attached to a specific VM.`,
+		Example: `  xo vdi list
   xo vdi list --output json
   xo vdi list --query '[].name_label'
   xo vdi list --type user

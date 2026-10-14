@@ -20,6 +20,12 @@ func newTagCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "tag",
 		Short: "Manage the tags of a network",
+		Long: `Add or remove the tags of a network. Tags are free-form labels; filter on
+them with --query, for example:
+
+  xo network list --query "[?contains(tags, 'production')].name_label"`,
+		Example: `  xo network tag add <id> production
+  xo network tag remove <id> production`,
 	}
 	cmd.AddCommand(newTagAddCommand())
 	cmd.AddCommand(newTagRemoveCommand())
@@ -68,10 +74,8 @@ func newTagAddCommand() *cobra.Command {
 		Short: "Add a tag to a network",
 		Long: `Add a tag to a network.
 
-The network is referenced by its UUID, as returned by 'xo network list'.
-
-Examples:
-  xo network tag add 11111111-1111-4111-8111-111111111111 production
+The network is referenced by its UUID, as returned by 'xo network list'.`,
+		Example: `  xo network tag add 11111111-1111-4111-8111-111111111111 production
   xo network tag add <id> web`,
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -101,10 +105,8 @@ func newTagRemoveCommand() *cobra.Command {
 		Short: "Remove a tag from a network",
 		Long: `Remove a tag from a network.
 
-The network is referenced by its UUID, as returned by 'xo network list'.
-
-Examples:
-  xo network tag remove 11111111-1111-4111-8111-111111111111 production
+The network is referenced by its UUID, as returned by 'xo network list'.`,
+		Example: `  xo network tag remove 11111111-1111-4111-8111-111111111111 production
   xo network tag remove <id> web`,
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
