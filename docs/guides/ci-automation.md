@@ -129,7 +129,7 @@ jobs:
 
       - name: Snapshot every VM tagged "nightly"
         run: |
-          ids=$(xo vm list --query "[?tags && contains(tags, 'nightly')].id" --output text)
+          ids=$(xo vm list --query "[?contains(tags, 'nightly')].id" --output text)
           for id in $ids; do
             xo vm snapshot "$id" --name "nightly-$(date +%F)" --wait
           done

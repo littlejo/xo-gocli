@@ -42,6 +42,9 @@ exit codes or machine output requires a new major version.
   `--wait-timeout 5m`: the old form still parses but no longer bounds the
   wait.
 - `-v` no longer prints the version. Use `--version` or `xo version`.
+- JSON and YAML output always include empty collections, as `[]` or `{}`
+  (a VM without tags has `"tags": []`), as the Xen Orchestra API returns
+  them. Empty scalars are still omitted.
 
 ### Fixed
 
@@ -51,6 +54,12 @@ exit codes or machine output requires a new major version.
   profile with the `XOA_*` environment values.
 - `vm create --template` accepts the template id printed by
   `xo template list`.
+- `--query` backtick literals hold JSON, as in the AWS CLI: `` `true` `` and
+  `` `2` `` now compare as a boolean and a number (they were turned into
+  strings and never matched), and `` `it's` `` is a string again (it became
+  a field name).
+- `--query 'contains(tags, ...)'` (and `length(tags)`) no longer fails with
+  `invalid type for: <nil>` when a VM has no tags.
 
 ### Security
 

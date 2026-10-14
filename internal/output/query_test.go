@@ -5,16 +5,23 @@ import (
 	"testing"
 )
 
-// awsBackticks translates the AWS CLI backtick literal syntax into the
-// single-quoted literals the JMESPath engine expects. These tests pin the
-// translation (including its interaction with quoted strings) so that a
-// regression cannot silently change the meaning of a --query expression.
+// awsBackticks keeps JSON backtick literals and turns the AWS CLI's non-JSON
+// ones into raw strings. These tests pin the translation (including its
+// interaction with quoted strings) so that a regression cannot silently
+// change the meaning of a --query expression.
 
 func TestAwsBackticksBasic(t *testing.T) {
 	for in, want := range map[string]string{
 		"[?power_state==`Running`].name_label": "[?power_state=='Running'].name_label",
 		"`web-01`":                             "'web-01'",
 		"``":                                   "''",
+		// JSON literals are kept: they are booleans, numbers, JSON strings.
+		"[?ha_enabled==`true`].name_label": "[?ha_enabled==`true`].name_label",
+		"[?CPUs.number==`2`].id":           "[?CPUs.number==`2`].id",
+		"[?name_label==`\"web-01\"`]":      "[?name_label==`\"web-01\"`]",
+		"`null`":                           "`null`",
+		// A quoted identifier is data too.
+		"\"a`b\"": "\"a`b\"",
 	} {
 		if got := awsBackticks(in); got != want {
 			t.Errorf("awsBackticks(%q) = %q, want %q", in, got, want)
@@ -31,8 +38,9 @@ func TestAwsBackticksKeepsSingleQuotedStringsUntouched(t *testing.T) {
 }
 
 func TestAwsBackticksQuoting(t *testing.T) {
-	// A literal containing a single quote is re-quoted with double quotes.
-	if got := awsBackticks("[?name==`it's`]"); got != "[?name==\"it's\"]" {
+	// A single quote inside a non-JSON literal is escaped. (Double quotes
+	// would make it an identifier, a field name, not a string.)
+	if got := awsBackticks("[?name==`it's`]"); got != `[?name=='it\'s']` {
 		t.Fatalf("unexpected re-quoting: %q", got)
 	}
 	// A literal without quotes keeps single quotes.

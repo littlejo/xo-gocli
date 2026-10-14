@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"io"
 	"math"
+	"reflect"
 	"strconv"
 	"strings"
 
@@ -140,19 +141,34 @@ func Query(expression string, data any) (*QueryResult, error) {
 	return &QueryResult{Present: true, Value: result}, nil
 }
 
-// awsBackticks converts AWS CLI style backtick literals (`Running`) into the
-// single quoted literals ('Running') of the JMESPath engine, so that the
-// familiar AWS syntax works out of the box.
+// awsBackticks makes AWS CLI style backtick literals behave as they do in
+// the AWS CLI. In JMESPath a backtick literal holds JSON: `true`, `2`,
+// `"Running"` and `["a"]` are kept as they are, so they compare as a
+// boolean, a number, a string and an array. The AWS CLI also accepts text
+// that is not valid JSON, such as `Running`, as a string; the engine used
+// here rejects it, so such a literal is rewritten as the raw string
+// 'Running' (a single quote inside it is escaped).
+//
+// Single-quoted strings and double-quoted identifiers are copied unchanged:
+// a backtick inside them is data, not a delimiter.
 func awsBackticks(expression string) string {
 	var b strings.Builder
-	inString := false
+	var quote byte // the open ' or " quote, or 0
 	for i := 0; i < len(expression); i++ {
 		c := expression[i]
 		switch {
-		case c == '\'':
-			inString = !inString
+		case quote != 0:
 			b.WriteByte(c)
-		case c == '`' && !inString:
+			if c == '\\' && i+1 < len(expression) {
+				i++
+				b.WriteByte(expression[i])
+			} else if c == quote {
+				quote = 0
+			}
+		case c == '\'' || c == '"':
+			quote = c
+			b.WriteByte(c)
+		case c == '`':
 			j := i + 1
 			for j < len(expression) && expression[j] != '`' {
 				j++
@@ -162,14 +178,12 @@ func awsBackticks(expression string) string {
 				continue
 			}
 			literal := expression[i+1 : j]
-			if !strings.ContainsRune(literal, '\'') {
-				b.WriteByte('\'')
-				b.WriteString(literal)
-				b.WriteByte('\'')
+			if trimmed := strings.TrimSpace(literal); trimmed != "" && json.Valid([]byte(trimmed)) {
+				b.WriteString(expression[i : j+1])
 			} else {
-				b.WriteByte('"')
-				b.WriteString(literal)
-				b.WriteByte('"')
+				b.WriteByte('\'')
+				b.WriteString(strings.ReplaceAll(literal, "'", `\'`))
+				b.WriteByte('\'')
 			}
 			i = j
 		default:
@@ -181,6 +195,11 @@ func awsBackticks(expression string) string {
 
 // Normalize converts any value into JSON-compatible primitives so that
 // JMESPath and the structured renderers can process SDK types.
+//
+// Empty collections are kept: a slice or map field that encoding/json drops
+// (omitempty) or writes as null comes back as [] or {}, as the Xen
+// Orchestra API itself returns it. Without this, a VM with no tags has no
+// 'tags' field at all and --query 'contains(tags, ...)' fails on it.
 func Normalize(data any) (any, error) {
 	if data == nil {
 		return nil, nil
@@ -193,7 +212,104 @@ func Normalize(data any) (any, error) {
 	if err := json.Unmarshal(encoded, &decoded); err != nil {
 		return nil, fmt.Errorf("cannot process data: %w", err)
 	}
-	return decoded, nil
+	return keepEmptyCollections(reflect.ValueOf(data), decoded), nil
+}
+
+var jsonMarshalerType = reflect.TypeFor[json.Marshaler]()
+
+// keepEmptyCollections walks the original Go value v next to its decoded
+// JSON form and restores the empty slices and maps that encoding/json left
+// out or wrote as null. Values with their own JSON encoding (json.Marshaler)
+// are left as encoded.
+func keepEmptyCollections(v reflect.Value, decoded any) any {
+	for v.IsValid() && (v.Kind() == reflect.Pointer || v.Kind() == reflect.Interface) {
+		if v.IsNil() {
+			return decoded
+		}
+		v = v.Elem()
+	}
+	if !v.IsValid() || v.Type().Implements(jsonMarshalerType) || reflect.PointerTo(v.Type()).Implements(jsonMarshalerType) {
+		return decoded
+	}
+	switch v.Kind() {
+	case reflect.Struct:
+		if obj, ok := decoded.(map[string]any); ok {
+			keepStructCollections(v, obj)
+		}
+	case reflect.Slice, reflect.Array:
+		if v.Type().Elem().Kind() == reflect.Uint8 {
+			return decoded // []byte is a base64 string
+		}
+		if decoded == nil && v.Kind() == reflect.Slice {
+			return []any{}
+		}
+		if items, ok := decoded.([]any); ok {
+			for i := range items {
+				if i < v.Len() {
+					items[i] = keepEmptyCollections(v.Index(i), items[i])
+				}
+			}
+		}
+	case reflect.Map:
+		if decoded == nil {
+			return map[string]any{}
+		}
+		if obj, ok := decoded.(map[string]any); ok && v.Type().Key().Kind() == reflect.String {
+			iter := v.MapRange()
+			for iter.Next() {
+				key := iter.Key().String()
+				if value, ok := obj[key]; ok {
+					obj[key] = keepEmptyCollections(iter.Value(), value)
+				}
+			}
+		}
+	}
+	return decoded
+}
+
+// keepStructCollections applies keepEmptyCollections to the fields of the
+// struct v, decoded as obj, following the encoding/json field rules
+// (json tag name, "-", embedded structs flattened into their parent).
+func keepStructCollections(v reflect.Value, obj map[string]any) {
+	t := v.Type()
+	for i := 0; i < t.NumField(); i++ {
+		field := t.Field(i)
+		tag := field.Tag.Get("json")
+		if tag == "-" {
+			continue
+		}
+		name, _, _ := strings.Cut(tag, ",")
+		fv := v.Field(i)
+		if field.Anonymous && name == "" {
+			for fv.Kind() == reflect.Pointer {
+				if fv.IsNil() {
+					break
+				}
+				fv = fv.Elem()
+			}
+			if fv.Kind() == reflect.Struct {
+				keepStructCollections(fv, obj)
+			}
+			continue
+		}
+		if !field.IsExported() {
+			continue
+		}
+		if name == "" {
+			name = field.Name
+		}
+		if value, ok := obj[name]; ok {
+			obj[name] = keepEmptyCollections(fv, value)
+			continue
+		}
+		// Dropped by omitempty: restore it when it is an empty collection.
+		switch {
+		case fv.Kind() == reflect.Slice && fv.Type().Elem().Kind() != reflect.Uint8:
+			obj[name] = []any{}
+		case fv.Kind() == reflect.Map:
+			obj[name] = map[string]any{}
+		}
+	}
 }
 
 // RenderTable writes a plain aligned table to w. When there are no rows and
