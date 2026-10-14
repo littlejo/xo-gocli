@@ -125,7 +125,7 @@ $XOA_PROFILE, or make it current with 'xo configure use <name>'.`,
 				if !interactive {
 					return fmt.Errorf("--token or --username/--password is required")
 				}
-				if username, err = prompt(in, out, "username", true, ""); err != nil {
+				if username, err = prompt(in, out, "username", true, profile.Username); err != nil {
 					return err
 				}
 				if password, err = promptSecret(in, out, "password"); err != nil {

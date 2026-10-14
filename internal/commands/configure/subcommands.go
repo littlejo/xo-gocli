@@ -267,11 +267,15 @@ neither --profile nor $XOA_PROFILE is set. 'xo configure list' marks it.`,
   xo configure list`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			path, err := config.SetCurrent(args[0])
+			name := strings.TrimSpace(args[0])
+			if name == "" {
+				return fmt.Errorf("profile name must not be empty")
+			}
+			path, err := config.SetCurrent(name)
 			if err != nil {
 				return err
 			}
-			_, err = fmt.Fprintf(cmd.ErrOrStderr(), "Profile %q is now the current profile (%s)\n", args[0], path)
+			_, err = fmt.Fprintf(cmd.ErrOrStderr(), "Profile %q is now the current profile (%s)\n", name, path)
 			return err
 		},
 	}

@@ -82,7 +82,7 @@ func TestConfigureCurrentProfileIsExplicit(t *testing.T) {
 		t.Fatalf("expected a hint to switch, got:\n%s", out)
 	}
 
-	runConfigure(t, "use", "lab")
+	runConfigure(t, "use", " lab ") // trimmed, like 'remove'
 	if got := currentProfile(t); got != "lab" {
 		t.Fatalf("after 'use lab': current = %q", got)
 	}
