@@ -11,6 +11,7 @@ needed) and the final state is verified.
 ## Table of contents
 
 - [Add a disk to a VM](#add-a-disk-to-a-vm)
+- [Turn a downloaded image into a VM template](#turn-a-downloaded-image-into-a-vm-template)
 
 ---
 
@@ -264,6 +265,450 @@ still attached to any VM cannot be deleted.
 | Hot-plug refused | The guest OS or the disk type doesn't support hot-plug; reboot the VM instead. |
 | Disk visible on the host (`xo vbd list`) but not in the guest | Check `lsblk` inside the guest: the hot-plug may need a few seconds (or a rescan), or the guest kernel hasn't picked it up — see step 6. |
 | `mkfs` / mount fails on the guest | The VBD is not attached (`ATTACHED: no`), the disk is still in use, or you targeted the wrong device — re-check `lsblk` and `xo vbd list --vm <id>`. |
+
+Every failure is reported as `Error: …` on **stderr**; machine-readable output
+on stdout stays clean, so scripts can branch on the exit code and the stderr
+message.
+
+---
+
+## Turn a downloaded image into a VM template
+
+You have downloaded an image of a machine you want to run repeatedly — for
+example a Linux node with a **VPN client** installed — and you want it to be
+available in Xen Orchestra as a **VM template**, so that new nodes are a one
+line away: `xo vm create node-01 --pool … --template …`.
+
+This is the recipe to go from a file on your laptop to a template in `xo
+template list`, and to the VMs created from it.
+
+```text
+   1. identify the image format          file
+   2. find the target pool and SR        xo pool list / xo sr list
+   3. get the image into a VM            xo vm import (XVA/OVA)
+                                         xo vm create + xo vdi import (raw disk)
+   4. boot it and verify it works        xo vm start --wait
+   5. shut it down cleanly               xo vm stop --wait
+   6. convert VM -> template             web UI (REST gap — see step 6)
+   7. verify the template                xo template list / get
+   8. create VMs from it                 xo vm create --template
+```
+
+### Why "import a template" is not one command
+
+Two things about Xen Orchestra make this a multi-step flow:
+
+- **A template is a VM, not a file.** A "template" is simply a VM with an
+  `is_a_template` flag. There is no template file format to upload, and the
+  REST API has no "import template" endpoint: importing always produces a
+  plain **VM** first.
+- **XO imports whole VMs, not bare disks.** `xo vm import` (REST
+  `POST /pools/<pool>/vms`) accepts **XVA or OVA** archives — a full
+  virtual machine, disks included. A bare disk image (qcow2, raw, VHD) has to
+  go *into* an existing VM's disk, with `xo vdi import`.
+- **The VM → template conversion is not in the REST API** (step 6). The only
+  programmatic route is the legacy JSON-RPC `vm.convertToTemplate`, which this
+  CLI does not call; the modern REST API and the Go SDK v2 have no equivalent
+  yet. Until then, the conversion is the **web UI** button (and a documented
+  upstream gap).
+
+So: import as a VM, make sure it boots, then flip it to a template. The
+conversion is **one-way** — afterwards the object no longer appears in
+`xo vm list`, only in `xo template list`.
+
+### Prerequisites
+
+- A configured profile (`xo configure`) with **admin** rights on the pool
+  (importing needs `import:vm` on the SR, the conversion needs
+  `administrate` on the pool).
+- A shared **storage repository (SR)** the new VMs will use — `xo sr list`.
+- The image file. If it is a **qcow2** or VirtualBox **vdi**, a machine with
+  `qemu-img` (the `qemu-utils` package) to convert it, because XO disk import
+  accepts **raw and vhd only**.
+
+### Step 1 — identify the image
+
+```sh
+file node.qcow2
+```
+
+```
+node.qcow2: QEMU QCOW2 Image, version 3, 8589934592 bytes
+```
+
+Route the result:
+
+| `file` says (or the extension) | It is | Path |
+| ------------------------------ | ----- | ---- |
+| XVA (`gzip compressed data…`, `.xva`) or OVA (`POSIX tar archive`, `.ova`) | A **full VM export** | Short path — [step 3a](#step-3a-short-path-xva--ova) |
+| `QEMU QCOW2 Image`, `data` (`.raw`/`.img`), `Microsoft Virtual PC Hard Disk` (`.vhd`), VirtualBox `.vdi` | A **bare disk** | Long path — [step 3b](#step-3b-long-path-bare-disk) |
+
+Convert a qcow2 (or vdi) to a format XO understands, once:
+
+```sh
+qemu-img convert -f qcow2 -O raw node.qcow2 node.raw
+```
+
+A raw disk is a *guest OS on a disk* — no boot order, no network card, no
+name. The long path wraps it in a VM that provides the rest.
+
+### Step 2 — find the target pool and SR
+
+```sh
+xo pool list
+```
+
+```
+ID                                    NAME     VERSION  CORES  SOCKETS  MASTER   HA
+------------------------------------  -------  -------  -----  -------  -------  --
+aaaaaaaa-bbbb-cccc-dddd-000000000001  pool-01  8.2.1    16     2        host-01  no
+```
+
+```sh
+xo sr list
+```
+
+```
+ID                                    NAME           TYPE  SIZE   USAGE  CONTAINER
+------------------------------------  -------------  ----  -----  -----  ---------
+aaaaaaaa-bbbb-cccc-dddd-000000000001  Local storage  lvm   200GB  95GB   pool-01
+bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb  NFS data       nfs   2TB    1.2TB  pool-01
+```
+
+Pick the pool (e.g. `aaaaaaaa-…`) and, for the disk path, a **shared** SR
+(e.g. `bbbbbbbb-…` — the VM's disks must live where the pool can see them).
+
+### Step 3a — short path: XVA / OVA
+
+The archive already *is* a VM, so one command imports it:
+
+```sh
+xo vm import node.ova --pool aaaaaaaa-bbbb-cccc-dddd-000000000001
+```
+
+```
+Imported VM 9fe12ca3-d75d-cfb0-492e-cfd2bc6c568f
+```
+
+Pin the disks to a specific SR with `--sr` (default: the pool's default SR).
+The upload is one single HTTP request, so the global timeout bounds it — for a
+large archive over a slow link, raise it: `--timeout 30m` or `$XOA_TIMEOUT`.
+
+Go to [step 4](#step-4--boot-it-and-verify-it-works).
+
+### Step 3b — long path: bare disk
+
+Wrap the disk in a throwaway VM built from a **base template** of the pool —
+any generic template works (the stock pool template `other_install` is the
+usual choice); the VM it produces supplies the boot loader slot, the network
+card and the shell.
+
+1. **Create the shell VM.** The base template decides the system disk size —
+   it must be at least as big as the image you are about to write into it
+   (a VDI can only be grown, never shrunk — see the troubleshooting table at
+   the end of this use case).
+
+   ```sh
+   xo vm create node-base --pool aaaaaaaa-bbbb-cccc-dddd-000000000001 \
+     --template aaaaaaaa-bbbb-cccc-dddd-000000000001-3f9b5e2a-7c1d-4e8f-9a0b-1c2d3e4f5a6b \
+     --memory 2G
+   ```
+
+   ```
+   VM "node-base" created:
+     id:     66666666-6666-4666-8666-666666666666
+     state:  Halted
+     memory: 2.147GB
+     cpus:   1
+
+   Start it with: xo vm start 66666666-6666-4666-8666-666666666666
+   ```
+
+   `--template` accepts the composite id printed by `xo template list`
+   (`<poolId>-<templateUuid>`) or the bare template UUID.
+
+2. **Find the system disk** the image will replace (the VM is halted, so its
+   disks are safe to write):
+
+   ```sh
+   xo vm vdis 66666666-6666-4666-8666-666666666666
+   ```
+
+   ```
+   ID                                    NAME         TYPE    SIZE     USAGE  SR
+   ------------------------------------  -----------  ------  -------  -----  --------
+   22222222-2222-4222-8222-222222222222  system disk  system  10.74GB  0B     NFS data
+   ```
+
+3. **Write the image into it.** This **overwrites** the disk's content, so it
+   asks for confirmation (`--yes` for scripts). The upload is one single HTTP
+   request bounded by the global timeout (30 s default), so a large image over
+   a slow link needs a bigger `--timeout`:
+
+   ```sh
+   xo vdi import 22222222-2222-4222-8222-222222222222 node.raw --format raw --timeout 10m --yes
+   ```
+
+   ```
+   Imported image into VDI "system disk"
+   ```
+
+   Use `--format vhd` for a VHD image. The disk size shown by
+   `xo vm vdis` is unchanged (only the content was written) — the guest now
+   sees its original filesystem on a disk of the base template's size.
+
+### Step 4 — boot it and verify it works
+
+```sh
+xo vm start 66666666-6666-4666-8666-666666666666 --wait
+```
+
+```
+ID                                    STATUS   TYPE  NAME      STARTED               ENDED                 MESSAGE
+------------------------------------  -------  ----  --------  --------------------  --------------------  -------
+77777777-7777-4777-8777-777777777777  success  VM    start VM  2026-10-08T09:00:00Z  2026-10-08T09:00:04Z
+```
+
+`--wait` blocks until the start task completes and prints it (like `xo task
+wait`); the exit status is non-zero if the start failed. Then prove the image
+is healthy — this is the only step the CLI cannot do for you: console or SSH
+in, check the OS boots and that the services you need run (for a node image,
+the VPN client's daemon and the rest of its software stack). Only convert a
+template you would be happy to boot blindly.
+
+### Step 5 — shut it down cleanly
+
+A template should be captured in a clean, halted state:
+
+```sh
+xo vm stop 66666666-6666-4666-8666-666666666666 --wait
+```
+
+```
+ID                                    STATUS   TYPE  NAME               STARTED               ENDED                 MESSAGE
+------------------------------------  -------  ----  -----------------  --------------------  --------------------  -------
+88888888-8888-4888-8888-888888888888  success  VM    clean shutdown VM  2026-10-08T09:05:00Z  2026-10-08T09:05:12Z
+```
+
+### Step 6 — convert the VM into a template (the REST gap)
+
+> **This step has no `xo` command — by design, not by oversight.** The XO
+> REST API exposes no way to flip a VM into a template: the `vm-templates`
+> resource is read/tag/delete/export only, and `PATCH /vms/{id}` accepts
+> editable VM fields (name, memory, CPUs, tags, …) but no `isTemplate`. The
+> only programmatic conversion is the legacy JSON-RPC `vm.convertToTemplate`,
+> which this CLI deliberately does not call (SDK v1 is out of scope here).
+> The gap should be contributed to the XO REST API and, with it, to the Go
+> SDK v2; until then the web UI does the job.
+
+In the **Xen Orchestra web UI**: open the VM → **Advanced** tab →
+**Convert to template** → confirm.
+
+What happens:
+
+- the object keeps its id, name, disks and configuration, and becomes a
+  `VM-template`;
+- it **disappears from `xo vm list`** and appears in `xo template list` —
+  the conversion is one-way, so make sure step 4 really passed;
+- it requires the `administrate` permission on the pool.
+
+> Want to keep the running VM as well? Duplicate it first (the REST API has a
+> `POST /vms/{id}/actions/clone` action, not yet a typed CLI command — `xo
+> rest post vms/<id>/actions/clone --data '{"name_label":"node-keep"}'`),
+> convert the duplicate, and keep or delete the original.
+
+### Step 7 — verify the template
+
+```sh
+xo template list
+```
+
+```
+ID                                                                         NAME           DEFAULT  MEMORY   CPUS  POOL
+-------------------------------------------------------------------------  -------------  -------  -------  ----  -------
+aaaaaaaa-bbbb-cccc-dddd-000000000001-3f9b5e2a-7c1d-4e8f-9a0b-1c2d3e4f5a6b  other_install  no       2.147GB  1     pool-01
+aaaaaaaa-bbbb-cccc-dddd-000000000001-66666666-6666-4666-8666-666666666666  node-base      no       2.147GB  1     pool-01
+```
+
+```sh
+xo template get aaaaaaaa-bbbb-cccc-dddd-000000000001-66666666-6666-4666-8666-666666666666
+```
+
+```
+Template node-base
+Pool:        pool-01
+Memory:      2.147GB
+CPUs:        1
+Power state: Halted
+```
+
+The id of a template is the **composite** `<poolId>-<templateUuid>` — for a
+template you made by hand, that is the pool id plus the UUID the VM had before
+conversion (`$POOL-66666666-…` above).
+
+### Step 8 — create VMs from the template
+
+```sh
+xo vm create node-01 --pool aaaaaaaa-bbbb-cccc-dddd-000000000001 \
+  --template aaaaaaaa-bbbb-cccc-dddd-000000000001-66666666-6666-4666-8666-666666666666
+```
+
+```
+VM "node-01" created:
+  id:     88888888-8888-4888-8888-888888888888
+  state:  Halted
+  memory: 2.147GB
+  cpus:   1
+
+Start it with: xo vm start 88888888-8888-4888-8888-888888888888
+```
+
+`--template` also accepts the bare template UUID, and `--boot` starts the VM
+as soon as it is created. Every VM created this way gets a fresh copy of the
+template's disks on the pool's default SR.
+
+### Per-node state in the image
+
+An image of a *configured* machine carries state that a generic OS image does
+not. Cloning a template replicates that state on every VM, so decide, **before
+step 6**, what belongs to each clone and what must not:
+
+- **Do not bake in a live identity or credential.** If the source machine was
+  registered with some service — a VPN/zero-trust daemon, a monitoring or
+  management agent, a license — its node identity/key lives in the image
+  (e.g. a VPN daemon's state directory). Clones of the template would all
+  present the *same* identity. Either wipe that state in the guest before
+  converting (stop the service, remove its state and keys), or plan to run
+  the daemon's first-boot registration (an auth key / per-node credential) in
+  every clone after first boot.
+- **Hostnames.** Many daemons advertise the machine's hostname; if it is
+  baked in, all clones look identical. Change it per clone (e.g. a first-boot
+  script driven by the VM's `name_label`).
+- **Service configuration is a starting point.** Network roles, ACLs and
+  per-node settings are decided per VM, not inherited from the source machine
+  — re-check them for each clone.
+
+> The same rule applies to any agent that stores a secret or a machine-specific
+> identifier on disk: enumerate it in the guest before you convert, and scrub
+> or re-issue it per clone.
+
+### Cloud-init / nocloud images
+
+Some images are built to be configured at **first boot** by **cloud-init**
+(or a native equivalent) reading a **nocloud seed** — a small FAT volume
+labeled `cidata`, holding `meta-data` / `user-data` / `network-config`.
+Talos Linux built for the `nocloud` platform from the
+[Talos Image Factory](https://factory.talos.dev/) is the usual example;
+several generic Linux cloud images are the same. The Siderolabs guide
+[Xen Orchestra](https://docs.siderolabs.com/talos/v1.14/platform-specific-installations/virtualized-platforms/xenorchestra)
+documents this exact flow for Talos.
+
+If your image is one of those, two things change in the flow above:
+
+- **The shell VM must never be booted** — skip steps 4 and 5 entirely. Booting
+  a cloud-init image without its seed leaves first-boot state (machine-id,
+  per-node artifacts) baked into the template. Create the shell VM, write the
+  image into its disk while it is halted, and go straight to the conversion.
+- **Each clone is configured at creation, not pre-baked.** XO builds the
+  config drive per VM on `POST /pools/{pool}/actions/create_vm`, which takes
+  `cloud_config` (the user-data) and `network_config` in the body — the
+  "custom config" of the web UI. The SDK's `CreateVMParams` already carries
+  `CloudConfig` / `NetworkConfig` / `DestroyCloudConfigVDI`; `xo vm create`
+  does not expose those flags yet (roadmap: "widen `vm create`"), so until
+  then the escape hatch works:
+
+  ```sh
+  xo rest post pools/aaaaaaaa-bbbb-cccc-dddd-000000000001/actions/create_vm \
+    --data '{"name_label": "node-01",
+             "template": "66666666-6666-4666-8666-666666666666",
+             "cloud_config": "<user-data, e.g. a talosctl machine config>",
+             "boot": true}'
+  ```
+
+  `destroy_cloud_config_vdi: true` in the same body removes the seed disk
+  after the first boot, instead of leaving it attached.
+
+#### The `viridian` trap
+
+XO builds that config drive from the VM's `platform.viridian` value — the
+Hyper-V enlightenments flag, which XO uses as its "is this a Windows VM?"
+heuristic:
+
+| `platform.viridian` | Config drive layout |
+| ------------------- | ------------------- |
+| `true`  | an **MBR prepended** to the FAT16 volume (the ConfigDrive v1 layout Windows expects to partition) |
+| `false` | the **raw FAT16 volume at offset 0** (the NoCloud layout Linux guests expect) |
+
+Linux nocloud guests look for the `cidata` FAT filesystem at the start of the
+disk and do not read partition tables. With `viridian: true`, the first
+sector is an MBR (signature `0x55AA`) instead of the filesystem: the seed is
+never found and the guest boots into maintenance / rescue mode with no
+configuration.
+
+**Keep `viridian: false` on the template.** The flag is inherited by every VM
+created from it, and it is read when each VM's config drive is built. If a VM
+was already created with the wrong value, `PATCH /vms/{id}` accepts
+`viridian` — `xo rest patch vms/<id> --data '{"viridian": false}'` — although
+`xo vm update` does not expose the flag yet.
+
+> Worked example: a Talos `nocloud` template is an Image Factory image for
+> the `nocloud` platform with the `siderolabs/xen-guest-agent` system
+> extension, imported as a VDI, attached to an **un-booted** shell VM (UEFI
+> boot mode, no other disks), `viridian: false`, converted to a template
+> without ever being started.
+
+### Scripting it end to end
+
+Machine-readable output makes the typed steps chainable; the script must
+**pause at the conversion** (step 6), which has no REST endpoint yet:
+
+```sh
+set -euo pipefail
+POOL="aaaaaaaa-bbbb-cccc-dddd-000000000001"
+BASE_TEMPLATE="aaaaaaaa-bbbb-cccc-dddd-000000000001-3f9b5e2a-7c1d-4e8f-9a0b-1c2d3e4f5a6b"
+IMAGE="node.raw"
+
+# 1. shell VM from the base template (system disk >= image size)
+VM_ID=$(xo vm create node-base --pool "$POOL" --template "$BASE_TEMPLATE" \
+  --memory 2G --output json | jq -r '.id')
+
+# 2. write the image into its system disk (the VM is halted)
+SYS_VDI=$(xo vm vdis "$VM_ID" --output json | jq -r '.[] | select(.VDI_type=="system") | .id')
+xo vdi import "$SYS_VDI" "$IMAGE" --format raw --timeout 10m --yes
+
+# 3. verify it boots, then capture it halted
+xo vm start "$VM_ID" --wait
+# … console/SSH: the OS boots, the services you need run …
+xo vm stop "$VM_ID" --wait
+
+# 4. web UI: VM -> Advanced -> Convert to template. Then:
+TEMPLATE_ID="$POOL-$VM_ID"     # the template's REST id, from the VM's UUID
+xo template list --query "[?id=='$TEMPLATE_ID'].name_label"
+
+# 5. create the fleet
+for i in 01 02 03; do
+  xo vm create "node-$i" --pool "$POOL" --template "$TEMPLATE_ID"
+done
+```
+
+`vm create --output json` prints the full VM object (`.id` is the new VM's
+UUID); `vm vdis --output json` prints the raw VDI objects (`.id`,
+`.VDI_type`); the template's REST id is simply the pool UUID + `-` + the VM
+UUID it was converted from.
+
+### Troubleshooting
+
+| Symptom | Likely cause / fix |
+| ------- | ------------------ |
+| `xo vm import` fails with an API error on a `.qcow2` / `.raw` / `.vhd` file | Bare disks cannot be imported as VMs. `xo vm import` takes XVA/OVA only — use the long path (step 3b). |
+| `cannot import into VDI …` / the import is refused | `xo vdi import` accepts **raw and vhd only** (no qcow2, no vdi). Convert first with `qemu-img convert`. |
+| The image does not fit the system disk | The VDI must be at least as big as the image, and a VDI cannot be shrunk. Either pick a base template with a bigger system disk, or grow it with the REST escape hatch `xo rest patch vdis/<id> --data '{"size": <bytes>}'` (grow-only, size in bytes) — the CLI has no typed resize command yet. |
+| Import (or upload) times out | The whole transfer is one HTTP request bounded by the global timeout (30 s default). Raise it with `--timeout` or `$XOA_TIMEOUT`. |
+| The VM still shows in `xo vm list` after the "conversion" | The conversion was not performed (or was cancelled in the UI). It only happens through the web UI's *Convert to template*; there is no CLI/REST command for it yet. |
+| New VMs created from the template present the source machine's identity (duplicate VPN/agent nodes, same hostname, …) | The image carried per-node state — see the [per-node state notes](#per-node-state-in-the-image). |
+| The shell VM booted into a rescue prompt after the import | The image's boot loader expects different disk geometry (e.g. it was captured on a smaller/larger disk). Boot the shell VM from the console, fix the bootloader or partition table inside the guest, then redo steps 5–6. |
+| A cloud-init / nocloud node boots into maintenance mode without its configuration | The seed (config drive) is not being read. Most often `viridian: true` — XO then prepends an MBR to the FAT volume, which nocloud guests cannot mount. Keep it `false` on the template; see the [viridian trap](#the-viridian-trap). |
+| I want the original VM back | The conversion is one-way. Clone before converting (see the note in step 6), or re-import the XVA you exported beforehand (`xo vm export <id> --file backup.xva`). |
 
 Every failure is reported as `Error: …` on **stderr**; machine-readable output
 on stdout stays clean, so scripts can branch on the exit code and the stderr
