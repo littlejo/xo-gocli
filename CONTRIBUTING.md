@@ -158,6 +158,12 @@ archive.
 The hand-written user documentation (`docs/getting-started/`,
 `docs/reference/commands.md`, `docs/reference/output-and-query.md`, …)
 explains what `--help` does not; update it when a behavior changes.
+`TestDocsCommandsAreValid` (`internal/commands/docs_examples_test.go`) checks
+every `xo ...` command in the shell code blocks of the README, this file and
+`docs/` (except the generated reference and the archive) against the real
+command tree: the command must exist and every flag must be defined on it.
+Use placeholders without spaces (`<vm-id>`), and tag non-shell blocks
+(diagrams, output) as ```` ```text ````.
 
 ## Commits and versioning
 
