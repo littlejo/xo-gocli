@@ -21,8 +21,16 @@ xo vm list --query '[?power_state==`Running`].name_label'
 xo vm list --query 'length(@)'                # count
 ```
 
-Backtick literals (`` `Running` ``) work as in the AWS CLI even though the
-underlying JMESPath engine uses single quotes.
+Backtick literals work as in the AWS CLI. A backtick literal holds JSON, so
+it keeps its type: `` `true` `` is a boolean, `` `2` `` a number,
+`` `"Running"` `` a string. Text that is not valid JSON, such as
+`` `Running` ``, is read as a string, as the AWS CLI does. Single-quoted
+strings (`'Running'`) are the plain JMESPath form and always work.
+
+```sh
+xo pool list --query '[?HA_enabled==`true`].name_label'
+xo vm list --query '[?CPUs.number > `2`].name_label'
+```
 
 Every `list` command also takes `--limit N` (0, the default, means no limit).
 The limit is applied by the server, before `--query`:
@@ -51,8 +59,11 @@ xo vm list --output table             # back to the human view for once
 byte-for-byte:
 
 - fields declared `omitempty` in the SDK payload are dropped when they hold
-  a zero value, so two responses to the same object may have different field
-  sets;
+  an empty scalar (`""`, `0`, `false`), so two responses to the same object
+  may have different field sets;
+- empty collections are always present, as `[]` or `{}` (a VM without tags
+  has `"tags": []`, as the Xen Orchestra API returns it), so functions such
+  as `contains(tags, 'x')` or `length(tags)` work on every object;
 - fields the SDK payload does not model at all are absent (a `rest get` of
   the same object can show more fields — it prints the raw API document);
 - the output is stable and intentional, and this is the v1 machine interface:

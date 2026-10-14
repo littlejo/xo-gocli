@@ -1,11 +1,14 @@
 {
+  "$VBDs": [],
   "$container": "aaaaaaaa-bbbb-cccc-dddd-000000000001",
   "$poolId": "00000000-0000-0000-0000-000000000000",
   "CPUs": {
     "max": 4,
     "number": 2
   },
+  "VIFs": [],
   "auto_poweron": false,
+  "blockedOperations": {},
   "boot": {
     "firmware": "bios",
     "order": "cd"
@@ -13,18 +16,23 @@
   "creation": {
     "template": "00000000-0000-0000-0000-000000000000"
   },
+  "current_operations": {},
   "id": "550e8400-e29b-41d4-a716-446655440001",
   "mainIpAddress": "10.0.0.11",
   "memory": {
-    "size": 2147483648
+    "dynamic": [],
+    "size": 2147483648,
+    "static": []
   },
   "name_description": "frontend for the test fixture",
   "name_label": "web-01",
   "power_state": "Running",
+  "snapshots": [],
   "tags": [
     "web",
     "fixture"
   ],
   "template": "00000000-0000-0000-0000-000000000000",
-  "type": "vm"
+  "type": "vm",
+  "xenStoreData": {}
 }
