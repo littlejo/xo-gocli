@@ -13,6 +13,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/littlejo/xo-gocli/internal/cli"
+	"github.com/littlejo/xo-gocli/internal/testenv"
 )
 
 const (
@@ -95,7 +96,7 @@ func newCreateServer(t *testing.T) *createServer {
 func TestNetworkCreate(t *testing.T) {
 	server := newCreateServer(t)
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 
 	out, err := runNetwork(t, "create", "web", "--pool", createPoolID, "--pif", createPifID, "--vlan", "100", "--mtu", "9000", "--nbd")
 	if err != nil {
@@ -134,7 +135,7 @@ func TestNetworkCreate(t *testing.T) {
 func TestNetworkCreateOmitsOptionalFields(t *testing.T) {
 	server := newCreateServer(t)
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 
 	if _, err := runNetwork(t, "create", "web", "--pool", createPoolID, "--pif", createPifID); err != nil {
 		t.Fatalf("network create: %v", err)
@@ -162,7 +163,7 @@ func TestNetworkCreateOmitsOptionalFields(t *testing.T) {
 func TestNetworkCreateRequiresPoolAndPif(t *testing.T) {
 	server := newCreateServer(t)
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 
 	if _, err := runNetwork(t, "create", "web"); err == nil {
 		t.Fatal("expected an error when --pool and --pif are missing")
@@ -181,7 +182,7 @@ func TestNetworkCreateRequiresPoolAndPif(t *testing.T) {
 func TestNetworkCreateJSON(t *testing.T) {
 	server := newCreateServer(t)
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 
 	out, err := runNetwork(t, "create", "web", "--pool", createPoolID, "--pif", createPifID, "--output", "json")
 	if err != nil {
@@ -200,7 +201,7 @@ func TestNetworkCreateJSON(t *testing.T) {
 func TestNetworkCreateInternal(t *testing.T) {
 	server := newCreateServer(t)
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 
 	out, err := runNetwork(t, "create-internal", "internal", "--pool", createPoolID, "--description", "vm-to-vm")
 	if err != nil {
@@ -227,7 +228,7 @@ func TestNetworkCreateInternal(t *testing.T) {
 func TestNetworkCreateInternalRequiresPool(t *testing.T) {
 	server := newCreateServer(t)
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 
 	if _, err := runNetwork(t, "create-internal", "internal"); err == nil {
 		t.Fatal("expected an error when --pool is missing")
@@ -240,7 +241,7 @@ func TestNetworkCreateInternalRequiresPool(t *testing.T) {
 func TestNetworkCreateBonded(t *testing.T) {
 	server := newCreateServer(t)
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 
 	pif2 := "aaaaaaaa-bbbb-cccc-dddd-000000000003"
 	out, err := runNetwork(t, "create-bonded", "bond0", "--pool", createPoolID,
@@ -270,7 +271,7 @@ func TestNetworkCreateBonded(t *testing.T) {
 func TestNetworkCreateBondedValidatesMode(t *testing.T) {
 	server := newCreateServer(t)
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 
 	// Missing mode.
 	if _, err := runNetwork(t, "create-bonded", "bond0", "--pool", createPoolID, "--pifs", createPifID); err == nil {

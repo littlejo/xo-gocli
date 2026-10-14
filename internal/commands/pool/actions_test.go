@@ -13,6 +13,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/littlejo/xo-gocli/internal/cli"
+	"github.com/littlejo/xo-gocli/internal/testenv"
 )
 
 // fixtureTaskSuccess is a finished task as served by GET /rest/v0/tasks/{id}.
@@ -171,7 +172,7 @@ func runActionTest(t *testing.T, args ...string) (stdout, stderr string, err err
 func TestPoolRollingUpdate(t *testing.T) {
 	server := newActionServer(t)
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 
 	out, _, err := runActionTest(t, "rolling-update", testPoolID)
 	if err != nil {
@@ -195,7 +196,7 @@ func TestPoolRollingUpdate(t *testing.T) {
 func TestPoolRollingUpdateRequiresNoConfirmation(t *testing.T) {
 	server := newActionServer(t)
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 
 	if _, _, err := runActionTest(t, "rolling-update", testPoolID); err != nil {
 		t.Fatalf("rolling-update must not require confirmation: %v", err)
@@ -205,7 +206,7 @@ func TestPoolRollingUpdateRequiresNoConfirmation(t *testing.T) {
 func TestPoolRollingUpdateJSON(t *testing.T) {
 	server := newActionServer(t)
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 
 	out, _, err := runActionTest(t, "rolling-update", testPoolID, "--output", "json")
 	if err != nil {
@@ -228,7 +229,7 @@ func TestPoolRollingUpdateInterruptedTaskIsBoundedByTimeout(t *testing.T) {
 	server := newActionServer(t)
 	server.taskStatus = "interrupted"
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 
 	_, _, err := runActionTest(t, "rolling-update", testPoolID, "--wait-timeout", "1s")
 	if err == nil {
@@ -247,7 +248,7 @@ func TestPoolRollingUpdateInterruptedTaskIsBoundedByTimeout(t *testing.T) {
 func TestPoolRollingReboot(t *testing.T) {
 	server := newActionServer(t)
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 
 	out, _, err := runActionTest(t, "rolling-reboot", testPoolID, "--yes")
 	if err != nil {
@@ -268,7 +269,7 @@ func TestPoolRollingReboot(t *testing.T) {
 func TestPoolRollingRebootRequiresConfirmation(t *testing.T) {
 	server := newActionServer(t)
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 
 	_, _, err := runActionTest(t, "rolling-reboot", testPoolID)
 	if err == nil {
@@ -284,7 +285,7 @@ func TestPoolRollingRebootRequiresConfirmation(t *testing.T) {
 func TestPoolRollingRebootSkipsConfirmationWithEnvYes(t *testing.T) {
 	server := newActionServer(t)
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 	t.Setenv("XOA_YES", "1")
 
 	if _, _, err := runActionTest(t, "rolling-reboot", testPoolID); err != nil {
@@ -301,7 +302,7 @@ func TestPoolRollingRebootSkipsConfirmationWithEnvYes(t *testing.T) {
 func TestPoolEmergencyShutdown(t *testing.T) {
 	server := newActionServer(t)
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 
 	out, _, err := runActionTest(t, "emergency-shutdown", testPoolID, "--yes")
 	if err != nil {
@@ -322,7 +323,7 @@ func TestPoolEmergencyShutdown(t *testing.T) {
 func TestPoolEmergencyShutdownRequiresConfirmation(t *testing.T) {
 	server := newActionServer(t)
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 
 	_, _, err := runActionTest(t, "emergency-shutdown", testPoolID)
 	if err == nil {
@@ -339,7 +340,7 @@ func TestPoolActionAPIError(t *testing.T) {
 	server := newActionServer(t)
 	server.actionStatus = http.StatusInternalServerError
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 
 	_, _, err := runActionTest(t, "rolling-update", testPoolID)
 	if err == nil {
@@ -354,7 +355,7 @@ func TestPoolActionTaskFailure(t *testing.T) {
 	server := newActionServer(t)
 	server.taskStatus = "failure"
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 
 	_, _, err := runActionTest(t, "rolling-reboot", testPoolID, "--yes")
 	if err == nil {
@@ -372,7 +373,7 @@ func TestPoolActionNotFound(t *testing.T) {
 	server := newActionServer(t)
 	server.poolStatus = http.StatusNotFound
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 
 	_, _, err := runActionTest(t, "rolling-update", testPoolID)
 	if err == nil {
@@ -389,7 +390,7 @@ func TestPoolActionNotFound(t *testing.T) {
 func TestPoolActionBadID(t *testing.T) {
 	server := newActionServer(t)
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 
 	if _, _, err := runActionTest(t, "rolling-update", "not-a-uuid"); err == nil {
 		t.Fatal("expected an error for an invalid id")

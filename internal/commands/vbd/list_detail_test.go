@@ -6,6 +6,8 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+
+	"github.com/littlejo/xo-gocli/internal/testenv"
 )
 
 // listTestVBDs share one VM, span two VDIs, and include a CD drive (no VDI).
@@ -69,7 +71,7 @@ func (s *listDetailServer) count(prefix string) int {
 // drive) keeps its dash.
 func TestVBDListResolved(t *testing.T) {
 	srv := newListDetailServer(t)
-	isolatePointers(t, srv.URL)
+	testenv.Isolate(t, srv.URL)
 
 	out, err := runVBD(t, "vbd", "list")
 	if err != nil {
@@ -99,7 +101,7 @@ func TestVBDListResolved(t *testing.T) {
 // VBD.
 func TestVBDListCostConstant(t *testing.T) {
 	srv := newListDetailServer(t)
-	isolatePointers(t, srv.URL)
+	testenv.Isolate(t, srv.URL)
 
 	if _, err := runVBD(t, "vbd", "list"); err != nil {
 		t.Fatalf("vbd list: %v", err)
@@ -115,7 +117,7 @@ func TestVBDListCostConstant(t *testing.T) {
 // --output json keeps the raw references and makes no batch request.
 func TestVBDListJSONNoBatches(t *testing.T) {
 	srv := newListDetailServer(t)
-	isolatePointers(t, srv.URL)
+	testenv.Isolate(t, srv.URL)
 
 	out, err := runVBD(t, "vbd", "list", "--output", "json")
 	if err != nil {

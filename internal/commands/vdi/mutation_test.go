@@ -14,6 +14,7 @@ import (
 
 	"github.com/littlejo/xo-gocli/internal/cli"
 	"github.com/littlejo/xo-gocli/internal/output"
+	"github.com/littlejo/xo-gocli/internal/testenv"
 )
 
 const (
@@ -174,7 +175,7 @@ func runGet(t *testing.T, args ...string) (string, error) {
 func TestVDIGetDetail(t *testing.T) {
 	server := newMutationServer(t)
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 
 	out, err := runGet(t, "vdi", "get", getVDIID)
 	if err != nil {
@@ -194,7 +195,7 @@ func TestVDIGetDetail(t *testing.T) {
 func TestVDIGetJSON(t *testing.T) {
 	server := newMutationServer(t)
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 
 	out, err := runGet(t, "vdi", "get", getVDIID, "--output", "json")
 	if err != nil {
@@ -212,7 +213,7 @@ func TestVDIGetJSON(t *testing.T) {
 func TestVDIGetNotFound(t *testing.T) {
 	server := newMutationServer(t)
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 
 	missing := "99999999-9999-4999-8999-999999999999"
 	_, err := runGet(t, "vdi", "get", missing)
@@ -227,7 +228,7 @@ func TestVDIGetNotFound(t *testing.T) {
 func TestVDIGetBadID(t *testing.T) {
 	server := newMutationServer(t)
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 
 	if _, err := runGet(t, "vdi", "get", "not-a-uuid"); err == nil {
 		t.Fatal("expected an error for an invalid id")
@@ -239,7 +240,7 @@ func TestVDIGetBadID(t *testing.T) {
 func TestVDICreate(t *testing.T) {
 	server := newMutationServer(t)
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 
 	out, err := runVDI(t, "vdi", "create", "data-01", "--sr", "aaaaaaaa-bbbb-cccc-dddd-000000000001", "--size", "10G", "--description", "data disk")
 	if err != nil {
@@ -285,7 +286,7 @@ func TestVDICreate(t *testing.T) {
 func TestVDICreateRequiresSRAndSize(t *testing.T) {
 	server := newMutationServer(t)
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 
 	if _, err := runVDI(t, "vdi", "create", "data-01", "--size", "10G"); err == nil {
 		t.Fatal("expected an error when --sr is missing")
@@ -304,7 +305,7 @@ func TestVDICreateRequiresSRAndSize(t *testing.T) {
 func TestVDICreateSharedAndTags(t *testing.T) {
 	server := newMutationServer(t)
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 
 	if _, err := runVDI(t, "vdi", "create", "shared", "--sr", "aaaaaaaa-bbbb-cccc-dddd-000000000001", "--size", "1G", "--shared", "--tags", "common,scratch"); err != nil {
 		t.Fatalf("vdi create --shared: %v", err)
@@ -328,7 +329,7 @@ func TestVDICreateSharedAndTags(t *testing.T) {
 func TestVDIDelete(t *testing.T) {
 	server := newMutationServer(t)
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 
 	out, err := runVDI(t, "vdi", "delete", getVDIID, "--yes")
 	if err != nil {
@@ -345,7 +346,7 @@ func TestVDIDelete(t *testing.T) {
 func TestVDIDeleteJSON(t *testing.T) {
 	server := newMutationServer(t)
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 
 	out, err := runVDI(t, "vdi", "delete", getVDIID, "--yes", "--output", "json")
 	if err != nil {
@@ -363,7 +364,7 @@ func TestVDIDeleteJSON(t *testing.T) {
 func TestVDIDeleteRequiresConfirmation(t *testing.T) {
 	server := newMutationServer(t)
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 
 	_, err := runVDI(t, "vdi", "delete", getVDIID)
 	if err == nil {
@@ -377,7 +378,7 @@ func TestVDIDeleteRequiresConfirmation(t *testing.T) {
 func TestVDIDeleteSkipsConfirmationWithEnvYes(t *testing.T) {
 	server := newMutationServer(t)
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 	t.Setenv("XOA_YES", "1")
 
 	if _, err := runVDI(t, "vdi", "delete", getVDIID); err != nil {
@@ -391,7 +392,7 @@ func TestVDIDeleteSkipsConfirmationWithEnvYes(t *testing.T) {
 func TestVDIDeleteNotFound(t *testing.T) {
 	server := newMutationServer(t)
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 
 	missing := "99999999-9999-4999-8999-999999999999"
 	_, err := runVDI(t, "vdi", "delete", missing, "--yes")

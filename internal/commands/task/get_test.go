@@ -13,6 +13,7 @@ import (
 
 	"github.com/littlejo/xo-gocli/internal/cli"
 	"github.com/littlejo/xo-gocli/internal/output"
+	"github.com/littlejo/xo-gocli/internal/testenv"
 )
 
 const fixtureTask = `{
@@ -102,7 +103,7 @@ func runGet(t *testing.T, args ...string) (string, error) {
 func TestTaskGetDetail(t *testing.T) {
 	server := fakeXOGet(t, nil)
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 
 	out, err := runGet(t, "get", "f6e5d4c3b2a1")
 	if err != nil {
@@ -127,7 +128,7 @@ func TestTaskGetDetail(t *testing.T) {
 func TestTaskGetJSON(t *testing.T) {
 	server := fakeXOGet(t, nil)
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 
 	out, err := runGet(t, "get", "f6e5d4c3b2a1", "--output", "json")
 	if err != nil {
@@ -156,7 +157,7 @@ func TestTaskGetStringResult(t *testing.T) {
 		_, _ = fmt.Fprint(w, fixtureTaskStringResult)
 	})
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 
 	out, err := runGet(t, "get", "888", "--output", "json")
 	if err != nil {
@@ -183,7 +184,7 @@ func TestTaskGetStringResult(t *testing.T) {
 func TestTaskGetQuery(t *testing.T) {
 	server := fakeXOGet(t, nil)
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 
 	out, err := runGet(t, "get", "f6e5d4c3b2a1", "--query", "result.message")
 	if err != nil {
@@ -200,7 +201,7 @@ func TestTaskGetNotFound(t *testing.T) {
 		_, _ = fmt.Fprint(w, `{"message":"not found"}`)
 	})
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 
 	_, err := runGet(t, "get", "f6e5d4c3b2a1")
 	if err == nil {
@@ -217,7 +218,7 @@ func TestTaskGetAPIError(t *testing.T) {
 		_, _ = fmt.Fprint(w, `{"message":"boom"}`)
 	})
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 
 	_, err := runGet(t, "get", "f6e5d4c3b2a1")
 	if err == nil {
@@ -231,7 +232,7 @@ func TestTaskGetAPIError(t *testing.T) {
 func TestTaskGetBadID(t *testing.T) {
 	server := fakeXOGet(t, nil)
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 
 	if _, err := runGet(t, "get", "a/b"); err == nil {
 		t.Fatal("expected an error for an invalid id")
@@ -246,7 +247,7 @@ func TestTaskGetDetailStringResult(t *testing.T) {
 		_, _ = fmt.Fprint(w, fixtureTaskStringResult)
 	})
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 
 	out, err := runGet(t, "get", "888")
 	if err != nil {

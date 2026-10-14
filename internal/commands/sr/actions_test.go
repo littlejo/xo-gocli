@@ -11,6 +11,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/littlejo/xo-gocli/internal/cli"
+	"github.com/littlejo/xo-gocli/internal/testenv"
 )
 
 const fixtureTask = `{
@@ -100,7 +101,7 @@ func runSRAction(t *testing.T, args ...string) (string, error) {
 func TestSRScan(t *testing.T) {
 	server := newActionServer(t)
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 
 	out, err := runSRAction(t, "sr", "scan", "11111111-1111-4111-8111-111111111111")
 	if err != nil {
@@ -121,7 +122,7 @@ func TestSRScan(t *testing.T) {
 func TestSRReclaimSpace(t *testing.T) {
 	server := newActionServer(t)
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 
 	out, err := runSRAction(t, "sr", "reclaim-space", "11111111-1111-4111-8111-111111111111")
 	if err != nil {
@@ -149,7 +150,7 @@ func TestSRScanNotFound(t *testing.T) {
 		http.NotFound(w, r)
 	}))
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 
 	_, err := runSRAction(t, "sr", "scan", "11111111-1111-4111-8111-111111111111")
 	if err == nil {
@@ -163,7 +164,7 @@ func TestSRScanNotFound(t *testing.T) {
 func TestSRScanBadID(t *testing.T) {
 	server := newActionServer(t)
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 
 	if _, err := runSRAction(t, "sr", "scan", "not-a-uuid"); err == nil {
 		t.Fatal("expected an error for an invalid id")
@@ -183,7 +184,7 @@ func TestSRReclaimSpaceAPIError(t *testing.T) {
 		_, _ = fmt.Fprint(w, `{"message":"boom"}`)
 	}))
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 
 	_, err := runSRAction(t, "sr", "reclaim-space", "11111111-1111-4111-8111-111111111111")
 	if err == nil {
@@ -199,7 +200,7 @@ func TestSRReclaimSpaceAPIError(t *testing.T) {
 func TestSRScanWait(t *testing.T) {
 	server := newActionServer(t)
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 
 	out, err := runSRAction(t, "sr", "scan", "11111111-1111-4111-8111-111111111111", "--wait")
 	if err != nil {

@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/littlejo/xo-gocli/internal/output"
+	"github.com/littlejo/xo-gocli/internal/testenv"
 )
 
 // getVBD's relationships (from fixtureVBD): VM = vmID, VDI = getVBDVDIID.
@@ -79,7 +80,7 @@ func (s *detailServer) count(prefix string) int {
 // The detail sheet resolves the VM by name and the VDI by name+size.
 func TestVBDGetDetailResolved(t *testing.T) {
 	srv := newDetailServer(t, true, true)
-	isolatePointers(t, srv.URL)
+	testenv.Isolate(t, srv.URL)
 
 	out, err := runVBD(t, "vbd", "get", getVBDID)
 	if err != nil {
@@ -101,7 +102,7 @@ func TestVBDGetDetailResolved(t *testing.T) {
 // number of extra requests, never one per field (anti-N+1).
 func TestVBDGetDetailCostConstant(t *testing.T) {
 	srv := newDetailServer(t, true, true)
-	isolatePointers(t, srv.URL)
+	testenv.Isolate(t, srv.URL)
 
 	if _, err := runVBD(t, "vbd", "get", getVBDID); err != nil {
 		t.Fatalf("vbd get: %v", err)
@@ -118,7 +119,7 @@ func TestVBDGetDetailCostConstant(t *testing.T) {
 // is shown instead.
 func TestVBDGetDetailFallback(t *testing.T) {
 	srv := newDetailServer(t, false, false)
-	isolatePointers(t, srv.URL)
+	testenv.Isolate(t, srv.URL)
 
 	out, err := runVBD(t, "vbd", "get", getVBDID)
 	if err != nil {

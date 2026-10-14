@@ -13,6 +13,7 @@ import (
 
 	"github.com/littlejo/xo-gocli/internal/cli"
 	"github.com/littlejo/xo-gocli/internal/output"
+	"github.com/littlejo/xo-gocli/internal/testenv"
 )
 
 const fixtureNetwork = `{
@@ -84,7 +85,7 @@ func runGet(t *testing.T, args ...string) (string, error) {
 func TestNetworkGetDetail(t *testing.T) {
 	server := fakeXOGet(t, nil)
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 
 	out, err := runGet(t, "get", "11111111-1111-4111-8111-111111111111")
 	if err != nil {
@@ -106,7 +107,7 @@ func TestNetworkGetDetail(t *testing.T) {
 func TestNetworkGetJSON(t *testing.T) {
 	server := fakeXOGet(t, nil)
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 
 	out, err := runGet(t, "get", "11111111-1111-4111-8111-111111111111", "--output", "json")
 	if err != nil {
@@ -125,7 +126,7 @@ func TestNetworkGetJSON(t *testing.T) {
 func TestNetworkGetQuery(t *testing.T) {
 	server := fakeXOGet(t, nil)
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 
 	out, err := runGet(t, "get", "11111111-1111-4111-8111-111111111111", "--query", "name_label")
 	if err != nil {
@@ -142,7 +143,7 @@ func TestNetworkGetNotFound(t *testing.T) {
 		_, _ = fmt.Fprint(w, `{"message":"not found"}`)
 	})
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 
 	_, err := runGet(t, "get", "11111111-1111-4111-8111-111111111111")
 	if err == nil {
@@ -159,7 +160,7 @@ func TestNetworkGetAPIError(t *testing.T) {
 		_, _ = fmt.Fprint(w, `{"message":"boom"}`)
 	})
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 
 	_, err := runGet(t, "get", "11111111-1111-4111-8111-111111111111")
 	if err == nil {
@@ -173,7 +174,7 @@ func TestNetworkGetAPIError(t *testing.T) {
 func TestNetworkGetBadID(t *testing.T) {
 	server := fakeXOGet(t, nil)
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 
 	if _, err := runGet(t, "get", "not-a-uuid"); err == nil {
 		t.Fatal("expected an error for an invalid id")
@@ -234,7 +235,7 @@ func countNetworkPaths(paths *[]string, prefix string) int {
 // The detail sheet resolves the pool by name and shows the VIF/PIF counts.
 func TestNetworkGetDetailResolved(t *testing.T) {
 	srv, paths := networkDetailServer(t, true)
-	isolatePointers(t, srv.URL)
+	testenv.Isolate(t, srv.URL)
 
 	out, err := runGet(t, "get", networkTestID)
 	if err != nil {
@@ -260,7 +261,7 @@ func TestNetworkGetDetailResolved(t *testing.T) {
 // An unresolvable pool must not fail the command: the raw id is shown.
 func TestNetworkGetDetailFallback(t *testing.T) {
 	srv, _ := networkDetailServer(t, false)
-	isolatePointers(t, srv.URL)
+	testenv.Isolate(t, srv.URL)
 
 	out, err := runGet(t, "get", networkTestID)
 	if err != nil {

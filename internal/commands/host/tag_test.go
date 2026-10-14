@@ -11,6 +11,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/littlejo/xo-gocli/internal/cli"
+	"github.com/littlejo/xo-gocli/internal/testenv"
 )
 
 // tagHostID is the id of fixtureHost, served on the existence lookup.
@@ -81,7 +82,7 @@ func runTagCmd(t *testing.T, args ...string) (string, error) {
 func TestHostTagAdd(t *testing.T) {
 	server := newTagServer(t)
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 
 	out, err := runTagCmd(t, "tag", "add", tagHostID, "production")
 	if err != nil {
@@ -101,7 +102,7 @@ func TestHostTagAdd(t *testing.T) {
 func TestHostTagRemove(t *testing.T) {
 	server := newTagServer(t)
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 
 	out, err := runTagCmd(t, "tag", "remove", tagHostID, "production")
 	if err != nil {
@@ -121,7 +122,7 @@ func TestHostTagRemove(t *testing.T) {
 func TestHostTagNotFound(t *testing.T) {
 	server := newTagServer(t)
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 
 	missing := "99999999-9999-4999-8999-999999999999"
 	if _, err := runTagCmd(t, "tag", "add", missing, "production"); err == nil {
@@ -135,7 +136,7 @@ func TestHostTagNotFound(t *testing.T) {
 func TestHostTagInvalidID(t *testing.T) {
 	server := newTagServer(t)
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 
 	if _, err := runTagCmd(t, "tag", "add", "not-a-uuid", "production"); err == nil {
 		t.Fatal("expected an error for an invalid id")

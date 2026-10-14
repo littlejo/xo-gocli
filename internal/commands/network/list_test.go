@@ -12,6 +12,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/littlejo/xo-gocli/internal/cli"
+	"github.com/littlejo/xo-gocli/internal/testenv"
 )
 
 const fixtureNetworks = `[
@@ -70,16 +71,6 @@ func fakeXO(t *testing.T, handler func(w http.ResponseWriter, r *http.Request)) 
 	}))
 }
 
-func isolatePointers(t *testing.T, url string) {
-	t.Helper()
-	t.Setenv("XOA_CONFIG_FILE", t.TempDir()+"/config")
-	for _, key := range []string{"XOA_PROFILE", "XOA_ENDPOINT", "XOA_TOKEN", "XOA_USERNAME", "XOA_PASSWORD", "XOA_INSECURE", "XOA_YES"} {
-		t.Setenv(key, "")
-	}
-	t.Setenv("XOA_ENDPOINT", url)
-	t.Setenv("XOA_TOKEN", "test-token")
-}
-
 func newTestRoot() *cobra.Command {
 	root := &cobra.Command{
 		Use:           "xo",
@@ -107,7 +98,7 @@ func runList(t *testing.T, args ...string) (string, error) {
 func TestNetworkListTable(t *testing.T) {
 	server := fakeXO(t, nil)
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 
 	out, err := runList(t, "list")
 	if err != nil {
@@ -123,7 +114,7 @@ func TestNetworkListTable(t *testing.T) {
 func TestNetworkListJSON(t *testing.T) {
 	server := fakeXO(t, nil)
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 
 	out, err := runList(t, "list", "--output", "json")
 	if err != nil {
@@ -145,7 +136,7 @@ func TestNetworkListJSON(t *testing.T) {
 func TestNetworkListQuery(t *testing.T) {
 	server := fakeXO(t, nil)
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 
 	out, err := runList(t, "list", "--query", "[?isBonded].name_label", "--output", "text")
 	if err != nil {
@@ -159,7 +150,7 @@ func TestNetworkListQuery(t *testing.T) {
 func TestNetworkListQueryInvalid(t *testing.T) {
 	server := fakeXO(t, nil)
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 
 	if _, err := runList(t, "list", "--query", "bad["); err == nil {
 		t.Fatal("expected an error for an invalid query")
@@ -175,7 +166,7 @@ func TestNetworkListLimit(t *testing.T) {
 		_, _ = fmt.Fprint(w, fixtureNetworks)
 	})
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 
 	if _, err := runList(t, "list", "--limit", "3"); err != nil {
 		t.Fatalf("network list --limit: %v", err)
@@ -188,7 +179,7 @@ func TestNetworkListAPIError(t *testing.T) {
 		_, _ = fmt.Fprint(w, `{"message":"boom"}`)
 	})
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 
 	_, err := runList(t, "list")
 	if err == nil {

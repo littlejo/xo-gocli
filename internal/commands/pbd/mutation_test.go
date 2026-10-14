@@ -14,6 +14,7 @@ import (
 
 	"github.com/littlejo/xo-gocli/internal/cli"
 	"github.com/littlejo/xo-gocli/internal/output"
+	"github.com/littlejo/xo-gocli/internal/testenv"
 )
 
 const (
@@ -121,18 +122,6 @@ func readBody(r *http.Request) (string, error) {
 	return string(data), err
 }
 
-// isolatePointers points the CLI at the fake server and at a throwaway config
-// file, and clears any ambient XOA_ variables.
-func isolatePointers(t *testing.T, url string) {
-	t.Helper()
-	t.Setenv("XOA_CONFIG_FILE", t.TempDir()+"/config")
-	for _, key := range []string{"XOA_PROFILE", "XOA_ENDPOINT", "XOA_TOKEN", "XOA_USERNAME", "XOA_PASSWORD", "XOA_INSECURE", "XOA_YES", "XOA_WAIT"} {
-		t.Setenv(key, "")
-	}
-	t.Setenv("XOA_ENDPOINT", url)
-	t.Setenv("XOA_TOKEN", "test-token")
-}
-
 func newTestRoot() *cobra.Command {
 	root := &cobra.Command{
 		Use:           "xo",
@@ -162,7 +151,7 @@ func runPBD(t *testing.T, args ...string) (string, error) {
 func TestPBDListTable(t *testing.T) {
 	server := newMutationServer(t)
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 
 	out, err := runPBD(t, "pbd", "list")
 	if err != nil {
@@ -181,7 +170,7 @@ func TestPBDListTable(t *testing.T) {
 func TestPBDListJSON(t *testing.T) {
 	server := newMutationServer(t)
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 
 	out, err := runPBD(t, "pbd", "list", "--output", "json")
 	if err != nil {
@@ -205,7 +194,7 @@ func TestPBDListJSON(t *testing.T) {
 func TestPBDGetDetail(t *testing.T) {
 	server := newMutationServer(t)
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 
 	out, err := runPBD(t, "pbd", "get", getPBDID)
 	if err != nil {
@@ -227,7 +216,7 @@ func TestPBDGetDetail(t *testing.T) {
 func TestPBDGetJSON(t *testing.T) {
 	server := newMutationServer(t)
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 
 	out, err := runPBD(t, "pbd", "get", getPBDID, "--output", "json")
 	if err != nil {
@@ -245,7 +234,7 @@ func TestPBDGetJSON(t *testing.T) {
 func TestPBDGetNotFound(t *testing.T) {
 	server := newMutationServer(t)
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 
 	missing := "99999999-9999-4999-8999-999999999999"
 	_, err := runPBD(t, "pbd", "get", missing)
@@ -260,7 +249,7 @@ func TestPBDGetNotFound(t *testing.T) {
 func TestPBDGetBadID(t *testing.T) {
 	server := newMutationServer(t)
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 
 	if _, err := runPBD(t, "pbd", "get", "not-a-uuid"); err == nil {
 		t.Fatal("expected an error for an invalid id")
@@ -272,7 +261,7 @@ func TestPBDGetBadID(t *testing.T) {
 func TestPBDPlug(t *testing.T) {
 	server := newMutationServer(t)
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 
 	out, err := runPBD(t, "pbd", "plug", getPBDID)
 	if err != nil {
@@ -293,7 +282,7 @@ func TestPBDPlug(t *testing.T) {
 func TestPBDUnplug(t *testing.T) {
 	server := newMutationServer(t)
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 
 	out, err := runPBD(t, "pbd", "unplug", getPBDID)
 	if err != nil {
@@ -314,7 +303,7 @@ func TestPBDUnplug(t *testing.T) {
 func TestPBDPlugJSON(t *testing.T) {
 	server := newMutationServer(t)
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 
 	out, err := runPBD(t, "pbd", "plug", getPBDID, "--output", "json")
 	if err != nil {
@@ -332,7 +321,7 @@ func TestPBDPlugJSON(t *testing.T) {
 func TestPBDPlugNotFound(t *testing.T) {
 	server := newMutationServer(t)
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 
 	missing := "99999999-9999-4999-8999-999999999999"
 	_, err := runPBD(t, "pbd", "plug", missing)
@@ -352,7 +341,7 @@ func TestPBDPlugNotFound(t *testing.T) {
 func TestPBDPlugWait(t *testing.T) {
 	server := newMutationServer(t)
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 
 	out, err := runPBD(t, "pbd", "plug", getPBDID, "--wait")
 	if err != nil {

@@ -6,6 +6,8 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+
+	"github.com/littlejo/xo-gocli/internal/testenv"
 )
 
 // listTestSRs covers both container cases: an SR whose container is its pool
@@ -68,7 +70,7 @@ func (s *listDetailServer) count(prefix string) int {
 // pool-owned SR apart from an SR whose container is a host.
 func TestSRListResolved(t *testing.T) {
 	srv := newListDetailServer(t)
-	isolatePointers(t, srv.URL)
+	testenv.Isolate(t, srv.URL)
 
 	out, err := runList(t, "list")
 	if err != nil {
@@ -93,7 +95,7 @@ func TestSRListResolved(t *testing.T) {
 // one lookup per SR.
 func TestSRListCostConstant(t *testing.T) {
 	srv := newListDetailServer(t)
-	isolatePointers(t, srv.URL)
+	testenv.Isolate(t, srv.URL)
 
 	if _, err := runList(t, "list"); err != nil {
 		t.Fatalf("sr list: %v", err)
@@ -109,7 +111,7 @@ func TestSRListCostConstant(t *testing.T) {
 // --output json keeps the raw container reference and makes no batch request.
 func TestSRListJSONNoBatches(t *testing.T) {
 	srv := newListDetailServer(t)
-	isolatePointers(t, srv.URL)
+	testenv.Isolate(t, srv.URL)
 
 	out, err := runList(t, "list", "--output", "json")
 	if err != nil {

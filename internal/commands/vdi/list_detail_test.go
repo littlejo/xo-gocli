@@ -6,6 +6,8 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+
+	"github.com/littlejo/xo-gocli/internal/testenv"
 )
 
 // listTestVDIs all live on the same SR.
@@ -62,7 +64,7 @@ func (s *listDetailServer) count(prefix string) int {
 // The table shows the SR each VDI lives on by name.
 func TestVDIListResolved(t *testing.T) {
 	srv := newListDetailServer(t)
-	isolatePointers(t, srv.URL)
+	testenv.Isolate(t, srv.URL)
 
 	out, err := runVDI(t, "vdi", "list")
 	if err != nil {
@@ -79,7 +81,7 @@ func TestVDIListResolved(t *testing.T) {
 // Every SR is resolved with a single batch — never one lookup per VDI.
 func TestVDIListCostConstant(t *testing.T) {
 	srv := newListDetailServer(t)
-	isolatePointers(t, srv.URL)
+	testenv.Isolate(t, srv.URL)
 
 	if _, err := runVDI(t, "vdi", "list"); err != nil {
 		t.Fatalf("vdi list: %v", err)
@@ -92,7 +94,7 @@ func TestVDIListCostConstant(t *testing.T) {
 // --output json keeps the raw SR reference and makes no batch request.
 func TestVDIListJSONNoBatches(t *testing.T) {
 	srv := newListDetailServer(t)
-	isolatePointers(t, srv.URL)
+	testenv.Isolate(t, srv.URL)
 
 	out, err := runVDI(t, "vdi", "list", "--output", "json")
 	if err != nil {

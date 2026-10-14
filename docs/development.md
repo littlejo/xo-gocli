@@ -96,6 +96,14 @@ Without those variables the integration tests are reported as **skipped**,
 never as passed. Integration credentials must never be committed; they are
 configured through the environment.
 
+The tests do not depend on your own xo setup. Every test package has a
+`TestMain` that calls `testenv.Main` (`internal/testenv`): it unsets every
+`XOA_*` variable except the `XOA_TEST_*` integration settings, and points
+`XOA_CONFIG_FILE` at an empty temporary directory. A test that needs a fake
+server calls `testenv.Isolate(t, url)`. A new test package must add the same
+one-line `main_test.go`; CI runs the suite once with hostile `XOA_*` values
+to catch a package that forgets.
+
 ### Functional tests against the simulator
 
 Functional tests run the same `-tags=integration` suite against the

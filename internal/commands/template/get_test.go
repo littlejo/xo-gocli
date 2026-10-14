@@ -13,6 +13,7 @@ import (
 
 	"github.com/littlejo/xo-gocli/internal/cli"
 	"github.com/littlejo/xo-gocli/internal/output"
+	"github.com/littlejo/xo-gocli/internal/testenv"
 )
 
 const fixtureTemplate = `{
@@ -82,7 +83,7 @@ func runGet(t *testing.T, args ...string) (string, error) {
 func TestTemplateGetDetail(t *testing.T) {
 	server := fakeXOGet(t, nil)
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 
 	out, err := runGet(t, "get", templateID)
 	if err != nil {
@@ -104,7 +105,7 @@ func TestTemplateGetDetail(t *testing.T) {
 func TestTemplateGetJSON(t *testing.T) {
 	server := fakeXOGet(t, nil)
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 
 	out, err := runGet(t, "get", templateID, "--output", "json")
 	if err != nil {
@@ -122,7 +123,7 @@ func TestTemplateGetJSON(t *testing.T) {
 func TestTemplateGetQuery(t *testing.T) {
 	server := fakeXOGet(t, nil)
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 
 	out, err := runGet(t, "get", templateID, "--query", "name_label", "--output", "text")
 	if err != nil {
@@ -139,7 +140,7 @@ func TestTemplateGetNotFound(t *testing.T) {
 		_, _ = fmt.Fprint(w, `{"message":"not found"}`)
 	})
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 
 	_, err := runGet(t, "get", templateID)
 	if err == nil {
@@ -153,7 +154,7 @@ func TestTemplateGetNotFound(t *testing.T) {
 func TestTemplateGetBadID(t *testing.T) {
 	server := fakeXOGet(t, nil)
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 
 	if _, err := runGet(t, "get", "a/b"); err == nil {
 		t.Fatal("expected an error for an invalid id")
@@ -179,7 +180,7 @@ func TestTemplateGetDetailResolved(t *testing.T) {
 		}
 	}))
 	defer srv.Close()
-	isolatePointers(t, srv.URL)
+	testenv.Isolate(t, srv.URL)
 
 	out, err := runGet(t, "get", templateID)
 	if err != nil {

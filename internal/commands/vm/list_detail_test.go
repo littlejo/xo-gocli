@@ -6,6 +6,8 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+
+	"github.com/littlejo/xo-gocli/internal/testenv"
 )
 
 // listTestVMs covers both container cases: VMs in pool mode ($container
@@ -70,7 +72,7 @@ func (s *listDetailServer) count(prefix string) int {
 // pool-mode VM apart from a VM pinned to a host.
 func TestVMListResolved(t *testing.T) {
 	srv := newListDetailServer(t)
-	isolatePointers(t, srv.URL)
+	testenv.Isolate(t, srv.URL)
 
 	out, err := runList(t, "list")
 	if err != nil {
@@ -97,7 +99,7 @@ func TestVMListResolved(t *testing.T) {
 // never one lookup per VM, whatever the list size.
 func TestVMListCostConstant(t *testing.T) {
 	srv := newListDetailServer(t)
-	isolatePointers(t, srv.URL)
+	testenv.Isolate(t, srv.URL)
 
 	if _, err := runList(t, "list"); err != nil {
 		t.Fatalf("vm list: %v", err)
@@ -114,7 +116,7 @@ func TestVMListCostConstant(t *testing.T) {
 // lookups at all: the machine path pays for no extra request.
 func TestVMListJSONNoBatches(t *testing.T) {
 	srv := newListDetailServer(t)
-	isolatePointers(t, srv.URL)
+	testenv.Isolate(t, srv.URL)
 
 	out, err := runList(t, "list", "--output", "json")
 	if err != nil {

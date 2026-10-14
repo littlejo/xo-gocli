@@ -13,6 +13,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/littlejo/xo-gocli/internal/cli"
+	"github.com/littlejo/xo-gocli/internal/testenv"
 )
 
 const (
@@ -103,16 +104,6 @@ func newFakeXO(t *testing.T) *fakeXO {
 	return s
 }
 
-func isolatePointers(t *testing.T, url string) {
-	t.Helper()
-	t.Setenv("XOA_CONFIG_FILE", t.TempDir()+"/config")
-	for _, key := range []string{"XOA_PROFILE", "XOA_ENDPOINT", "XOA_TOKEN", "XOA_USERNAME", "XOA_PASSWORD", "XOA_INSECURE"} {
-		t.Setenv(key, "")
-	}
-	t.Setenv("XOA_ENDPOINT", url)
-	t.Setenv("XOA_TOKEN", "test-token")
-}
-
 func newTestRoot() *cobra.Command {
 	root := &cobra.Command{
 		Use:           "xo",
@@ -142,7 +133,7 @@ func run(t *testing.T, args ...string) (string, error) {
 func TestTokenListTableMasked(t *testing.T) {
 	server := newFakeXO(t)
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 
 	out, err := run(t, "token", "list")
 	if err != nil {
@@ -162,7 +153,7 @@ func TestTokenListTableMasked(t *testing.T) {
 func TestTokenListNoSecret(t *testing.T) {
 	server := newFakeXO(t)
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 
 	out, err := run(t, "token", "list", "--no-secret", "--output", "json")
 	if err != nil {
@@ -176,7 +167,7 @@ func TestTokenListNoSecret(t *testing.T) {
 func TestTokenListJSONMasked(t *testing.T) {
 	server := newFakeXO(t)
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 
 	out, err := run(t, "token", "list", "--output", "json")
 	if err != nil {
@@ -200,7 +191,7 @@ func TestTokenListJSONMasked(t *testing.T) {
 func TestTokenListQuery(t *testing.T) {
 	server := newFakeXO(t)
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 
 	out, err := run(t, "token", "list", "--query", "[?description==`ci pipeline`].description", "--output", "text")
 	if err != nil {
@@ -214,7 +205,7 @@ func TestTokenListQuery(t *testing.T) {
 func TestTokenListLimit(t *testing.T) {
 	server := newFakeXO(t)
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 
 	if _, err := run(t, "token", "list", "--limit", "3"); err != nil {
 		t.Fatalf("token list --limit: %v", err)
@@ -230,7 +221,7 @@ func TestTokenListAPIError(t *testing.T) {
 		_, _ = fmt.Fprint(w, `{"message":"boom"}`)
 	}))
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 
 	_, err := run(t, "token", "list")
 	if err == nil {
@@ -263,7 +254,7 @@ func TestTokenListNoCredentials(t *testing.T) {
 func TestTokenGetTable(t *testing.T) {
 	server := newFakeXO(t)
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 
 	out, err := run(t, "token", "get", secretTokenID)
 	if err != nil {
@@ -282,7 +273,7 @@ func TestTokenGetTable(t *testing.T) {
 func TestTokenGetNoSecret(t *testing.T) {
 	server := newFakeXO(t)
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 
 	out, err := run(t, "token", "get", secretTokenID, "--no-secret", "--output", "json")
 	if err != nil {
@@ -296,7 +287,7 @@ func TestTokenGetNoSecret(t *testing.T) {
 func TestTokenGetQuery(t *testing.T) {
 	server := newFakeXO(t)
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 
 	out, err := run(t, "token", "get", secretTokenID, "--query", "description")
 	if err != nil {
@@ -310,7 +301,7 @@ func TestTokenGetQuery(t *testing.T) {
 func TestTokenGetNotFound(t *testing.T) {
 	server := newFakeXO(t)
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 
 	_, err := run(t, "token", "get", "fffffffffffffffffffffffffffffffffffff")
 	if err == nil {
@@ -324,7 +315,7 @@ func TestTokenGetNotFound(t *testing.T) {
 func TestTokenGetMaskedIDRejected(t *testing.T) {
 	server := newFakeXO(t)
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 
 	// A masked id (from the default list output) cannot resolve a token.
 	if _, err := run(t, "token", "get", "abcdefgh…"); err == nil {
@@ -337,7 +328,7 @@ func TestTokenGetMaskedIDRejected(t *testing.T) {
 func TestTokenCreate(t *testing.T) {
 	server := newFakeXO(t)
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 
 	out, err := run(t, "token", "create", "--description", "ci pipeline", "--expires-in", "30 days")
 	if err != nil {
@@ -360,7 +351,7 @@ func TestTokenCreate(t *testing.T) {
 func TestTokenCreateJSON(t *testing.T) {
 	server := newFakeXO(t)
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 
 	out, err := run(t, "token", "create", "--output", "json")
 	if err != nil {
@@ -378,7 +369,7 @@ func TestTokenCreateJSON(t *testing.T) {
 func TestTokenCreateClientID(t *testing.T) {
 	server := newFakeXO(t)
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 
 	if _, err := run(t, "token", "create", "--client-id", "my-cli"); err != nil {
 		t.Fatalf("token create --client-id: %v", err)

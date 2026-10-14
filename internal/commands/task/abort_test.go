@@ -12,6 +12,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/littlejo/xo-gocli/internal/cli"
+	"github.com/littlejo/xo-gocli/internal/testenv"
 )
 
 type abortRequest struct {
@@ -96,7 +97,7 @@ func runAbortCmd(t *testing.T, args ...string) (string, error) {
 func TestTaskAbort(t *testing.T) {
 	server := newAbortServer(t, fixtureTaskPending, http.StatusOK)
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 
 	out, err := runAbortCmd(t, "abort", "p1", "--yes")
 	if err != nil {
@@ -118,7 +119,7 @@ func TestTaskAbort(t *testing.T) {
 func TestTaskAbortJSON(t *testing.T) {
 	server := newAbortServer(t, fixtureTaskPending, http.StatusOK)
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 
 	out, err := runAbortCmd(t, "abort", "p1", "--yes", "--output", "json")
 	if err != nil {
@@ -138,7 +139,7 @@ func TestTaskAbortJSON(t *testing.T) {
 func TestTaskAbortRequiresConfirmation(t *testing.T) {
 	server := newAbortServer(t, fixtureTaskPending, http.StatusOK)
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 
 	_, err := runAbortCmd(t, "abort", "p1")
 	if err == nil {
@@ -156,7 +157,7 @@ func TestTaskAbortRequiresConfirmation(t *testing.T) {
 func TestTaskAbortEnvYes(t *testing.T) {
 	server := newAbortServer(t, fixtureTaskPending, http.StatusOK)
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 	t.Setenv("XOA_YES", "1")
 
 	out, err := runAbortCmd(t, "abort", "p1")
@@ -176,7 +177,7 @@ func TestTaskAbortAlreadyTerminal(t *testing.T) {
 			fixture := strings.Replace(fixtureTaskPending, `"pending"`, `"`+status+`"`, 1)
 			server := newAbortServer(t, fixture, http.StatusOK)
 			defer server.Close()
-			isolatePointers(t, server.URL)
+			testenv.Isolate(t, server.URL)
 
 			_, err := runAbortCmd(t, "abort", "p1", "--yes")
 			if err == nil {
@@ -196,7 +197,7 @@ func TestTaskAbortAlreadyTerminal(t *testing.T) {
 func TestTaskAbortNotFound(t *testing.T) {
 	server := newAbortServer(t, "", http.StatusOK)
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 
 	_, err := runAbortCmd(t, "abort", "p1", "--yes")
 	if err == nil {
@@ -214,7 +215,7 @@ func TestTaskAbortNotFound(t *testing.T) {
 func TestTaskAbortBadID(t *testing.T) {
 	server := newAbortServer(t, fixtureTaskPending, http.StatusOK)
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 
 	if _, err := runAbortCmd(t, "abort", "a/b"); err == nil {
 		t.Fatal("expected an error for an invalid id")
@@ -233,7 +234,7 @@ func TestTaskAbortAPIError(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			server := newAbortServer(t, fixtureTaskPending, abortStatus)
 			defer server.Close()
-			isolatePointers(t, server.URL)
+			testenv.Isolate(t, server.URL)
 
 			_, err := runAbortCmd(t, "abort", "p1", "--yes")
 			if err == nil {

@@ -12,6 +12,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/littlejo/xo-gocli/internal/cli"
+	"github.com/littlejo/xo-gocli/internal/testenv"
 )
 
 const fixtureVDIs = `[
@@ -73,18 +74,6 @@ func fakeXO(t *testing.T, handler func(w http.ResponseWriter, r *http.Request)) 
 	}))
 }
 
-// isolatePointers points the CLI at the fake server and at a throwaway config
-// file, and clears any ambient XOA_ variables.
-func isolatePointers(t *testing.T, url string) {
-	t.Helper()
-	t.Setenv("XOA_CONFIG_FILE", t.TempDir()+"/config")
-	for _, key := range []string{"XOA_PROFILE", "XOA_ENDPOINT", "XOA_TOKEN", "XOA_USERNAME", "XOA_PASSWORD", "XOA_INSECURE", "XOA_YES"} {
-		t.Setenv(key, "")
-	}
-	t.Setenv("XOA_ENDPOINT", url)
-	t.Setenv("XOA_TOKEN", "test-token")
-}
-
 func newTestRoot() *cobra.Command {
 	root := &cobra.Command{
 		Use:           "xo",
@@ -112,7 +101,7 @@ func runVDI(t *testing.T, args ...string) (string, error) {
 func TestVDIListTable(t *testing.T) {
 	server := fakeXO(t, nil)
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 
 	out, err := runVDI(t, "vdi", "list")
 	if err != nil {
@@ -132,7 +121,7 @@ func TestVDIListTable(t *testing.T) {
 func TestVDIListJSON(t *testing.T) {
 	server := fakeXO(t, nil)
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 
 	out, err := runVDI(t, "vdi", "list", "--output", "json")
 	if err != nil {
@@ -154,7 +143,7 @@ func TestVDIListJSON(t *testing.T) {
 func TestVDIListQuery(t *testing.T) {
 	server := fakeXO(t, nil)
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 
 	out, err := runVDI(t, "vdi", "list", "--query", "[?VDI_type==`user`].name_label")
 	if err != nil {
@@ -174,7 +163,7 @@ func TestVDIListTypeFilter(t *testing.T) {
 		_, _ = fmt.Fprint(w, `[]`)
 	})
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 
 	if _, err := runVDI(t, "vdi", "list", "--type", "user"); err != nil {
 		t.Fatalf("vdi list --type user: %v", err)
@@ -184,7 +173,7 @@ func TestVDIListTypeFilter(t *testing.T) {
 func TestVDIListInvalidQuery(t *testing.T) {
 	server := fakeXO(t, nil)
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 
 	if _, err := runVDI(t, "vdi", "list", "--query", "[?"); err == nil {
 		t.Fatal("expected an error for an invalid query")

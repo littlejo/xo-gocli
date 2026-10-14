@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/littlejo/xo-gocli/internal/cli"
+	"github.com/littlejo/xo-gocli/internal/testenv"
 )
 
 // These tests prove the error-translation layer (internal/cli) end to end:
@@ -33,7 +34,7 @@ func fakeSlowXO(t *testing.T, sleep time.Duration) *httptest.Server {
 func TestVMListTimeoutIsTranslated(t *testing.T) {
 	server := fakeSlowXO(t, 500*time.Millisecond)
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 	t.Setenv(cli.EnvTimeout, "50ms")
 
 	_, err := runList(t, "list")
@@ -55,7 +56,7 @@ func TestVMListTimeoutIsTranslated(t *testing.T) {
 
 func TestVMListUnreachableIsTranslated(t *testing.T) {
 	// Port 1 on the loopback is not listening: the dial is refused.
-	isolatePointers(t, "http://127.0.0.1:1")
+	testenv.Isolate(t, "http://127.0.0.1:1")
 	t.Setenv(cli.EnvTimeout, "")
 
 	_, err := runList(t, "list")
@@ -78,7 +79,7 @@ func TestVMListMalformedResponseIsTranslated(t *testing.T) {
 		_, _ = w.Write([]byte(`[{"id":"550e8400-e29b-41d4-a716-446655440001","name_label":"web-01","power_state":123,"memory":{"size":1024},"CPUs":{"number":1},"boot":{},"type":"vm"}]`))
 	})
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 
 	_, err := runList(t, "list")
 	if err == nil {
@@ -98,7 +99,7 @@ func TestVMListMalformedResponseIsTranslated(t *testing.T) {
 func TestVMListRejectedTokenIsTranslated(t *testing.T) {
 	server := fakeXO(t, nil) // verifies the authenticationToken cookie
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 	t.Setenv("XOA_TOKEN", "a-wrong-token")
 
 	_, err := runList(t, "list")
@@ -125,7 +126,7 @@ func TestVMList500With404InBodyIsNotNotFound(t *testing.T) {
 		_, _ = w.Write([]byte(`{"message":"inner 404"}`))
 	})
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 
 	_, err := runList(t, "list")
 	if err == nil {

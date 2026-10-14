@@ -7,6 +7,8 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+
+	"github.com/littlejo/xo-gocli/internal/testenv"
 )
 
 // deleteNetworkID is the id of fixtureNetwork, served on the existence lookup.
@@ -54,7 +56,7 @@ func newDeleteServer(t *testing.T) *deleteServer {
 func TestNetworkDelete(t *testing.T) {
 	server := newDeleteServer(t)
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 
 	out, err := runNetwork(t, "delete", deleteNetworkID, "--yes")
 	if err != nil {
@@ -71,7 +73,7 @@ func TestNetworkDelete(t *testing.T) {
 func TestNetworkDeleteJSON(t *testing.T) {
 	server := newDeleteServer(t)
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 
 	out, err := runNetwork(t, "delete", deleteNetworkID, "--yes", "--output", "json")
 	if err != nil {
@@ -90,7 +92,7 @@ func TestNetworkDeleteJSON(t *testing.T) {
 func TestNetworkDeleteRequiresConfirmation(t *testing.T) {
 	server := newDeleteServer(t)
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 
 	// Without --yes and with a non-terminal stdin, the delete must be refused
 	// before any request is sent.
@@ -105,7 +107,7 @@ func TestNetworkDeleteRequiresConfirmation(t *testing.T) {
 func TestNetworkDeleteSkipsConfirmationWithEnvYes(t *testing.T) {
 	server := newDeleteServer(t)
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 	t.Setenv("XOA_YES", "1")
 
 	if _, err := runNetwork(t, "delete", deleteNetworkID); err != nil {
@@ -119,7 +121,7 @@ func TestNetworkDeleteSkipsConfirmationWithEnvYes(t *testing.T) {
 func TestNetworkDeleteBadID(t *testing.T) {
 	server := newDeleteServer(t)
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 
 	if _, err := runNetwork(t, "delete", "not-a-uuid", "--yes"); err == nil {
 		t.Fatal("expected an error for an invalid id")
@@ -132,7 +134,7 @@ func TestNetworkDeleteBadID(t *testing.T) {
 func TestNetworkDeleteNotFound(t *testing.T) {
 	server := newDeleteServer(t)
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 
 	missing := "99999999-9999-4999-8999-999999999999"
 	_, err := runNetwork(t, "delete", missing, "--yes")

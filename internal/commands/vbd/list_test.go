@@ -12,6 +12,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/littlejo/xo-gocli/internal/cli"
+	"github.com/littlejo/xo-gocli/internal/testenv"
 )
 
 const fixtureVBDs = `[
@@ -69,18 +70,6 @@ func fakeXO(t *testing.T, handler func(w http.ResponseWriter, r *http.Request)) 
 	}))
 }
 
-// isolatePointers points the CLI at the fake server and at a throwaway config
-// file, and clears any ambient XOA_ variables.
-func isolatePointers(t *testing.T, url string) {
-	t.Helper()
-	t.Setenv("XOA_CONFIG_FILE", t.TempDir()+"/config")
-	for _, key := range []string{"XOA_PROFILE", "XOA_ENDPOINT", "XOA_TOKEN", "XOA_USERNAME", "XOA_PASSWORD", "XOA_INSECURE", "XOA_YES", "XOA_WAIT"} {
-		t.Setenv(key, "")
-	}
-	t.Setenv("XOA_ENDPOINT", url)
-	t.Setenv("XOA_TOKEN", "test-token")
-}
-
 func newTestRoot() *cobra.Command {
 	root := &cobra.Command{
 		Use:           "xo",
@@ -108,7 +97,7 @@ func runVBD(t *testing.T, args ...string) (string, error) {
 func TestVBDListTable(t *testing.T) {
 	server := fakeXO(t, nil)
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 
 	out, err := runVBD(t, "vbd", "list")
 	if err != nil {
@@ -147,7 +136,7 @@ func TestVBDListDeviceNamePosition(t *testing.T) {
 		]`)
 	})
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 
 	out, err := runVBD(t, "vbd", "list")
 	if err != nil {
@@ -161,7 +150,7 @@ func TestVBDListDeviceNamePosition(t *testing.T) {
 func TestVBDListJSON(t *testing.T) {
 	server := fakeXO(t, nil)
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 
 	out, err := runVBD(t, "vbd", "list", "--output", "json")
 	if err != nil {
@@ -189,7 +178,7 @@ func TestVBDListByVM(t *testing.T) {
 		_, _ = fmt.Fprint(w, `[]`)
 	})
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 
 	if _, err := runVBD(t, "vbd", "list", "--vm", "550e8400-e29b-41d4-a716-446655440001"); err != nil {
 		t.Fatalf("vbd list --vm: %v", err)
@@ -199,7 +188,7 @@ func TestVBDListByVM(t *testing.T) {
 func TestVBDListBadVM(t *testing.T) {
 	server := fakeXO(t, nil)
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 
 	if _, err := runVBD(t, "vbd", "list", "--vm", "not-a-uuid"); err == nil {
 		t.Fatal("expected an error for an invalid --vm id")
@@ -209,7 +198,7 @@ func TestVBDListBadVM(t *testing.T) {
 func TestVBDListQuery(t *testing.T) {
 	server := fakeXO(t, nil)
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 
 	out, err := runVBD(t, "vbd", "list", "--query", "[?attached].device")
 	if err != nil {

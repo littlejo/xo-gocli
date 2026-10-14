@@ -6,6 +6,8 @@ import (
 	"os"
 	"strings"
 	"testing"
+
+	"github.com/littlejo/xo-gocli/internal/testenv"
 )
 
 // --- migrate -----------------------------------------------------------------
@@ -13,7 +15,7 @@ import (
 func TestVDIMigrate(t *testing.T) {
 	server := newMutationServer(t)
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 
 	out, err := runVDI(t, "vdi", "migrate", getVDIID, "--sr", targetSRID)
 	if err != nil {
@@ -42,7 +44,7 @@ func TestVDIMigrate(t *testing.T) {
 func TestVDIMigrateJSON(t *testing.T) {
 	server := newMutationServer(t)
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 
 	out, err := runVDI(t, "vdi", "migrate", getVDIID, "--sr", targetSRID, "--output", "json")
 	if err != nil {
@@ -60,7 +62,7 @@ func TestVDIMigrateJSON(t *testing.T) {
 func TestVDIMigrateRequiresSR(t *testing.T) {
 	server := newMutationServer(t)
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 
 	if _, err := runVDI(t, "vdi", "migrate", getVDIID); err == nil {
 		t.Fatal("expected an error when --sr is missing")
@@ -73,7 +75,7 @@ func TestVDIMigrateRequiresSR(t *testing.T) {
 func TestVDIMigrateBadSR(t *testing.T) {
 	server := newMutationServer(t)
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 
 	if _, err := runVDI(t, "vdi", "migrate", getVDIID, "--sr", "not-a-uuid"); err == nil {
 		t.Fatal("expected an error for an invalid --sr id")
@@ -86,7 +88,7 @@ func TestVDIMigrateBadSR(t *testing.T) {
 func TestVDIMigrateNotFoundVDI(t *testing.T) {
 	server := newMutationServer(t)
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 
 	missing := "99999999-9999-4999-8999-999999999999"
 	_, err := runVDI(t, "vdi", "migrate", missing, "--sr", targetSRID)
@@ -106,7 +108,7 @@ func TestVDIMigrateNotFoundVDI(t *testing.T) {
 func TestVDITagAdd(t *testing.T) {
 	server := newMutationServer(t)
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 
 	out, err := runVDI(t, "vdi", "tag", "add", getVDIID, "production")
 	if err != nil {
@@ -127,7 +129,7 @@ func TestVDITagAdd(t *testing.T) {
 func TestVDITagRemove(t *testing.T) {
 	server := newMutationServer(t)
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 
 	out, err := runVDI(t, "vdi", "tag", "remove", getVDIID, "production")
 	if err != nil {
@@ -148,7 +150,7 @@ func TestVDITagRemove(t *testing.T) {
 func TestVDITagNotFound(t *testing.T) {
 	server := newMutationServer(t)
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 
 	missing := "99999999-9999-4999-8999-999999999999"
 	_, err := runVDI(t, "vdi", "tag", "add", missing, "production")
@@ -166,7 +168,7 @@ func TestVDITagNotFound(t *testing.T) {
 func TestVDITagInvalidID(t *testing.T) {
 	server := newMutationServer(t)
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 
 	if _, err := runVDI(t, "vdi", "tag", "add", "not-a-uuid", "production"); err == nil {
 		t.Fatal("expected an error for an invalid id")
@@ -183,7 +185,7 @@ func TestVDITagInvalidID(t *testing.T) {
 func TestVDIExportToFile(t *testing.T) {
 	server := newMutationServer(t)
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 
 	dest := t.TempDir() + "/disk.raw"
 	out, err := runVDI(t, "vdi", "export", getVDIID, "--file", dest)
@@ -205,7 +207,7 @@ func TestVDIExportToFile(t *testing.T) {
 func TestVDIExportStdout(t *testing.T) {
 	server := newMutationServer(t)
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 
 	// To stdout, the binary stream goes to stdout and the message to stderr,
 	// so out contains both.
@@ -224,7 +226,7 @@ func TestVDIExportStdout(t *testing.T) {
 func TestVDIExportVHD(t *testing.T) {
 	server := newMutationServer(t)
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 
 	dest := t.TempDir() + "/disk.vhd"
 	if _, err := runVDI(t, "vdi", "export", getVDIID, "--format", "vhd", "--file", dest); err != nil {
@@ -242,7 +244,7 @@ func TestVDIExportVHD(t *testing.T) {
 func TestVDIExportInvalidFormat(t *testing.T) {
 	server := newMutationServer(t)
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 
 	if _, err := runVDI(t, "vdi", "export", getVDIID, "--format", "zip"); err == nil {
 		t.Fatal("expected an error for an invalid --format")
@@ -252,7 +254,7 @@ func TestVDIExportInvalidFormat(t *testing.T) {
 func TestVDIExportNotFound(t *testing.T) {
 	server := newMutationServer(t)
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 
 	missing := "99999999-9999-4999-8999-999999999999"
 	if _, err := runVDI(t, "vdi", "export", missing); err == nil {
@@ -265,7 +267,7 @@ func TestVDIExportNotFound(t *testing.T) {
 func TestVDIImportFromFile(t *testing.T) {
 	server := newMutationServer(t)
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 
 	src := writeTempFile(t, fixtureImage)
 	out, err := runVDI(t, "vdi", "import", getVDIID, src, "--yes")
@@ -290,7 +292,7 @@ func TestVDIImportFromFile(t *testing.T) {
 func TestVDIImportVHD(t *testing.T) {
 	server := newMutationServer(t)
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 
 	src := writeTempFile(t, fixtureImage)
 	if _, err := runVDI(t, "vdi", "import", getVDIID, src, "--format", "vhd", "--yes"); err != nil {
@@ -305,7 +307,7 @@ func TestVDIImportVHD(t *testing.T) {
 func TestVDIImportRequiresConfirmation(t *testing.T) {
 	server := newMutationServer(t)
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 
 	src := writeTempFile(t, fixtureImage)
 	_, err := runVDI(t, "vdi", "import", getVDIID, src)
@@ -320,7 +322,7 @@ func TestVDIImportRequiresConfirmation(t *testing.T) {
 func TestVDIImportSkipsConfirmationWithEnvYes(t *testing.T) {
 	server := newMutationServer(t)
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 	t.Setenv("XOA_YES", "1")
 
 	src := writeTempFile(t, fixtureImage)
@@ -335,7 +337,7 @@ func TestVDIImportSkipsConfirmationWithEnvYes(t *testing.T) {
 func TestVDIImportNotFound(t *testing.T) {
 	server := newMutationServer(t)
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 
 	missing := "99999999-9999-4999-8999-999999999999"
 	src := writeTempFile(t, fixtureImage)
@@ -354,7 +356,7 @@ func TestVDIImportNotFound(t *testing.T) {
 func TestVDIImportEmptyFile(t *testing.T) {
 	server := newMutationServer(t)
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 
 	src := writeTempFile(t, "")
 	if _, err := runVDI(t, "vdi", "import", getVDIID, src, "--yes"); err == nil {
@@ -368,7 +370,7 @@ func TestVDIImportEmptyFile(t *testing.T) {
 func TestVDIImportInvalidFormat(t *testing.T) {
 	server := newMutationServer(t)
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 
 	src := writeTempFile(t, fixtureImage)
 	if _, err := runVDI(t, "vdi", "import", getVDIID, src, "--format", "zip", "--yes"); err == nil {

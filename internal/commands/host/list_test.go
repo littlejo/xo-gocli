@@ -12,6 +12,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/littlejo/xo-gocli/internal/cli"
+	"github.com/littlejo/xo-gocli/internal/testenv"
 )
 
 const fixtureHosts = `[
@@ -65,18 +66,6 @@ func fakeXO(t *testing.T, handler func(w http.ResponseWriter, r *http.Request)) 
 	}))
 }
 
-// isolatePointers points the CLI at the fake server and at a throwaway config
-// file, and clears any ambient XOA_ variables.
-func isolatePointers(t *testing.T, url string) {
-	t.Helper()
-	t.Setenv("XOA_CONFIG_FILE", t.TempDir()+"/config")
-	for _, key := range []string{"XOA_PROFILE", "XOA_ENDPOINT", "XOA_TOKEN", "XOA_USERNAME", "XOA_PASSWORD", "XOA_INSECURE"} {
-		t.Setenv(key, "")
-	}
-	t.Setenv("XOA_ENDPOINT", url)
-	t.Setenv("XOA_TOKEN", "test-token")
-}
-
 func newTestRoot() *cobra.Command {
 	root := &cobra.Command{
 		Use:           "xo",
@@ -104,7 +93,7 @@ func runList(t *testing.T, args ...string) (string, error) {
 func TestHostListTable(t *testing.T) {
 	server := fakeXO(t, nil)
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 
 	out, err := runList(t, "list")
 	if err != nil {
@@ -124,7 +113,7 @@ func TestHostListTable(t *testing.T) {
 func TestHostListJSON(t *testing.T) {
 	server := fakeXO(t, nil)
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 
 	out, err := runList(t, "list", "--output", "json")
 	if err != nil {
@@ -146,7 +135,7 @@ func TestHostListJSON(t *testing.T) {
 func TestHostListYAML(t *testing.T) {
 	server := fakeXO(t, nil)
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 
 	out, err := runList(t, "list", "--output", "yaml")
 	if err != nil {
@@ -160,7 +149,7 @@ func TestHostListYAML(t *testing.T) {
 func TestHostListQuery(t *testing.T) {
 	server := fakeXO(t, nil)
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 
 	out, err := runList(t, "list", "--query", "[?power_state==`Running`].name_label", "--output", "text")
 	if err != nil {
@@ -174,7 +163,7 @@ func TestHostListQuery(t *testing.T) {
 func TestHostListQueryInvalid(t *testing.T) {
 	server := fakeXO(t, nil)
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 
 	if _, err := runList(t, "list", "--query", "bad["); err == nil {
 		t.Fatal("expected an error for an invalid query")
@@ -190,7 +179,7 @@ func TestHostListLimit(t *testing.T) {
 		_, _ = fmt.Fprint(w, fixtureHosts)
 	})
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 
 	if _, err := runList(t, "list", "--limit", "3"); err != nil {
 		t.Fatalf("host list --limit: %v", err)
@@ -203,7 +192,7 @@ func TestHostListAPIError(t *testing.T) {
 		_, _ = fmt.Fprint(w, `{"message":"boom"}`)
 	})
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 
 	_, err := runList(t, "list")
 	if err == nil {

@@ -13,6 +13,7 @@ import (
 
 	"github.com/littlejo/xo-gocli/internal/cli"
 	"github.com/littlejo/xo-gocli/internal/output"
+	"github.com/littlejo/xo-gocli/internal/testenv"
 )
 
 const fixtureHost = `{
@@ -96,7 +97,7 @@ func runGetExec(t *testing.T, args ...string) (string, error) {
 func TestHostGetDetail(t *testing.T) {
 	server := fakeXOGet(t, nil)
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 
 	out, err := runGet(t, "get", "aaaaaaaa-bbbb-cccc-dddd-000000000001")
 	if err != nil {
@@ -120,7 +121,7 @@ func TestHostGetDetail(t *testing.T) {
 func TestHostGetJSON(t *testing.T) {
 	server := fakeXOGet(t, nil)
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 
 	out, err := runGet(t, "get", "aaaaaaaa-bbbb-cccc-dddd-000000000001", "--output", "json")
 	if err != nil {
@@ -139,7 +140,7 @@ func TestHostGetJSON(t *testing.T) {
 func TestHostGetQuery(t *testing.T) {
 	server := fakeXOGet(t, nil)
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 
 	out, err := runGet(t, "get", "aaaaaaaa-bbbb-cccc-dddd-000000000001", "--query", "name_label")
 	if err != nil {
@@ -156,7 +157,7 @@ func TestHostGetNotFound(t *testing.T) {
 		_, _ = fmt.Fprint(w, `{"message":"not found"}`)
 	})
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 
 	_, err := runGet(t, "get", "aaaaaaaa-bbbb-cccc-dddd-000000000001")
 	if err == nil {
@@ -173,7 +174,7 @@ func TestHostGetNotFoundDebugRevealsAPIError(t *testing.T) {
 		_, _ = fmt.Fprint(w, `{"message":"not found"}`)
 	})
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 
 	errOut, err := runGetExec(t, "get", "aaaaaaaa-bbbb-cccc-dddd-000000000001", "--debug")
 	if err == nil {
@@ -198,7 +199,7 @@ func TestHostGetNotFoundWithoutDebugHasNoDiag(t *testing.T) {
 		_, _ = fmt.Fprint(w, `{"message":"not found"}`)
 	})
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 
 	errOut, err := runGetExec(t, "get", "aaaaaaaa-bbbb-cccc-dddd-000000000001")
 	if err == nil {
@@ -215,7 +216,7 @@ func TestHostGetAPIError(t *testing.T) {
 		_, _ = fmt.Fprint(w, `{"message":"boom"}`)
 	})
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 
 	_, err := runGet(t, "get", "aaaaaaaa-bbbb-cccc-dddd-000000000001")
 	if err == nil {
@@ -229,7 +230,7 @@ func TestHostGetAPIError(t *testing.T) {
 func TestHostGetBadID(t *testing.T) {
 	server := fakeXOGet(t, nil)
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 
 	if _, err := runGet(t, "get", "not-a-uuid"); err == nil {
 		t.Fatal("expected an error for an invalid id")
@@ -251,7 +252,7 @@ func tlsFailServer() *httptest.Server {
 func TestHostGetTLSErrorHintsWhenInsecureOff(t *testing.T) {
 	server := tlsFailServer()
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 
 	_, err := runGet(t, "get", "aaaaaaaa-bbbb-cccc-dddd-000000000001")
 	if err == nil {
@@ -265,7 +266,7 @@ func TestHostGetTLSErrorHintsWhenInsecureOff(t *testing.T) {
 func TestHostGetTLSErrorNoHintWhenInsecureOn(t *testing.T) {
 	server := tlsFailServer()
 	defer server.Close()
-	isolatePointers(t, server.URL)
+	testenv.Isolate(t, server.URL)
 	t.Setenv("XOA_INSECURE", "1")
 
 	_, err := runGet(t, "get", "aaaaaaaa-bbbb-cccc-dddd-000000000001")
@@ -329,7 +330,7 @@ func hostDetailServer(t *testing.T, resolveNames bool) (*httptest.Server, *[]str
 // one batch).
 func TestHostGetDetailResolved(t *testing.T) {
 	srv, _ := hostDetailServer(t, true)
-	isolatePointers(t, srv.URL)
+	testenv.Isolate(t, srv.URL)
 
 	out, err := runGet(t, "get", hostTestID)
 	if err != nil {
@@ -349,7 +350,7 @@ func TestHostGetDetailResolved(t *testing.T) {
 // plus the single pool lookup — a constant cost.
 func TestHostGetDetailCostConstant(t *testing.T) {
 	srv, paths := hostDetailServer(t, true)
-	isolatePointers(t, srv.URL)
+	testenv.Isolate(t, srv.URL)
 
 	if _, err := runGet(t, "get", hostTestID); err != nil {
 		t.Fatalf("host get: %v", err)
