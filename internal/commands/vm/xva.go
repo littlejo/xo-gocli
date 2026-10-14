@@ -16,7 +16,7 @@ import (
 // 'xo vm import'.
 //
 // The SDK v2 typed VM service does not expose XVA/OVA import/export yet (a
-// known SDK gap, tracked in docs/development.md), so these commands reach the
+// known SDK gap, tracked in docs/internals/sdk-v2.md), so these commands reach the
 // REST endpoints through the SDK's exported *client.Client — the same single
 // API boundary as the rest of the CLI: the authentication cookie, the base
 // URL and the TLS handling all come from the SDK. The missing typed

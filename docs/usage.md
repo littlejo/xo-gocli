@@ -1,1040 +1,125 @@
 # Using `xo`
 
-This page is the detailed reference: installation, configuration, every
-command, and the output/querying model. For the overview and a five-minute
-quickstart, see the [README](../README.md). The exhaustive list of every
-command and flag, generated from `--help`, is the
-[command reference](reference/cli/xo.md).
+This page has moved. The user documentation is now split by topic; start from
+the [documentation index](index.md). The sections that used to be here are
+mapped to their new location below; each old section heading is kept so
+existing links still land here.
 
-## Table of contents
-
-- [Installation](#installation)
-- [Configuration](#configuration)
-  - [Getting a token](#getting-a-token)
-  - [`xo configure`](#xo-configure)
-  - [Environment variables](#environment-variables)
-  - [Insecure mode](#insecure-mode)
-  - [Debug mode](#debug-mode)
-  - [Timeouts and waiting](#timeouts-and-waiting)
-- [Commands](#commands)
-  - [Global flags](#global-flags)
-  - [`xo version`](#xo-version)
-  - [Shell completion](#shell-completion)
-  - [`xo vm`](#xo-vm)
-  - [`xo host`](#xo-host)
-  - [`xo sr`](#xo-sr)
-  - [`xo pool`](#xo-pool)
-  - [`xo network`](#xo-network)
-  - [`xo vdi`](#xo-vdi)
-  - [`xo vbd`](#xo-vbd)
-  - [`xo pbd`](#xo-pbd)
-  - [`xo task`](#xo-task)
-  - [`xo token`](#xo-token)
-  - [`xo template`](#xo-template)
-  - [`xo rest`](#xo-rest)
-- [Output & querying](#output--querying)
-  - [Choosing the default format](#choosing-the-default-format)
-  - [The JSON and YAML contract](#the-json-and-yaml-contract)
-  - [Mutation and action output](#mutation-and-action-output)
-  - [Human view conventions](#human-view-conventions)
-- [Exit codes](#exit-codes)
+| Old section | New page |
+| ----------- | -------- |
+| Installation | [getting-started/install.md](getting-started/install.md) |
+| Configuration, `xo configure`, Environment variables, Insecure mode, Debug mode, Timeouts and waiting, Global flags | [getting-started/configuration.md](getting-started/configuration.md) |
+| Getting a token | [getting-started/authentication.md](getting-started/authentication.md) |
+| Shell completion | [getting-started/shell-completion.md](getting-started/shell-completion.md) |
+| Commands, `xo version`, `xo vm` … `xo rest` | [reference/commands.md](reference/commands.md) |
+| Output & querying | [reference/output-and-query.md](reference/output-and-query.md) |
+| Exit codes | [reference/exit-codes.md](reference/exit-codes.md) |
 
 ## Installation
 
-### Install script
-
-```sh
-curl -fsSL https://raw.githubusercontent.com/littlejo/xo-gocli/main/install.sh | sh
-```
-
-The script detects your OS and architecture (Linux or macOS, amd64 or arm64),
-downloads the latest release artifact and installs the binary to
-`/usr/local/bin` (or `~/.local/bin` if you don't have write access). It
-verifies the archive's SHA-256 checksum when `sha256sum` or `shasum` is
-available; without either, it prints a warning and installs **without**
-verifying, so check the archive by hand in that case (see below).
-
-Three environment variables change its defaults:
-
-| Variable              | Default                                   |
-| --------------------- | ----------------------------------------- |
-| `XOA_INSTALL_VERSION` | the latest release, e.g. `v1.0.0` to pin  |
-| `XOA_INSTALL_DIR`     | `/usr/local/bin`, then `~/.local/bin`     |
-| `XOA_INSTALL_REPO`    | `littlejo/xo-gocli`                       |
-
-```sh
-curl -fsSL https://raw.githubusercontent.com/littlejo/xo-gocli/main/install.sh \
-  | XOA_INSTALL_VERSION=v1.0.0 XOA_INSTALL_DIR="$HOME/bin" sh
-```
-
-The script does not support Windows: use the manual download.
-
-### Manual download
-
-Download `xo_<version>_<os>_<arch>.tar.gz` (or `.zip` on Windows) from the
-[Releases page](https://github.com/littlejo/xo-gocli/releases), verify it against
-`xo_<version>_checksums.txt`, extract it and put the `xo` binary on your
-`PATH`.
-
-Each archive also holds the man pages, one per command, under `man/`. To
-install them on Linux or macOS:
-
-```sh
-sudo install -m 0644 man/*.1 /usr/local/share/man/man1/
-man xo-vm-start
-```
-
-### From source
-
-Requires Go 1.26+ (a [mise](https://mise.jdx.dev/) config is included) — see
-[Development → Toolchain](development.md#toolchain) for the build commands.
+[Install](getting-started/install.md) — install script, manual download,
+Windows, man pages, from source, upgrade and uninstall.
 
 ## Configuration
 
-Profiles are stored in `~/.config/xo/config` (override the location with
-`$XOA_CONFIG_FILE`). The file is written with `0600` permissions because it may
-hold credentials.
+[Configuration](getting-started/configuration.md) — the configuration file
+and profiles.
 
-```yaml
-current: lab
-profiles:
-  - name: lab
-    endpoint: https://xo.example.com
-    token: <token>
-    # OR: username: admin / password: <secret>
-    # OR: insecure: true
-    # Default output format for this profile (table, json, yaml or text):
-    # output: json
-```
+## Getting a token
 
-The active profile is resolved in this order: `--profile`, then `$XOA_PROFILE`,
-then the file's `current` entry, then the `default` profile.
+[Authentication → Getting a token](getting-started/authentication.md#getting-a-token).
 
-### Getting a token
+## `xo configure`
 
-A token is the recommended way to authenticate (see [Environment
-variables](#environment-variables) for why). Xen Orchestra issues it to a
-user, and it carries that user's permissions. Pick one of these ways to get
-the first one:
+[Configuration → `xo configure`](getting-started/configuration.md#xo-configure).
 
-- **With `xo` itself**, starting from a username and password. The password is
-  prompted, so it stays out of your shell history:
+## Environment variables
 
-  ```sh
-  xo configure --profile bootstrap --endpoint https://xo.example.com --username admin
-  xo token create --profile bootstrap --description "laptop" --expires-in "90 days"
-  xo configure --profile lab --endpoint https://xo.example.com --token <token printed above>
-  xo configure remove bootstrap --yes
-  ```
+[Configuration → Environment variables](getting-started/configuration.md#environment-variables).
 
-- **From the Xen Orchestra web UI**, in your user settings (create a new
-  authentication token there and copy it).
-- **With the Node.js `xo-cli`**: `xo-cli create-token xo.example.com admin`
-  prompts for the password and prints a token
-  ([XO REST API docs](https://docs.xen-orchestra.com/automation/restapi)).
+## Insecure mode
 
-The token is printed only once: store it right away with `xo configure`.
-Tokens expire (the server's `maxTokenValidity` sets the upper bound); when one
-does, commands fail with an authentication error and you create a new one the
-same way.
+[Configuration → Insecure mode](getting-started/configuration.md#insecure-mode).
 
-### `xo configure`
+## Debug mode
 
-Manage configuration profiles: store or update one, and list, inspect or
-remove the stored profiles.
+[Configuration → Debug mode](getting-started/configuration.md#debug-mode).
 
-```sh
-# Store or update the profile selected with --profile
-xo configure                                   # interactive, default profile
-xo configure --profile lab                     # interactive, named profile
-xo configure --profile lab --endpoint https://xo.example.com --token <token>
-xo configure --profile lab --username admin --password <secret>
-xo configure --profile lab -k                  # skip TLS verification (--insecure)
+## Timeouts and waiting
 
-# Inspect and manage the stored profiles
-xo configure list                              # all profiles (secrets masked)
-xo configure list --output json
-xo configure list --query '[].name'            # profile names only
-xo configure show lab                          # one profile, full secrets
-xo configure show lab --query endpoint         # one field
-xo configure remove lab                        # destructive: asks unless --yes
-```
-
-Values given with flags win over environment variables; unset values fall back
-to the environment (`XOA_ENDPOINT`, `XOA_TOKEN`, `XOA_USERNAME`, `XOA_PASSWORD`),
-then to an interactive prompt when stdin is a terminal.
-
-### Environment variables
-
-Environment variables always take precedence over the stored profile at run
-time:
-
-| Variable         | Purpose                                       |
-| ---------------- | --------------------------------------------- |
-| `XOA_PROFILE`     | Select the active profile                     |
-| `XOA_ENDPOINT`    | Xen Orchestra base URL                        |
-| `XOA_TOKEN`       | Authentication token                          |
-| `XOA_USERNAME`    | Username (alternative to a token)             |
-| `XOA_PASSWORD`    | Password (alternative to a token)             |
-| `XOA_INSECURE`    | Skip TLS certificate verification             |
-| `XOA_TIMEOUT`     | HTTP client timeout, e.g. `60s` or `2m` (like `--timeout`) |
-| `XOA_DEFAULT_OUTPUT` | Default output format: `table`, `json`, `yaml` or `text` (like `--output`) |
-| `XOA_YES`         | Skip confirmation prompts (like `--yes`)      |
-| `XOA_WAIT`        | Wait for async action tasks to complete (like `--wait`) |
-| `XOA_DEBUG`       | Show SDK/API error details (like `--debug`)   |
-| `XOA_CONFIG_FILE` | Location of the configuration file            |
-
-Either a token, or a username + password, must be available to authenticate.
-
-**Token profiles are recommended.** A token profile authenticates with the
-cookie XO already issued, so no login request is sent at all. With a
-username + password profile, the SDK logs in once per client it builds
-(`POST /auth/login`), and a command that needs both the typed SDK services
-and the raw REST client (the `list`/`get` tables resolve names, so most of
-them do) builds two of them — two logins per invocation. This is a known
-inefficiency tracked for v1.1 (a single shared client); until then, token
-profiles avoid the duplicate logins and the resulting auth load on the
-server.
-
-`XOA_YES` is meant for scripts and CI: `XOA_YES=1 xo vm delete <id>` behaves
-like `xo vm delete <id> --yes` without having to pass the flag everywhere.
-Likewise
-`XOA_WAIT=1` behaves like `--wait` on the asynchronous actions (the `xo vm`,
-`xo vbd`, `xo pbd` and `xo sr` sections below): `XOA_WAIT=1 xo vm start <id>`
-waits for the start task to complete without having to pass the flag on every
-command.
-
-`XOA_DEFAULT_OUTPUT` is the script counterpart of `--output`:
-`XOA_DEFAULT_OUTPUT=json xo vm list` emits JSON without the flag, and an
-explicit `--output` still wins for a single command. It is also stored per
-profile in the configuration file as `output:` (see [Output &
-querying](#output--querying)).
-
-### Insecure mode
-
-For self-signed or internally-issued certificates:
-
-```sh
-xo configure --profile lab --insecure          # stored in the profile
-XOA_INSECURE=1 xo vm list                        # per invocation
-```
-
-This disables certificate verification and is only appropriate for internal,
-trusted networks. When a connection fails on certificate verification and
-insecure mode is not enabled, the error points at this escape hatch.
-
-### Debug mode
-
-Errors are intentionally concise: a failed lookup is reported as
-`Error: host "…" not found` rather than the raw API response, and common
-failure causes are translated from the SDK/Go internals into a single clear
-sentence — e.g. `the request timed out after 30s (raise it with --timeout)`,
-`cannot reach 127.0.0.1:8443: connection refused`, `the Xen Orchestra API
-returned a malformed response`, or `authentication was rejected by the server
-(401)`. The global `-d`, `--debug` flag (or the `$XOA_DEBUG` environment
-variable) reveals the details behind any of those messages — which profile
-and endpoint resolved, and the raw SDK/API error. The diagnostics go to
-**stderr**, so machine-readable stdout stays clean even when debugging.
-
-```sh
-xo vm get <id> --debug
-XOA_DEBUG=1 xo vm get <id>
-```
-
-```
-debug: profile=lab endpoint=https://xoa.example.com
-debug: API error: 404 Not Found - {"message": "object not found"}
-Error: VM "550e8400-…" not found
-```
-
-Use it when a failure is hard to explain (a 404 you expected to succeed, a
-weird API body, the wrong endpoint reached) and file the output upstream.
-
-### Timeouts and waiting
-
-There are two timeouts, and they bound different things.
-
-**HTTP client timeout** (the global `--timeout`, or `$XOA_TIMEOUT`) — how
-long a single HTTP request may take before it is cut off with a `timeout`
-error. Defaults to **30 seconds** (the SDK's own default); the flag wins over
-the environment variable. For a one-shot
-operation (a `list`, a `get`, a single action, a VM/VDI `export` or `import`
-stream) this bounds the whole operation, because the operation is one
-request. Raise it for a large archive over a slow link:
-
-```sh
-XOA_TIMEOUT=5m xo vm export <id> --file vm.xva      # large XVA over a slow link
-```
-
-**Wait deadline** — for operations that *poll* a backing task until it
-completes (the pool `rolling-update` / `rolling-reboot` / `emergency-shutdown`,
-`task wait`, the `--wait` flag of the asynchronous actions, and `vm create` /
-`network create` / `create-internal` / `create-bonded`, which always wait for
-their creation task), the HTTP
-client timeout only bounds each individual poll request, **not** how long the
-command blocks overall. By default that overall wait is **unbounded**: the
-command blocks until the task completes (or Ctrl+C). The flag that *does*
-bound it is `--wait-timeout`, on `task wait` and the three pool maintenance
-commands. The global `--timeout` keeps its meaning there (each poll request):
-
-```sh
-xo pool rolling-update <id> --wait-timeout 30m   # give up on the wait after 30 min
-xo task wait <id> --wait-timeout 5m              # …but give up after 5 minutes
-xo task wait <id> --wait-timeout 1h --timeout 2m # long wait, slow polls allowed
-```
-
-There is **no default wait deadline**: a pool update, a stuck task or a large
-import can legitimately run for a long time, and a fixed cutoff would report
-a timeout even when the operation is still progressing (or has completed)
-server-side — leaving the caller unsure of the real state. Instead the wait
-ends when the task completes or you press Ctrl+C (which propagates from the
-CLI through the SDK to the HTTP layer); use `--wait-timeout` above when
-you want a bound anyway. The wait deadline and the per-request HTTP timeout
-are independent: a 30-minute wait is made of many 30-second-bounded polls, so
-a broken connection can never hang a single poll forever.
-
-`vm create` and `network create*` have no wait `--timeout`: only Ctrl+C ends
-their wait early. They wait through the SDK, which does not yet treat an
-`interrupted` task as finished
-([vatesfr/xenorchestra-go-sdk#121](https://github.com/vatesfr/xenorchestra-go-sdk/issues/121)),
-so if their creation task is interrupted (for example with `xo task abort`)
-they keep waiting until you press Ctrl+C.
+[Configuration → Timeouts and waiting](getting-started/configuration.md#timeouts-and-waiting).
 
 ## Commands
 
-### Global flags
+The [command guide](reference/commands.md) explains each command group; every
+flag is in the generated [command reference](reference/cli/xo.md).
 
-| Flag             | Description                                             |
-| ---------------- | ------------------------------------------------------- |
-| `-p`, `--profile`| Configuration profile to use (or `$XOA_PROFILE`)         |
-| `-o`, `--output` | Output format: `table` (default), `json`, `yaml`, `text` (or `$XOA_DEFAULT_OUTPUT`, or the profile's `output`) |
-| `--json`         | Output as JSON, a shortcut for `--output json`          |
-| `-d`, `--debug`  | Show SDK/API error details on failure (or `$XOA_DEBUG`) |
-| `--timeout`      | HTTP client timeout, e.g. `60s` or `2m` (default `30s`, or `$XOA_TIMEOUT`) |
-| `--version`      | Print the CLI version and exit                          |
+## Global flags
 
-Commands that return data also accept `--query` / `-q`
-(see [Output & querying](#output--querying)). Every command accepts `--help`.
+[Configuration → Global flags](getting-started/configuration.md#global-flags).
 
-### `xo version`
+## Shell completion
 
-Print the CLI version, offline:
+[Shell completion](getting-started/shell-completion.md).
 
-```sh
-xo version          # or: xo --version
-```
+## `xo version`
 
-The Xen Orchestra server version is not shown: the REST API does not expose
-it (only the legacy JSON-RPC API does, which this CLI never uses).
+[Command guide → `xo version`](reference/commands.md#xo-version).
 
-### Shell completion
+## `xo vm`
 
-Completion is generated by cobra for bash, zsh, fish and PowerShell:
+[Command guide → `xo vm`](reference/commands.md#xo-vm).
 
-```sh
-# bash (>= 4.4)
-xo completion bash > /etc/bash_completion.d/xo     # or ~/.bash_completion.d/xo
+## `xo host`
 
-# zsh
-xo completion zsh > "${fpath[1]}/_xo"
+[Command guide → `xo host`](reference/commands.md#xo-host).
 
-# fish
-xo completion fish > ~/.config/fish/completions/xo.fish
+## `xo sr`
 
-# PowerShell
-xo completion powershell > xo.ps1
-```
+[Command guide → `xo sr`](reference/commands.md#xo-sr).
 
-Each `xo completion <shell>` command prints its own install instructions with
-`--help`.
+## `xo pool`
 
-### `xo vm`
+[Command guide → `xo pool`](reference/commands.md#xo-pool).
 
-Manage virtual machines.
+## `xo network`
 
-```sh
-# Read
-xo vm list                          # all VMs
-xo vm list --output json            # machine readable
-xo vm list --power-state Running    # filter by power state
-xo vm list --limit 10               # cap the number of results
-xo vm list --query '[].name_label'  # project a single field
-xo vm get <id>                      # one VM, as a detail view
+[Command guide → `xo network`](reference/commands.md#xo-network).
 
-# Create
-xo vm create web-02 --pool <pool-id> --template <template-id>
-xo vm create web-02 --pool <pool-id> --template <template-id> --memory 4G
-xo vm create web-02 --pool <pool-id> --template <template-id> --boot
+## `xo vdi`
 
-# Update
-xo vm update <id> --name web-01
-xo vm update <id> --description "primary web server"
-xo vm update <id> --tags production,web     # replaces the full tag list
+[Command guide → `xo vdi`](reference/commands.md#xo-vdi).
 
-# Tags
-xo vm tag add <id> production
-xo vm tag remove <id> production
+## `xo vbd`
 
-# Disks
-xo vm vdis <id>                     # list the VM's VDIs
-xo vm vdis <id> --type user         # filter by VDI type
-xo vm vdis <id> --query '[].name_label'
+[Command guide → `xo vbd`](reference/commands.md#xo-vbd).
 
-# Lifecycle (async actions return a task id; delete is synchronous)
-xo vm start <id>                    # power on
-xo vm start <id> --host <host-id>   # pin to a host
-xo vm start <id> --wait             # block until the start task completes
-xo vm stop <id>                     # clean shutdown
-xo vm stop <id> --hard              # power off immediately
-xo vm reboot <id>                   # clean reboot
-xo vm reboot <id> --hard            # force a hard reboot
-xo vm pause <id>                    # pause the vCPUs (state: Paused)
-xo vm unpause <id>                  # resume a paused VM
-xo vm suspend <id>                  # save to disk and release memory (state: Suspended)
-xo vm resume <id>                   # restore a suspended VM
-xo vm snapshot <id>                 # take a snapshot
-xo vm snapshot <id> --name backup   # label the snapshot
-xo vm export <id> > vm.xva          # export to XVA (or --file, --format ova)
-xo vm import vm.xva --pool <pool>   # import an XVA into a pool
-xo vm import vm.xva --pool <pool> --sr <sr-id>   # …with its disks on a given SR
-xo vm delete <id>                   # delete the VM (asks to confirm)
-xo vm delete <id> --yes             # skip confirmation (automation)
-```
+## `xo pbd`
 
-`--memory` accepts bytes or human-readable sizes (`2G`, `512M`).
+[Command guide → `xo pbd`](reference/commands.md#xo-pbd).
 
-`vm get` shows a single VM as a **detail view** (distinct from `vm list`,
-which is the one-line-per-VM table used to pick a VM). It shows identity
-(IP, description, tags), location, resources and configuration, and it
-resolves the relationships to names: the **container** (the host or pool the
-VM runs on) and the **template**. The resolution uses a constant number of
-extra lookups (at most one host and one pool, plus the template) and falls
-back to the raw id if a reference cannot be resolved, so the view is always
-complete. `--output json` / `yaml` / `text` and `--query` still emit the raw
-object, unchanged.
+## `xo task`
 
-```
-$ xo vm get 550e8400-e29b-41d4-a716-446655440001
-VM web-01  (Running)
-IP:          10.0.0.12
-Description: primary web server
-Tags:        production, web
-Container:   host-02
-Template:    Oracle Linux 8
-Memory:      4.295GB
-CPUs:        2 (max 4)
-Disks:       1  (xo vm vdis 550e8400-…)
-Networks:    1
-Boot:        hvm, order cda
-Flags:       hvm auto-poweron
-Created:     2026-01-02T10:00:00Z by admin
-```
+[Command guide → `xo task`](reference/commands.md#xo-task).
 
-The lifecycle actions (`start`, `stop`, `reboot`, `pause`, `unpause`,
-`suspend`, `resume`, `snapshot`) are asynchronous: they return a task id. Add
-`--wait` (or set `XOA_WAIT=1`) to block until the task reaches a terminal
-state instead; the completed task is then printed (like `xo task wait`) and
-the exit status reflects the outcome (non-zero if the task fails or is
-interrupted).
+## `xo token`
 
-The human `POWER STATE` — the `vm list` column and the `vm get` header —
-shows the operation in flight while a lifecycle action is running. A VM whose
-start has just been requested still reports `Halted` in the raw `power_state`
-until the task completes, so the view reads `Starting` instead (likewise
-`Shutting down` and `Rebooting`). This is display-only: the `--power-state`
-filter is server-side and matches the raw field, and machine output
-(`--output json` / `yaml` / `text`) still emits the raw `power_state` with
-`current_operations` unchanged.
+[Command guide → `xo token`](reference/commands.md#xo-token).
 
-`vm delete` requires confirmation; pass `--yes` (or set `XOA_YES`) to run
-non-interactively. Without either, a non-terminal stdin is rejected rather
-than hanging, so automation never blocks. The power actions (`start`, `stop`,
-`reboot`, `pause`, `unpause`, `suspend`, `resume`) never prompt: each is
-reversible by its counterpart (`stop` by `start`, `suspend` by `resume`, …),
-so a confirmation would only interrupt the normal start/stop/reboot loop —
-matching the AWS CLI, where none of these ask.
+## `xo template`
 
-`vm export` streams the archive to stdout by default (use `--file` for a
-file, `--format ova` for OVA, `--compress=false` to disable XVA
-compression); `vm import` reads the XVA from a file or stdin (`-`) and
-requires `--pool`; `--sr` puts the VM's disks on an SR of that pool instead
-of the pool's default SR. Both are performed through the SDK's own REST client
-because the typed SDK service does not expose them yet (see
-[development](development.md#known-sdk-gaps-the-cli-works-around)).
+[Command guide → `xo template`](reference/commands.md#xo-template).
 
-### `xo host`
+## `xo rest`
 
-Manage hosts.
-
-```sh
-xo host list
-xo host list --query '[].name_label'
-xo host list --query '[?power_state==`Running`].name_label'
-xo host get <id>                 # one host, as a detail view
-
-# Tags
-xo host tag add <id> production
-xo host tag remove <id> production
-```
-
-`host get` shows a single host as a **detail view** (distinct from `host
-list`). It shows the address and hostname, the **pool** the host belongs to
-(resolved by name), the **memory** usage, the CPU model, the platform and
-license, and the **VMs** resident on the host (resolved in one batch, never
-one lookup per VM). If the pool cannot be resolved, the raw id is shown
-instead. `--output json` / `yaml` / `text` and `--query` still emit the raw
-object, unchanged.
-
-```
-$ xo host get aaaaaaaa-bbbb-cccc-dddd-000000000001
-Host host-01  (Running)
-Address:     10.0.0.11
-Pool:        prod-pool
-Memory:      62.50GB / 128GB (48%)
-CPUs:        32 cores, 4 sockets
-CPU:         Intel(R) Xeon(R) CPU E5-2680 v4 @ 2400 MHz
-Platform:    XCP-ng 8.2.0
-VMs:         14  (web-01, db-01, …  (+12 more))
-```
-
-### `xo sr`
-
-Manage storage repositories.
-
-```sh
-xo sr list
-xo sr list --type lvm               # filter by SR type (see note below)
-xo sr list --query '[?SR_type==`nfs`].name_label'
-xo sr get <id>
-xo sr scan <id>                     # rescan the SR for disk changes (async)
-xo sr scan <id> --wait              # …and wait for the scan to finish
-xo sr reclaim-space <id>            # reclaim unused (thin) space (async)
-xo sr reclaim-space <id> --wait
-
-# Tags
-xo sr tag add <id> production
-xo sr tag remove <id> production
-```
-
-`--type` is passed to the XO live-filter engine, which is a case-insensitive
-substring match: `--type lvm` also matches `lvmoiscsi`. For an exact type,
-project with `--query` instead.
-
-### `xo pool`
-
-Manage pools.
-
-```sh
-xo pool list
-xo pool list --query '[?HA_enabled].name_label'
-xo pool get <id>                 # one pool, as a detail view
-
-# Maintenance (all synchronous: the command waits for the backing task)
-xo pool rolling-update <id>                  # apply the pool update, host by host
-xo pool rolling-reboot <id>                  # reboot the hosts one by one (confirm + --yes)
-xo pool emergency-shutdown <id>              # shut down every host at once (confirm + --yes)
-
-# Tags
-xo pool tag add <id> production
-xo pool tag remove <id> production
-```
-
-`rolling-update` applies the latest pool update, rolling it across the hosts
-one by one (each host is rebooted in turn, with its VMs moved away first);
-the pool stays available the whole time and the command runs without
-confirmation. `rolling-reboot` reboots the hosts in the same rolling fashion
-but is destructive and asks for confirmation. `emergency-shutdown` powers off
-every host at once **without evacuating the VMs first**: the pool is down
-afterwards, so it is a last resort. Like the other destructive commands,
-`--yes` (or `$XOA_YES=1`) skips the confirmation. All three block until the
-backing task completes (or Ctrl+C); there is no default wait deadline, and
-`--wait-timeout` sets one — see [Timeouts and
-waiting](#timeouts-and-waiting).
-
-`pool get` shows a single pool as a **detail view** (distinct from `pool
-list`). It shows the **master** host (resolved by name), the pool's **hosts**
-(resolved in one batch, never one lookup per host), the storage
-repositories — **default**, suspend and crash-dump (resolved by name) — and
-the platform, CPU topology and features. If a reference cannot be resolved,
-the raw id is shown instead. `--output json` / `yaml` / `text` and `--query`
-still emit the raw object, unchanged.
-
-```
-$ xo pool get 550e8400-e29b-41d4-a716-446655440001
-Pool prod-pool  (HA)
-Master:      host-master
-Hosts:       host-01, host-02
-Default SR:  Local Storage
-Platform:    8.2
-CPUs:        16 cores, 2 sockets
-Features:    auto-poweron zstd
-```
-
-### `xo network`
-
-Manage networks.
-
-```sh
-xo network list
-xo network list --query '[].name_label'
-xo network get <id>                 # one network, as a detail view
-
-# Create (the creation is asynchronous server-side; the command waits for the
-# backing task and prints the created network)
-xo network create <name> --pool <pool-id> --pif <pif-id>
-xo network create <name> --pool <pool-id> --pif <pif-id> --vlan 100 --mtu 9000
-xo network create <name> --pool <pool-id> --pif <pif-id> --description "storage" --nbd
-xo network create-internal <name> --pool <pool-id>
-xo network create-bonded <name> --pool <pool-id> --pifs <pif-1>,<pif-2> --bond-mode active-backup
-
-# Delete (confirm + --yes)
-xo network delete <id>
-xo network delete <id> --yes
-
-# Tags
-xo network tag add <id> production
-xo network tag remove <id> production
-```
-
-`create` attaches the network to a PIF (physical interface) of one of the
-pool's hosts; `--vlan` selects the VLAN tag (0 for untagged). `create-internal`
-creates a network with no physical attachment, carrying virtual traffic
-between VMs. `create-bonded` links several PIFs into one logical network;
-`--bond-mode` is `active-backup`, `balance-slb` or `lacp`. PIFs are listed
-with `xo rest get pifs` (there is no typed PIF command yet).
-
-The three create commands share three optional flags: `--mtu` (0, the
-default, means the XenServer default of 1500), `--description`, and `--nbd`,
-which allows NBD (Network Block Device) access to the network, as used by
-backups that read disks over NBD.
-
-`network get` shows a single network as a **detail view** (distinct from
-`network list`). It shows the bridge, MTU and type, the **pool** the network
-belongs to (resolved by name), and the counts of VIFs and PIFs. The PIF
-hosts are not listed because PIFs have no typed SDK service yet; use
-`xo rest get pifs --param filter=<network-id>` to see them. `--output json` /
-`yaml` / `text` and `--query` still emit the raw object, unchanged.
-
-```
-$ xo network get 11111111-1111-4111-8111-111111111111
-Network Management  (external)
-Pool:      prod-pool
-Bridge:    xenbr0
-MTU:       1500
-Default:   locked
-VIFs:      12
-PIFs:      2
-```
-
-### `xo vdi`
-
-Manage virtual disks (VDIs). A VDI is a disk that lives on a storage
-repository (SR); it is not attached to a VM until you create a VBD for it.
-
-```sh
-xo vdi list
-xo vdi list --type user
-xo vdi list --query '[].name_label'
-xo vdi get <id>                 # one VDI (table/json/yaml)
-
-# Create / delete (delete is confirm + --yes)
-xo vdi create data-01 --sr <sr-id> --size 10G
-xo vdi create data-01 --sr <sr-id> --size 10G --description "data disk" --shared --tags common
-xo vdi delete <id>
-xo vdi delete <id> --yes
-
-# Migrate to another SR (async: prints a task id; the VDI gets a NEW id)
-xo vdi migrate <id> --sr <sr-id>
-xo vdi migrate <id> --sr <sr-id> --output json
-
-# Tags
-xo vdi tag add <id> production
-xo vdi tag remove <id> production
-
-# Export / import (raw or vhd; export streams to stdout unless --file is given)
-xo vdi export <id> > disk.raw
-xo vdi export <id> --file disk.raw
-xo vdi export <id> --format vhd --file disk.vhd
-xo vdi import <id> disk.raw          # confirm + --yes (overwrites the VDI)
-cat disk.raw | xo vdi import <id> -
-```
-
-`--size` accepts bytes or a human readable size (e.g. `2G`, `512M`). Creating
-a VDI only allocates it on the SR; attach it to a VM with `xo vbd create`
-(see the [use cases](usecases.md#add-a-disk-to-a-vm)).
-
-`xo vdi migrate` is asynchronous: it prints the task id and returns. Track it
-with `xo task get <task-id>` or `xo task wait <task-id>`. When the migration
-completes the VDI has a **new id**, so re-look it up by name (`xo vdi list`)
-or through its VM (`xo vm vdis <vm-id>`).
-
-`xo vdi import` overwrites the content of an existing VDI, so it asks for
-confirmation unless `--yes` (or `$XOA_YES=1`) is given. The target VDI already
-exists (create it first with `xo vdi create` if needed).
-
-### `xo vbd`
-
-Manage virtual block devices (VBDs). A VBD is the attachment point between a
-VM and a VDI — it is what "plugs a disk into a VM".
-
-```sh
-xo vbd list
-xo vbd list --vm <vm-id>        # only the VBDs of one VM
-xo vbd list --query '[].VDI'
-xo vbd get <id>                 # one VBD, as a detail view
-
-# Attach / detach
-xo vbd create --vm <vm-id> --vdi <vdi-id>
-xo vbd create --vm <vm-id> --vdi <vdi-id> --mode RO --bootable
-xo vbd delete <id>              # detach (keeps the VDI); confirm + --yes
-xo vbd delete <id> --yes
-
-# Hot-plug / hot-unplug (running VM; async, --wait to block)
-xo vbd connect <id>
-xo vbd connect <id> --wait
-xo vbd disconnect <id>
-xo vbd disconnect <id> --wait
-```
-
-`create` links a VDI to a VM; it does not hot-plug. If the VM is running, run
-`connect` afterwards so the guest sees the disk without a reboot. `delete`
-removes only the attachment — the VDI (and its data) is kept; use
-`xo vdi delete` to remove the disk itself. `connect` / `disconnect` are
-asynchronous (they print a task id); `--wait` blocks until the task completes.
-
-Like `vm get`, `vbd get` shows a single VBD as a **detail view** (distinct
-from the `vbd list` table). It resolves the two relationships by name — the
-VM the VBD belongs to, and the VDI it points at (with its size) — at a constant
-cost (one VM lookup and one VDI lookup). `--output json` / `yaml` / `text` and
-`--query` still emit the raw object, unchanged.
-
-```
-$ xo vbd get 33333333-3333-4333-8333-333333333333
-VBD xvda  (RW, attached=yes, bootable)
-Device:    xvda
-Position:  xvdb
-VM:        web-01
-VDI:       sys-disk
-Size:      42.95GB
-```
-
-### `xo pbd`
-
-Manage physical block devices (PBDs). A PBD is the connection between a host
-and a storage repository (SR) — it is what "plugs" an SR into a host.
-
-```sh
-xo pbd list
-xo pbd list --query '[].attached'
-xo pbd get <id>                 # one PBD, as a detail view
-
-# Connect / disconnect the SR to its host (async: prints a task id; --wait to block)
-xo pbd plug <id>
-xo pbd plug <id> --wait
-xo pbd unplug <id>
-xo pbd unplug <id> --wait
-```
-
-`plug` / `unplug` are asynchronous: they print the task id and return. Track
-them with `xo task get <task-id>` or `xo task wait <task-id>`, or add `--wait`
-to block until the task completes. A PBD's `attached` column reflects whether
-the SR is currently connected.
-
-Like `vm get`, `pbd get` shows a single PBD as a **detail view** (distinct
-from the `pbd list` table). It resolves the three relationships by name — the
-host, the SR and the pool — at a constant cost (one lookup each), and shows the
-**full** `device_config`, not just the block device: for an NFS SR you get the
-`server` and `serverpath`, for a local disk the `device`. `--output json` /
-`yaml` / `text` and `--query` still emit the raw object, unchanged.
-
-```
-$ xo pbd get 66666666-6666-4666-8666-666666666666
-PBD /dev/sda  (attached=yes)
-Host:        host-01
-SR:          Local Storage
-Pool:        prod-pool
-Config:      device=/dev/sda
-```
-
-### `xo task`
-
-Manage asynchronous tasks.
-
-```sh
-xo task list                        # all asynchronous tasks
-xo task list --status failure       # filter by status (pending, success, failure, interrupted)
-xo task list --query '[].id'
-xo task get <id>                    # one task, as a detail view
-xo task wait <id>                   # block until the task completes
-xo task wait <id> --wait-timeout 5m # …but give up after 5 minutes
-xo task abort <id>                  # ask Xen Orchestra to interrupt a running task
-xo task abort <id> --yes            # …without the confirmation prompt
-```
-
-`task get` shows a single task as a **detail view** (distinct from `task
-list`): the status, the operation (type, name, method), the user that ran it
-and the object it targeted, when it started and ended, its duration and any
-subtasks. For a **failed** task the error (code and message) is shown; for a
-successful one with a result, that result is shown. `--output json` / `yaml` /
-`text` and `--query` still emit the raw object, unchanged.
-
-```
-$ xo task get f6e5d4c3b2a1
-Task f6e5d4c3b2a1  (failure)
-Type:      VM
-Name:      clean_shutdown
-Target:    550e8400-e29b-41d4-a716-446655440002
-Started:   2026-09-28T10:05:00Z
-Ended:     2026-09-28T10:05:02Z
-Duration:  2s
-Error:     VM_NOT_FOUND — VM not found
-```
-
-Asynchronous operations (`vm start`, `vm stop`, …) return a task id; follow
-it with `xo task get <id>` or `xo task wait <id>`. `vm create` and the
-`network create` commands are different: they wait for the creation task
-inside the SDK and only return once the resource exists, printing the full
-object (see [Mutation and action output](#mutation-and-action-output)).
-
-`task abort` requests the interruption of a task that is still **pending**;
-the task then reaches the `interrupted` status. It is a destructive operation
-(aborting a VM start mid-way, for example, does not always fully unwind the
-operation) and asks for confirmation unless `--yes` (or `$XOA_YES=1`) is
-given. Aborting a task that already reached a terminal state (`success`,
-`failure` or `interrupted`) is rejected with a clear error.
-
-`task wait` polls the task every 2 seconds until it reaches a terminal state
-(`success`, `failure` or `interrupted`) and prints it like `task get`. It is
-meant to be scripted: the exit status reflects the outcome — `0` on success,
-non-zero if the task fails, is interrupted, the `--wait-timeout` deadline is hit,
-or the task does not exist — while the completed task is still written to
-stdout in the chosen format.
-
-`--wait-timeout` bounds the whole wait; the global `--timeout` (or
-`$XOA_TIMEOUT`) bounds each poll request.
-
-### `xo token`
-
-Manage authentication tokens.
-
-These are the tokens of the current user (the same value `xo configure`
-stores). The token **id is the secret**, so it is masked in the output by
-default — pass `--no-secret` to reveal it (use with care).
-
-```sh
-xo token list                         # your tokens (id masked)
-xo token list --no-secret --query '[].id'
-xo token get <id>                     # one token (resolved against the list)
-xo token create                       # create a token, printed in full once
-xo token create --description "ci" --expires-in "30 days"
-xo token create --client-id my-cli    # reuse the token for a given client
-```
-
-`create` prints the token in full **once** (save it, e.g. into `xo
-configure`); `list`/`get` only show a masked id. Deletion is not exposed by
-the REST API and is therefore not implemented here.
-
-### `xo template`
-
-Manage VM templates.
-
-In Xen Orchestra, templates are first-class objects (REST resource
-`vm-templates`), not part of the `vms` collection — so `xo vm list` does not
-show them. `xo template list` reads that dedicated resource.
-
-```sh
-xo template list
-xo template list --output json
-xo template list --query '[].name_label'
-xo template get <id>            # one template, as a detail view
-```
-
-`template get` shows a single template as a **detail view** (distinct from
-`template list`): the memory and CPUs, the power state, and the **pool** the
-template belongs to (resolved by name). If the pool cannot be resolved, the
-raw id is shown instead. `--output json` / `yaml` / `text` and `--query`
-still emit the raw object, unchanged.
-
-```
-$ xo template get d31e47fd-a70e-d849-883e-c17193472710-6959dfe8-534c-4c58-8a8c-3c3792293543
-Template Oracle Linux 8  (default)
-Pool:        prod-pool
-Memory:      4.295GB
-CPUs:        2
-Power state: Halted
-```
-
-### `xo rest`
-
-Call a raw Xen Orchestra REST endpoint.
-
-Low-level escape hatch for Xen Orchestra REST endpoints that have no typed
-command yet. Use it for what the typed commands don't cover — users and
-groups, SR actions, … — not to duplicate `xo vm list` when `xo vm list`
-exists. The request goes through the SDK v2 HTTP client (same authentication,
-base URL and TLS handling), so it is not a second REST client. Prefer the
-typed commands when they cover what you need.
-
-The path is relative to the REST API root (`/rest/v0`), and the full OpenAPI
-spec at `<endpoint>/rest/v0/docs` lists every endpoint and its fields. See
-also the [official REST API documentation](https://docs.xen-orchestra.com/automation/restapi).
-
-```sh
-# Resources with no typed command yet
-xo rest get users --output json                # list users
-xo rest get groups                             # list groups
-
-# Actions without a typed command
-xo rest post srs/<id>/actions/scan             # rescan an SR
-xo rest post srs/<id>/actions/reclaim_space    # reclaim free space on an SR
-
-# Raw access to a typed resource (when the typed command lacks a field/option)
-xo rest get vdis --output json                 # raw VDI fields (typed: 'xo vdi list')
-xo rest get pifs                               # PIFs have no typed command yet
-
-# Request building
-xo rest get vdis --param limit=10              # add query parameters
-xo rest post pools/<id>/actions/create_network --data '{...}'   # JSON body
-xo rest post vdis --data - < vdi.json          # read the body from stdin
-xo rest delete vdis/<id> --yes                 # destructive: asks unless --yes
-xo rest get vdis --output json --query '[].name_label'
-xo rest get vdis -i                             # status line + headers on stderr
-```
-
-Flags: `--data` (JSON body, `-` = stdin), `--param KEY=VALUE` (repeatable),
-`--header KEY: VALUE` (repeatable), `--query/-q`, `--yes`, `--include/-i`.
-
-More resources and sub-commands (`get`, `start`, `stop`, …) are added on top of
-the SDK as it evolves. See `xo <resource> --help` for the current surface.
+[Command guide → `xo rest`](reference/commands.md#xo-rest).
 
 ## Output & querying
 
-The pipeline is always: **SDK response → structured data → query → formatter**.
-Queries operate on the structured data, never on rendered tables.
-
-```sh
-xo vm list --output json                      # full objects as JSON
-xo vm list --query '[].name_label'            # one value per line
-xo vm list --query '[?power_state==`Running`].name_label'
-xo vm list --query 'length(@)'                # count
-```
-
-Backtick literals (`` `Running` ``) work as in the AWS CLI even though the
-underlying JMESPath engine uses single quotes.
-
-Every `list` command also takes `--limit N` (0, the default, means no limit).
-The limit is applied by the server, before `--query`: `xo vm list --limit 10
---query '[?power_state==`Running`]'` filters the first 10 VMs, not all of
-them.
-
-### Choosing the default format
-
-`--output` applies to one invocation. For a recurring default, set
-`XOA_DEFAULT_OUTPUT` for the shell or script (`XOA_DEFAULT_OUTPUT=json xo vm
-list`), or store `output: json` on the profile in the configuration file.
-Resolution order: `--output` > `--json` > `$XOA_DEFAULT_OUTPUT` > the
-profile's `output` > `table`. The `--json` flag is a boolean shortcut for
-`--output json` (AWS CLI familiarity); an explicit `--output` still wins
-when both are given.
-
-```sh
-export XOA_DEFAULT_OUTPUT=json        # everything from this shell is JSON
-xo vm list                            # JSON, no flag needed
-xo vm list --output table             # back to the human view for once
-```
-
-### The JSON and YAML contract
-
-`--output json` emits the **SDK struct shape**, not the API response
-byte-for-byte:
-
-- fields declared `omitempty` in the SDK payload are dropped when they hold
-  a zero value, so two responses to the same object may have different field
-  sets;
-- fields the SDK payload does not model at all are absent (a `rest get` of
-  the same object can show more fields — it prints the raw API document);
-- the output is stable and intentional, and this is the v1 machine interface:
-  scripts should rely on field *presence* plus the documented resource shape
-  (the `--query` projections in each resource section), not on exact equality
-  with a captured response.
-
-YAML notes:
-
-- whole numbers are printed as plain integers (`size: 2147483648`); values
-  that are not whole stay decimal (`usage: 1.5`);
-- YAML goes through the same JSON normalization as `--query`, so a whole
-  value larger than 2^53 (about 9.007e15) can lose precision — use `--output
-  json` or `--query` for such fields;
-- `--output json` is the recommended format for scripting: it is the most
-  faithful to the data and the most tooling-friendly (`jq`).
-
-### Mutation and action output
-
-Mutating commands fall into two output styles under `json`/`yaml`:
-
-- **Commands that re-read the resource** — `vm create`, `vm update`,
-  `network create`, `token create` — emit the **full object**, the same shape
-  as `get`: they re-fetch the freshly created/updated resource and return it
-  whole.
-- **Commands that do not** — every `delete`, the action verbs (`start`,
-  `stop`, `reboot`, …), and `vdi create` / `vbd create` — emit a **small
-  result document**:
-
-  ```json
-  { "action": "delete", "vm": "web-01" }
-  ```
-
-  The resource field carries the **name** the command resolved for the target
-  (the name the user sees in `list`), and actions that start a task add a
-  `task_id` (or `result`/`task` on `--wait`). The id is not repeated because
-  the name is the stable handle in the CLI; for the raw id, use the resource's
-  `list`/`get` with `--query '[].id'` or the `--output json` of `get`.
-
-Format behavior:
-
-- `table` (default): aligned columns for humans; for `get`, a detail view —
-  `vm`, `vbd`, `pbd`, `vdi`, `sr`, `pool`, `network`, `host`, `template` and
-  `task` `get` are all key/value detail sheets that resolve relationships to
-  names (see each resource's section). In `list` tables, the columns that
-  reference another object (`MASTER`, `SR`, `VM`/`VDI`, `POOL`, `CONTAINER`)
-  show the referenced object's **name** instead of its UUID, resolved in one
-  batch per referenced kind (a constant cost, never one lookup per row); a
-  reference to a deleted object keeps its raw UUID.
-- `json` / `yaml`: the full structured data (or the `--query` projection).
-  Machine-readable output is the only thing on stdout; errors go to stderr, so
-  `xo vm list --output json | jq '.[].name_label'` always works.
-- `text`: a compact key/value form; a list of objects becomes an auto-column
-  table, a list of scalars one value per line.
-
-### Human view conventions
-
-The human views (table and detail sheets) share a few conventions:
-
-- **Booleans** are `yes` / `no` everywhere (list columns like `HA`, `DEFAULT`,
-  `ATTACHED`, and detail sheets).
-- **`VERSION`** is the platform version (host: `version`, pool:
-  `platform_version`). The detail sheets of `host` / `pool` / `template`
-  label the composed platform string `Platform` when they show brand +
-  version + build.
-- **`CONTAINER`** names the object a resource lives in, whether it is a pool
-  or a host (`vm list`, `sr list`).
-- **Sizes** that are zero render as `0 B` in list tables and as `-` in detail
-  sheets (a sheet is always complete: no dangling `Label:` line); a value the
-  API does not provide renders as `-`.
-- **An empty list is not silent**: the table header is printed followed by
-  `No <resources> found.` (`xo vm list` on an empty pool). Machine output is
-  unaffected and still emits the empty structure (`[]` / `{}`).
+[Output and querying](reference/output-and-query.md) — `--query`, the default
+format, the JSON and YAML contract, mutation output and human view
+conventions.
 
 ## Exit codes
 
-`xo` has two exit codes, so a script only needs to test for zero:
-
-| Code | Meaning |
-| ---- | ------- |
-| `0`  | The command succeeded. With `--wait` or `xo task wait`, the task also ended in `success`. |
-| `1`  | Any error: usage error (unknown command or flag, missing argument), configuration error (no profile, no endpoint), connection or authentication failure, API error, a confirmation refused or impossible without a terminal, a task that ended in `failure` or `interrupted` (with `--wait` or `xo task wait`), a wait deadline reached, or Ctrl+C. |
-
-The error message is always on stderr, prefixed with `Error: `; stdout only
-ever holds the requested data. Any other code (for example `2` with a Go
-stack trace) is a crash: please [report it](https://github.com/littlejo/xo-gocli/issues)
-with the output of `xo version` and the command run with `--debug`.
+[Exit codes](reference/exit-codes.md).

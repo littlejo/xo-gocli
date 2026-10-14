@@ -24,7 +24,7 @@ client and no legacy JSON-RPC (v1) code path:
 
 `xo vm list` — a table, with the container (host or pool) resolved to its name:
 
-```
+```console
 $ xo vm list
 ID                                    NAME    POWER STATE  MEMORY   CPUS  IP         CONTAINER
 ------------------------------------  ------  -----------  -------  ----  ---------  ---------
@@ -35,7 +35,7 @@ ID                                    NAME    POWER STATE  MEMORY   CPUS  IP    
 
 `xo vm get <id>` — the same object as a detail view:
 
-```
+```console
 $ xo vm get 550e8400-e29b-41d4-a716-446655440001
 VM web-01  (Running)
 IP:          10.0.0.12
@@ -55,7 +55,7 @@ The same data, machine-readable — `--output json` (or the `--json` shortcut)
 emits only the data, so it pipes cleanly into `jq`, and `--query`
 ([JMESPath](https://jmespath.org/)) projects and filters:
 
-```
+```console
 $ xo vm list --output json | jq -r '.[].name_label'
 web-01
 db-01
@@ -69,7 +69,7 @@ web-02
 Lifecycle actions are typed subcommands. They are asynchronous and return a
 task id; add `--wait` (or set `XOA_WAIT=1`) to block until the task finishes:
 
-```
+```console
 $ xo vm start 550e8400-e29b-41d4-a716-446655440002
 Requested start of "db-01" (task task-123)
 ```
@@ -104,36 +104,15 @@ xo vm list
 
 A token (or a username + password) is required to authenticate. To get your
 first token from a username and password, from the XO web UI or with
-`xo-cli`, see [Usage → Getting a token](docs/usage.md#getting-a-token).
-
-## Features
-
-- **Resource-oriented commands** (`xo vm list`, `xo host get`, `xo pool list`,
-  …) with `--help` and shell completion at every level
-- **Human-friendly by default, scriptable on demand**: `table` is the default;
-  `--output json|yaml|text` (or `--json`, or `$XOA_DEFAULT_OUTPUT`) emit only
-  the data, with errors on stderr — so `xo vm list --output json | jq …` always
-  works
-- **`--query` (JMESPath)** to project and filter the result
-- **Multiple connection profiles**, AWS-style (`--profile`, `$XOA_PROFILE`),
-  plus `XOA_*` environment overrides for CI (no token on the command line)
-- **Predictable automation contract**: `0` on success, `1` on error (see
-  [Exit codes](docs/usage.md#exit-codes)); `--wait` (or `$XOA_WAIT`) to block
-  on async actions; `--yes` (or `$XOA_YES`) so destructive commands never hang
-  a non-interactive pipeline
-- **Concise errors** by default; `-d`/`--debug` (or `$XOA_DEBUG`) reveals the
-  raw SDK/API error on failure
-- **Self-signed / internal certificate escape hatch**: `xo configure --insecure`
-  (stored per profile) or `$XOA_INSECURE`
-- **Static, dependency-free binaries** for Linux, macOS and Windows — amd64 and
-  arm64 (the SDK does not compile on 32-bit). On Windows the binary is a `.zip`
-  on the releases page; `install.sh` covers Linux and macOS
+`xo-cli`, see [Getting a token](docs/getting-started/authentication.md#getting-a-token).
+Windows users: download the `.zip` from the
+[Releases page](https://github.com/littlejo/xo-gocli/releases) (see
+[Install](docs/getting-started/install.md#windows)).
 
 ## Commands
 
 `xo` is organized in resource groups. Each group exposes `list` and `get` plus
-the domain operations Xen Orchestra exposes (`xo rest` is a raw REST escape
-hatch, not a resource):
+the domain operations Xen Orchestra exposes:
 
 | Group | Operations |
 | ----- | ---------- |
@@ -151,9 +130,8 @@ hatch, not a resource):
 | `xo rest` | raw REST escape hatch: `xo rest <method> <path>` |
 
 Plus `xo configure` (connection profiles), `xo version` and `xo completion`
-(shell completion scripts).
-
-Every flag and subcommand is documented in [docs/usage.md](docs/usage.md).
+(shell completion scripts). Every command has `--help`; all of them are in
+the [command reference](docs/reference/cli/xo.md).
 
 ## Scope
 
@@ -169,17 +147,23 @@ broader — is in [docs/comparison.md](docs/comparison.md).
 
 ## Documentation
 
+The [documentation index](docs/index.md) maps every page. The main ones:
+
 | Page | Contents |
 | ---- | -------- |
-| [Usage](docs/usage.md) | Installation, configuration, every command, output & querying |
+| [Install](docs/getting-started/install.md) | Install script, manual download, Windows, man pages, upgrade, uninstall |
+| [Configuration](docs/getting-started/configuration.md) | Profiles, environment variables, global flags, debug, timeouts and waiting |
+| [Guides](docs/guides/README.md) | Task-oriented walkthroughs (create a VM, snapshot and export, CI, …) |
+| [Command guide](docs/reference/commands.md) | Per-group behavior: detail views, sync vs async, caveats |
 | [Command reference](docs/reference/cli/xo.md) | Every command and flag, generated from `--help` (also shipped as man pages) |
-| [Use cases](docs/usecases.md) | Task-oriented recipes (add a disk to a VM, …) |
-| [Development](docs/development.md) | Architecture, toolchain, testing, CI & release, versioning, roadmap, license |
-| [Comparison with `xo-cli`](docs/comparison.md) | Side-by-side with the reference XO CLI |
+| [Output and querying](docs/reference/output-and-query.md) | Formats, `--query`, the JSON/YAML contract |
+| [Exit codes](docs/reference/exit-codes.md) | The `0` / `1` contract for scripts |
+| [Troubleshooting](docs/troubleshooting.md) | Fixing a failing command |
 | [Changelog](CHANGELOG.md) | What changed in each release |
 | [Security policy](SECURITY.md) | Supported versions, how to report a vulnerability |
 
-Architecture rules for contributors live in [AGENTS.md](AGENTS.md).
+Contributors: start with [CONTRIBUTING.md](CONTRIBUTING.md) (build, tests,
+release) and [AGENTS.md](AGENTS.md) (the rules every change must respect).
 
 ## License
 

@@ -104,7 +104,7 @@ func TestWaitTimeoutDoesNotShadowGlobal(t *testing.T) {
 }
 
 // TestRootRestFlagMerge guards against the 'xo rest' panic (blocker B1 in
-// docs/road-to-v1.md): when a local subcommand flag reuses a shorthand the
+// docs/archive/road-to-v1.md): when a local subcommand flag reuses a shorthand the
 // root persistent flags already own, cobra panics in mergePersistentFlags on
 // the first invocation — even 'rest --help'. The per-package rest tests
 // build their own minimal root without the global shorthands, so the

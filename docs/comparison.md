@@ -11,7 +11,7 @@ is a typed, REST-only client with an AWS-CLI-like UX.
 > **Basis of this comparison.** Both sides are verified against source, not
 > marketing: `xo-cli` **v0.32.4** (`packages/xo-cli` of the
 > `vatesfr/xen-orchestra` monorepo — `index.mjs`, `rest.mjs`, `config.mjs`,
-> generated `README.md`) and this CLI at commit `cde603c` (2026-10-05). Where
+> generated `README.md`) and this CLI as of v1.0.0. Where
 > a row states a behavior, it was read in the code.
 
 The comparison is split by audience: day-to-day interactive use first, then
@@ -37,7 +37,7 @@ How each tool feels when driven by hand:
 | Pool maintenance       | `pool.rollingUpdate` / `pool.rollingReboot` / `pool.emergencyShutdown` return a task id — you wait separately with `rest get tasks/<id> wait=result` | `pool rolling-update` / `rolling-reboot` / `emergency-shutdown`: synchronous (the command blocks on the task), confirmation + `--yes` on the destructive ones, optional `--wait-timeout` wait deadline |
 | Tagging                | Per-object methods (`vm.addTag`, `host.addTag`, …) via the generic call                                    | `tag add` / `tag remove` on `vm`, `host`, `pool`, `sr`, `network` and `vdi`                                                                                          |
 | Token management       | `create-token` (same parameters as `register`); the token is printed                                      | `token list` / `get` / `create` (`--description`, `--expires-in`, `--client-id`) with the secret **masked** in `list` output (table and JSON)                        |
-| Live events            | `xo-cli watch [--ndjson]` — WebSocket notification stream, per-method counts on Ctrl+C                    | Not implemented (documented gap, see [roadmap](development.md#roadmap))                                                                                             |
+| Live events            | `xo-cli watch [--ndjson]` — WebSocket notification stream, per-method counts on Ctrl+C                    | Not implemented (documented gap, see [roadmap](internals/roadmap.md))                                                                                             |
 | Raw REST escape hatch  | `rest get/post/put/patch/del`; `get` can save the response to a file (`--output <file\|dir>`) and `wait` on tasks; `post/put/patch` stream a body with `--input` | `xo rest <method> <path>` with `--param`, `--header`, `--data` (JSON, `-` = stdin), `--include`, `--query` on the result; sent through the SDK v2 HTTP client (same auth/TLS — not a second client) |
 | Transfer feedback      | Progress on stderr during import/export/rest transfers: `% of total @ speed/s — ETA` (`progress-stream`)  | Silent transfer, bounded by the global `--timeout` (30 s default, documented to raise it for large archives)                                                       |
 | Destructive operations | No confirmation prompt                                                                                    | Confirmation prompt; `--yes` / `$XOA_YES` for automation; a non-terminal stdin is **rejected** rather than hanging                                                  |
@@ -84,7 +84,7 @@ The capabilities where the two tools diverge, in **both** directions:
 
 Legend: ✅ available — ⬜ not available. A finer-grained, layer-by-layer view of
 what is missing (and what already exists in the SDK) is in the
-[roadmap](development.md#roadmap).
+[roadmap](internals/roadmap.md).
 
 ## Summary
 
