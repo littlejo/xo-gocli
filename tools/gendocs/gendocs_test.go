@@ -85,3 +85,30 @@ func readDir(t *testing.T, dir string) map[string][]byte {
 	}
 	return files
 }
+
+func TestManDate(t *testing.T) {
+	t.Setenv("SOURCE_DATE_EPOCH", "")
+	if got, err := manDate(""); err != nil || got != nil {
+		t.Fatalf("no flag, no env: got %v, %v; want nil (now)", got, err)
+	}
+
+	t.Setenv("SOURCE_DATE_EPOCH", "1792490400") // 2026-10-20T10:00:00Z
+	got, err := manDate("")
+	if err != nil || got == nil || !got.Equal(time.Date(2026, time.October, 20, 10, 0, 0, 0, time.UTC)) {
+		t.Fatalf("SOURCE_DATE_EPOCH: got %v, %v", got, err)
+	}
+
+	// The flag wins over the environment.
+	got, err = manDate("2026-10-21T10:00:00Z")
+	if err != nil || got == nil || got.Day() != 21 {
+		t.Fatalf("-date: got %v, %v", got, err)
+	}
+
+	if _, err := manDate("yesterday"); err == nil {
+		t.Fatal("an invalid -date should fail")
+	}
+	t.Setenv("SOURCE_DATE_EPOCH", "soon")
+	if _, err := manDate(""); err == nil {
+		t.Fatal("an invalid SOURCE_DATE_EPOCH should fail")
+	}
+}
