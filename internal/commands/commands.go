@@ -41,6 +41,9 @@ Configure a profile first with 'xo configure'.`,
 	root.PersistentFlags().Bool(cli.FlagJSON, false, "output as JSON (shorthand for --output json)")
 	root.PersistentFlags().BoolP(cli.FlagDebug, "d", false, "show SDK/API error details on failure (or $XOA_DEBUG)")
 	root.PersistentFlags().Duration(cli.FlagTimeout, 0, "HTTP client timeout, e.g. 60s or 2m (default 30s, or $XOA_TIMEOUT)")
+	// Defined here so cobra does not add its default -v shorthand: -v stays
+	// free (e.g. for a future --verbose). Cobra still handles --version.
+	root.Flags().Bool("version", false, "print the xo CLI version")
 
 	root.AddCommand(configure.NewCommand())
 	root.AddCommand(newVersionCommand())

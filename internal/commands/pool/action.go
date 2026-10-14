@@ -27,11 +27,9 @@ import (
 const flagYes = "yes"
 
 // flagWaitTimeout is the name of the wait-deadline flag on the pool
-// maintenance commands. It reuses the global --timeout name on purpose: on
-// those commands it is the *wait* deadline (how long the command blocks until
-// the operation's task completes), not the per-request HTTP timeout, and it
-// shadows the global flag there — the same convention as 'xo task wait'.
-const flagWaitTimeout = cli.FlagTimeout
+// maintenance commands: how long the command blocks until the operation's
+// task completes, as opposed to the global per-request --timeout.
+const flagWaitTimeout = cli.FlagWaitTimeout
 
 // actionSpec describes a pool maintenance action so each command only supplies
 // what differs: the verbs used in messages and the SDK call to run. The three
@@ -62,7 +60,7 @@ func addWaitTimeoutFlag(cmd *cobra.Command, waitTimeout *time.Duration) {
 // %w), so we detect it on ctx.Err() instead of on the error's type.
 func waitDeadlineError(verb, name string, deadline time.Duration, ctxErr error) error {
 	if errors.Is(ctxErr, context.DeadlineExceeded) {
-		return fmt.Errorf("%s on pool %q did not complete within %s (raise --timeout, or track the task with 'xo task wait')", verb, name, deadline)
+		return fmt.Errorf("%s on pool %q did not complete within %s (raise --wait-timeout, or track the task with 'xo task wait')", verb, name, deadline)
 	}
 	return fmt.Errorf("%s on pool %q was cancelled", verb, name)
 }
@@ -73,7 +71,7 @@ func waitDeadlineError(verb, name string, deadline time.Duration, ctxErr error) 
 // print the outcome.
 //
 // The wait is unbounded by default (it ends when the backing task completes or
-// Ctrl+C is pressed). A non-zero local --timeout bounds it: the SDK call and
+// Ctrl+C is pressed). A non-zero --wait-timeout bounds it: the SDK call and
 // every poll run under a derived context, so the command returns a concise
 // deadline error instead of blocking. Each poll stays bounded by the global
 // HTTP client timeout regardless (--timeout / $XOA_TIMEOUT), so a broken
@@ -90,7 +88,7 @@ func runAction(cmd *cobra.Command, idStr string, spec actionSpec) error {
 		return err
 	}
 	if waitTimeout < 0 {
-		return fmt.Errorf("--timeout must be greater than or equal to 0")
+		return fmt.Errorf("--wait-timeout must be greater than or equal to 0")
 	}
 	if waitTimeout > 0 {
 		var cancel context.CancelFunc
