@@ -2,6 +2,13 @@ version: 2
 
 project_name: xo
 
+before:
+  hooks:
+    # Man pages, generated from the command tree (one page per command) and
+    # shipped in every archive under man/. The page date is the release
+    # commit's, so rebuilding a tag gives the same pages.
+    - go run ./tools/gendocs -man man -version {{ .Version }} -date {{ .CommitDate }}
+
 builds:
   - id: xo
     main: ./cmd/xo
@@ -23,6 +30,11 @@ archives:
         formats: [zip]
     name_template: >-
       {{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}
+    files:
+      - LICENSE
+      - README.md
+      - CHANGELOG.md
+      - man/*.1
 
 checksum:
   name_template: "{{ .ProjectName }}_{{ .Version }}_checksums.txt"

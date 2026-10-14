@@ -1,0 +1,56 @@
+## xo pool rolling-reboot
+
+Reboot the pool's hosts one by one
+
+### Synopsis
+
+Reboot all the hosts of a pool, one at a time.
+
+The hosts are rebooted in turn: the VMs that run on the host being rebooted
+are moved away first (live migration when possible), the host is rebooted,
+and it rejoins the pool before the next one goes down. The pool stays
+available the whole time, but VMs that cannot be live-migrated away (e.g.
+without an available target) suffer a brief downtime on their host's turn.
+
+This is a destructive operation and asks for confirmation unless --yes is
+given. The command is synchronous: it blocks until the backing task completes
+(or Ctrl+C) and reports the final result. There is no default wait deadline,
+so use --wait-timeout to bound the wait if you need one. The global --timeout
+still bounds each HTTP request (each poll), not the whole wait.
+
+The pool is referenced by its UUID, as returned by 'xo pool list'.
+
+```
+xo pool rolling-reboot <id> [flags]
+```
+
+### Examples
+
+```
+  xo pool rolling-reboot aaaaaaaa-bbbb-cccc-dddd-000000000001
+  xo pool rolling-reboot <id> --yes
+  xo pool rolling-reboot <id> --yes --wait-timeout 30m
+```
+
+### Options
+
+```
+  -h, --help                    help for rolling-reboot
+      --wait-timeout duration   wait at most this long for the operation to complete, e.g. 30m (default: wait until it completes or Ctrl+C)
+      --yes                     do not ask for confirmation (or set XOA_YES=1)
+```
+
+### Options inherited from parent commands
+
+```
+  -d, --debug              show SDK/API error details on failure (or $XOA_DEBUG)
+      --json               output as JSON (shorthand for --output json)
+  -o, --output string      output format: table, json, yaml, text (or $XOA_DEFAULT_OUTPUT, or the profile's "output" value) (default "table")
+  -p, --profile string     name of the configuration profile to use (or $XOA_PROFILE)
+      --timeout duration   HTTP client timeout, e.g. 60s or 2m (default 30s, or $XOA_TIMEOUT)
+```
+
+### SEE ALSO
+
+* [xo pool](xo_pool.md)	 - Manage pools
+

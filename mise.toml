@@ -8,6 +8,10 @@ golangci-lint = "2.14.0"
 description = "Build the xo binary into dist/"
 run = "go build -o dist/xo ./cmd/xo"
 
+[tasks.docs]
+description = "Regenerate the Markdown command reference (docs/reference/cli)"
+run = "go run ./tools/gendocs -markdown docs/reference/cli"
+
 [tasks.test]
 description = "Run the unit test suite"
 run = "go test ./..."

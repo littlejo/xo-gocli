@@ -1,6 +1,7 @@
 # Build artifacts
 dist/
 /xo
+/man/
 
 # Local configuration / credentials
 .env
