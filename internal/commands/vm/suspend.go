@@ -20,11 +20,9 @@ in "Suspended" state until resumed with 'xo vm resume <id>'. The VM must be
 running. This is the memory-preserving alternative to 'xo vm stop':
 suspending keeps the guest's state exactly, whereas stopping shuts it down.
 
-The VM is referenced by its UUID, as returned by 'xo vm list'.
-
-Examples:
-  xo vm suspend 550e8400-e29b-41d4-a716-446655440001`,
-		Args: cobra.ExactArgs(1),
+The VM is referenced by its UUID, as returned by 'xo vm list'.`,
+		Example: `  xo vm suspend 550e8400-e29b-41d4-a716-446655440001`,
+		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runAction(cmd, actionSpec{
 				verb: "suspend",

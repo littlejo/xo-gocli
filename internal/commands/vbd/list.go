@@ -33,10 +33,8 @@ func newListCommand() *cobra.Command {
 		Short: "List virtual block devices (VBDs)",
 		Long: `List virtual block devices (VBDs) from Xen Orchestra.
 
-A VBD is the attachment point between a VM and a VDI (virtual disk).
-
-Examples:
-  xo vbd list
+A VBD is the attachment point between a VM and a VDI (virtual disk).`,
+		Example: `  xo vbd list
   xo vbd list --vm <vm-id>
   xo vbd list --output json
   xo vbd list --query '[].VDI'

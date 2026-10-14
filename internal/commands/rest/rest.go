@@ -98,10 +98,8 @@ Methods: get, post, put, patch, delete.
 The request body (for post/put/patch) comes from --data as JSON; use --data -
 to read it from stdin.
 
-'xo rest delete' asks for confirmation; pass --yes to run non-interactively.
-
-Examples:
-  xo rest get vdis --output json  # raw VDI fields (typed: 'xo vdi list')
+'xo rest delete' asks for confirmation; pass --yes to run non-interactively.`,
+		Example: `  xo rest get vdis --output json  # raw VDI fields (typed: 'xo vdi list')
   xo rest get vdis --param limit=10
   xo rest get vdis/<id>
   xo rest post srs/<id>/actions/scan       # action without a typed command

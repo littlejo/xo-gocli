@@ -36,10 +36,8 @@ detach it first with 'xo vbd delete <vbd-id>' (the API refuses to delete an
 attached VDI otherwise).
 
 This is a destructive operation and asks for confirmation unless --yes is
-given. The VDI is referenced by its UUID, as returned by 'xo vdi list'.
-
-Examples:
-  xo vdi delete 11111111-1111-4111-8111-111111111111
+given. The VDI is referenced by its UUID, as returned by 'xo vdi list'.`,
+		Example: `  xo vdi delete 11111111-1111-4111-8111-111111111111
   xo vdi delete <id> --yes`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {

@@ -28,10 +28,8 @@ The token is referenced by its id (the full secret value, as returned by
 expose a per-token endpoint, so this is resolved against the token list.
 
 The token id is the secret, so it is masked in the output by default;
-pass --no-secret to reveal the full value (use with care).
-
-Examples:
-  xo token get <id>
+pass --no-secret to reveal the full value (use with care).`,
+		Example: `  xo token get <id>
   xo token get <id> --output json
   xo token get <id> --query 'description'`,
 		Args: cobra.ExactArgs(1),

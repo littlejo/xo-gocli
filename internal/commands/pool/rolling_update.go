@@ -29,10 +29,8 @@ a pool update can legitimately run for a long time — so use --wait-timeout
 to bound the wait if you need one. The global --timeout still bounds each
 HTTP request (each poll), not the whole wait.
 
-The pool is referenced by its UUID, as returned by 'xo pool list'.
-
-Examples:
-  xo pool rolling-update aaaaaaaa-bbbb-cccc-dddd-000000000001
+The pool is referenced by its UUID, as returned by 'xo pool list'.`,
+		Example: `  xo pool rolling-update aaaaaaaa-bbbb-cccc-dddd-000000000001
   xo pool rolling-update <id> --wait-timeout 30m
   xo pool rolling-update <id> --output json`,
 		Args: cobra.ExactArgs(1),

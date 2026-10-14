@@ -10,6 +10,19 @@ func NewCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "vm",
 		Short: "Manage virtual machines",
+		Long: `Manage virtual machines: list and inspect them, create, update and delete
+them, drive their power state, snapshot, export and import them, and manage
+their tags.
+
+Lifecycle actions (start, stop, reboot, pause, suspend, ...) are
+asynchronous: they print a task id and return. Add --wait (or set
+$XOA_WAIT) to block until the task completes.
+
+VMs are referenced by their UUID, as printed by 'xo vm list'.`,
+		Example: `  xo vm list
+  xo vm list --query "[?power_state=='Running'].name_label"
+  xo vm get <id>
+  xo vm start <id> --wait`,
 	}
 	cmd.AddCommand(newGetCommand())
 	cmd.AddCommand(newListCommand())

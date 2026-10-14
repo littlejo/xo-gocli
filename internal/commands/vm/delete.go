@@ -22,10 +22,8 @@ A running VM must be stopped or suspended first (the API refuses to delete
 it otherwise).
 
 This is a destructive operation and asks for confirmation unless --yes is
-given. The VM is referenced by its UUID, as returned by 'xo vm list'.
-
-Examples:
-  xo vm delete 550e8400-e29b-41d4-a716-446655440001
+given. The VM is referenced by its UUID, as returned by 'xo vm list'.`,
+		Example: `  xo vm delete 550e8400-e29b-41d4-a716-446655440001
   xo vm delete <id> --yes`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {

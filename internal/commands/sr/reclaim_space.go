@@ -21,11 +21,9 @@ example thin-provisioned LVM or VDI-based stores); other SR types will be
 rejected by Xen Orchestra. The operation is asynchronous and returns a task
 id.
 
-The SR is referenced by its UUID, as returned by 'xo sr list'.
-
-Examples:
-  xo sr reclaim-space 550e8400-e29b-41d4-a716-446655440001`,
-		Args: cobra.ExactArgs(1),
+The SR is referenced by its UUID, as returned by 'xo sr list'.`,
+		Example: `  xo sr reclaim-space 550e8400-e29b-41d4-a716-446655440001`,
+		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runAction(cmd, actionSpec{
 				verb: "reclaim space",

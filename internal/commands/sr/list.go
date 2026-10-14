@@ -33,10 +33,8 @@ func newListCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "List storage repositories",
-		Long: `List storage repositories (SRs) from Xen Orchestra.
-
-Examples:
-  xo sr list
+		Long:  `List storage repositories (SRs) from Xen Orchestra.`,
+		Example: `  xo sr list
   xo sr list --output json
   xo sr list --query '[].name_label'
   xo sr list --type lvm

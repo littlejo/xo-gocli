@@ -20,10 +20,8 @@ func newRebootCommand() *cobra.Command {
 By default this performs a clean reboot (the guest is asked to restart).
 Use --hard to force a hard reboot without a clean shutdown.
 
-The VM is referenced by its UUID, as returned by 'xo vm list'.
-
-Examples:
-  xo vm reboot 550e8400-e29b-41d4-a716-446655440001
+The VM is referenced by its UUID, as returned by 'xo vm list'.`,
+		Example: `  xo vm reboot 550e8400-e29b-41d4-a716-446655440001
   xo vm reboot <id> --hard`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {

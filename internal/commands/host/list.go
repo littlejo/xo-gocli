@@ -31,10 +31,8 @@ func newListCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "List hosts",
-		Long: `List XenServer hosts from Xen Orchestra.
-
-Examples:
-  xo host list
+		Long:  `List XenServer hosts from Xen Orchestra.`,
+		Example: `  xo host list
   xo host list --output json
   xo host list --query '[].name_label'
   xo host list --limit 10`,

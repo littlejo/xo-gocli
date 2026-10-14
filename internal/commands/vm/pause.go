@@ -20,11 +20,9 @@ contents and its power state reads "Paused" while paused. Resume it with
 'xo vm unpause <id>'. Pausing is not the same as suspending: a suspended VM
 is saved to disk and its memory is released (see 'xo vm suspend').
 
-The VM is referenced by its UUID, as returned by 'xo vm list'.
-
-Examples:
-  xo vm pause 550e8400-e29b-41d4-a716-446655440001`,
-		Args: cobra.ExactArgs(1),
+The VM is referenced by its UUID, as returned by 'xo vm list'.`,
+		Example: `  xo vm pause 550e8400-e29b-41d4-a716-446655440001`,
+		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runAction(cmd, actionSpec{
 				verb: "pause",

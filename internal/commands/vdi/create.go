@@ -41,10 +41,8 @@ when given, is expressed in bytes or as a human readable size (e.g. 2G,
 
 Creating a VDI only allocates the disk on the SR; it is not attached to any
 VM yet. Attach it with 'xo vbd create --vm <vm-id> --vdi <id>' (see
-docs/usecases.md, 'Add a disk to a VM').
-
-Examples:
-  xo vdi create data-01 --sr <sr-id> --size 10G
+docs/usecases.md, 'Add a disk to a VM').`,
+		Example: `  xo vdi create data-01 --sr <sr-id> --size 10G
   xo vdi create data-01 --sr <sr-id> --size 10G --description "data disk"
   xo vdi create shared-disk --sr <sr-id> --size 1G --shared --tags common,scratch`,
 		Args: cobra.ExactArgs(1),

@@ -38,10 +38,8 @@ size). If a reference cannot be resolved, the raw id is shown instead and
 the command still succeeds.
 
 --output json / yaml / text and --query still emit the raw object, so the
-machine readable behavior of 'xo vbd get <id> --output json' is unchanged.
-
-Examples:
-  xo vbd get 33333333-3333-4333-8333-333333333333
+machine readable behavior of 'xo vbd get <id> --output json' is unchanged.`,
+		Example: `  xo vbd get 33333333-3333-4333-8333-333333333333
   xo vbd get <id> --output json
   xo vbd get <id> --query 'VDI'`,
 		Args: cobra.ExactArgs(1),

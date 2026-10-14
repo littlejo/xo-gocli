@@ -21,10 +21,8 @@ func newStartCommand() *cobra.Command {
 		Long: `Start a virtual machine.
 
 The VM is referenced by its UUID, as returned by 'xo vm list'. Use --host to
-pin the VM to a specific host; otherwise Xen Orchestra selects one.
-
-Examples:
-  xo vm start 550e8400-e29b-41d4-a716-446655440001
+pin the VM to a specific host; otherwise Xen Orchestra selects one.`,
+		Example: `  xo vm start 550e8400-e29b-41d4-a716-446655440001
   xo vm start <id> --host 6b7c8d9e-0000-1111-2222-333344445555`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {

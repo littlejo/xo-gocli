@@ -33,10 +33,8 @@ the storage repository. To also delete the disk, run 'xo vdi delete <vdi-id>'
 afterwards (the VDI must have no remaining VBD).
 
 This is a destructive operation and asks for confirmation unless --yes is
-given. The VBD is referenced by its UUID, as returned by 'xo vbd list'.
-
-Examples:
-  xo vbd delete 33333333-3333-4333-8333-333333333333
+given. The VBD is referenced by its UUID, as returned by 'xo vbd list'.`,
+		Example: `  xo vbd delete 33333333-3333-4333-8333-333333333333
   xo vbd delete <id> --yes`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {

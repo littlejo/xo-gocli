@@ -19,11 +19,9 @@ Scanning re-reads the underlying storage so Xen Orchestra picks up new and
 removed disks (VDIs) on the SR. The operation is asynchronous and returns a
 task id; the new state becomes visible once the scan task has completed.
 
-The SR is referenced by its UUID, as returned by 'xo sr list'.
-
-Examples:
-  xo sr scan 550e8400-e29b-41d4-a716-446655440001`,
-		Args: cobra.ExactArgs(1),
+The SR is referenced by its UUID, as returned by 'xo sr list'.`,
+		Example: `  xo sr scan 550e8400-e29b-41d4-a716-446655440001`,
+		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runAction(cmd, actionSpec{
 				verb: "scan",

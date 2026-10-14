@@ -42,10 +42,8 @@ performed through the SDK's own REST client against POST /pools/<pool>/vms
 The upload is a single HTTP request, so the global HTTP client timeout
 (--timeout, default 30s) bounds the whole transfer: a large XVA over a slow
 link can exceed it. Raise it with --timeout or $XOA_TIMEOUT when importing
-large archives.
-
-Examples:
-  xo vm import web-01.xva --pool 6b7c8d9e-0000-1111-2222-333344445555
+large archives.`,
+		Example: `  xo vm import web-01.xva --pool 6b7c8d9e-0000-1111-2222-333344445555
   xo vm import web-01.xva --pool <pool-id> --sr <sr-id>
   cat web-01.xva | xo vm import - --pool <pool-id>`,
 		Args: cobra.ExactArgs(1),

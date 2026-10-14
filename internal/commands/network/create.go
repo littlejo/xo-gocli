@@ -55,10 +55,8 @@ is referenced by its UUID as well; PIFs can be listed with 'xo rest get pifs'
 
 The creation is asynchronous server-side; this command waits for the backing
 task to finish before printing the created network. The wait has no
-deadline: it ends when the task completes, or on Ctrl+C.
-
-Examples:
-  xo network create web --pool <pool-id> --pif <pif-id>
+deadline: it ends when the task completes, or on Ctrl+C.`,
+		Example: `  xo network create web --pool <pool-id> --pif <pif-id>
   xo network create vlan-100 --pool <pool-id> --pif <pif-id> --vlan 100
   xo network create mgmt --pool <pool-id> --pif <pif-id> --mtu 9000`,
 		Args: cobra.ExactArgs(1),
@@ -118,10 +116,8 @@ dedicated VM-to-VM network).
 The pool is referenced by its UUID, as returned by 'xo pool list'. The
 creation is asynchronous server-side; this command waits for the backing
 task to finish before printing the created network. The wait has no
-deadline: it ends when the task completes, or on Ctrl+C.
-
-Examples:
-  xo network create-internal internal --pool <pool-id>
+deadline: it ends when the task completes, or on Ctrl+C.`,
+		Example: `  xo network create-internal internal --pool <pool-id>
   xo network create-internal internal --pool <pool-id> --mtu 9000`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -176,10 +172,8 @@ bonding mode: active-backup, balance-slb or lacp.
 
 The creation is asynchronous server-side; this command waits for the backing
 task to finish before printing the created network. The wait has no
-deadline: it ends when the task completes, or on Ctrl+C.
-
-Examples:
-  xo network create-bonded bond0 --pool <pool-id> --pifs <pif-1>,<pif-2> --bond-mode active-backup
+deadline: it ends when the task completes, or on Ctrl+C.`,
+		Example: `  xo network create-bonded bond0 --pool <pool-id> --pifs <pif-1>,<pif-2> --bond-mode active-backup
   xo network create-bonded bond0 --pool <pool-id> --pifs <pif-1>,<pif-2> --bond-mode lacp --mtu 9000`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {

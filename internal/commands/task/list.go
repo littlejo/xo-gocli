@@ -45,10 +45,8 @@ func newListCommand() *cobra.Command {
 
 Tasks are returned by most asynchronous operations (VM actions,
 provisioning, ...). Each task has a status: pending, success, failure or
-interrupted.
-
-Examples:
-  xo task list
+interrupted.`,
+		Example: `  xo task list
   xo task list --output json
   xo task list --query '[].id'
   xo task list --status failure

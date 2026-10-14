@@ -38,10 +38,8 @@ Platform, license and status fields are shown too. If the pool cannot be
 resolved, the raw id is shown instead and the command still succeeds.
 
 --output json / yaml / text and --query still emit the raw object, so the
-machine readable behavior of 'xo host get <id> --output json' is unchanged.
-
-Examples:
-  xo host get 550e8400-e29b-41d4-a716-446655440001
+machine readable behavior of 'xo host get <id> --output json' is unchanged.`,
+		Example: `  xo host get 550e8400-e29b-41d4-a716-446655440001
   xo host get <id> --output json
   xo host get <id> --query 'name_label'`,
 		Args: cobra.ExactArgs(1),

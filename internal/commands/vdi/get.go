@@ -40,10 +40,8 @@ too. If a reference cannot be resolved, the raw id is shown instead and the
 command still succeeds.
 
 --output json / yaml / text and --query still emit the raw object, so the
-machine readable behavior of 'xo vdi get <id> --output json' is unchanged.
-
-Examples:
-  xo vdi get 11111111-1111-4111-8111-111111111111
+machine readable behavior of 'xo vdi get <id> --output json' is unchanged.`,
+		Example: `  xo vdi get 11111111-1111-4111-8111-111111111111
   xo vdi get <id> --output json
   xo vdi get <id> --query 'name_label'`,
 		Args: cobra.ExactArgs(1),

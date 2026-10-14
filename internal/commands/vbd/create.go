@@ -43,10 +43,8 @@ local SR of the host the VM runs on.
 Creating the VBD does not hot-plug the disk: if the VM is running, hot-plug
 it afterwards with 'xo vbd connect <id>' (or reboot the VM). Detach it with
 'xo vbd delete <id>' (this only removes the attachment; the VDI itself is
-kept).
-
-Examples:
-  xo vbd create --vm <vm-id> --vdi <vdi-id>
+kept).`,
+		Example: `  xo vbd create --vm <vm-id> --vdi <vdi-id>
   xo vbd create --vm <vm-id> --vdi <vdi-id> --mode RO
   xo vbd create --vm <vm-id> --vdi <vdi-id> --bootable`,
 		Args: cobra.NoArgs,

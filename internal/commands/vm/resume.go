@@ -19,11 +19,9 @@ The VM's saved memory is restored and the guest continues where it left
 off. Unlike 'xo vm start', the VM must be in the "Suspended" state — a
 halted VM has no saved memory to restore.
 
-The VM is referenced by its UUID, as returned by 'xo vm list'.
-
-Examples:
-  xo vm resume 550e8400-e29b-41d4-a716-446655440001`,
-		Args: cobra.ExactArgs(1),
+The VM is referenced by its UUID, as returned by 'xo vm list'.`,
+		Example: `  xo vm resume 550e8400-e29b-41d4-a716-446655440001`,
+		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runAction(cmd, actionSpec{
 				verb: "resume",

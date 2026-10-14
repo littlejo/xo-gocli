@@ -58,10 +58,8 @@ remove a single tag without touching the others, use 'xo vm tag add/remove'.
 The VM is referenced by its UUID, as returned by 'xo vm list'.
 
 Note: this operation is not exposed by the SDK v2 typed service yet, so it is
-performed through the SDK's own REST client against PATCH /vms/<id>.
-
-Examples:
-  xo vm update 550e8400-e29b-41d4-a716-446655440001 --name web-01
+performed through the SDK's own REST client against PATCH /vms/<id>.`,
+		Example: `  xo vm update 550e8400-e29b-41d4-a716-446655440001 --name web-01
   xo vm update <id> --description "primary web server"
   xo vm update <id> --tags production,web
   xo vm update <id> --name web-01 --description "primary web server" --tags prod`,

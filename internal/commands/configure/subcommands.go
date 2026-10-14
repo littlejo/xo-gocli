@@ -100,10 +100,8 @@ func newListCommand() *cobra.Command {
 		Short: "List configuration profiles",
 		Long: `List the stored configuration profiles.
 
-Credentials are masked; 'show' reveals a single profile in full.
-
-Examples:
-  xo configure list
+Credentials are masked; 'show' reveals a single profile in full.`,
+		Example: `  xo configure list
   xo configure list --output json
   xo configure list --query '[].name'`,
 		Args: cobra.NoArgs,
@@ -137,10 +135,8 @@ func newShowCommand() *cobra.Command {
 		Short: "Show a configuration profile",
 		Long: `Show a stored configuration profile in full, including the token or
 password. Without a name, the selected profile is shown (--profile or
-$XOA_PROFILE; the current profile when neither is set).
-
-Examples:
-  xo configure show
+$XOA_PROFILE; the current profile when neither is set).`,
+		Example: `  xo configure show
   xo configure show lab
   xo configure show lab --output json`,
 		Args: cobra.MaximumNArgs(1),
@@ -210,10 +206,8 @@ func newRemoveCommand() *cobra.Command {
 
 This is a destructive operation and asks for confirmation unless --yes is
 given (or $XOA_YES is set). When the removed profile was the current one,
-current falls back to the first remaining profile.
-
-Examples:
-  xo configure remove lab
+current falls back to the first remaining profile.`,
+		Example: `  xo configure remove lab
   xo configure remove lab --yes`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {

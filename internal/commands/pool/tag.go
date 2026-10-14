@@ -19,6 +19,12 @@ func newTagCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "tag",
 		Short: "Manage the tags of a pool",
+		Long: `Add or remove the tags of a pool. Tags are free-form labels; filter on
+them with --query, for example:
+
+  xo pool list --query "[?contains(tags, 'production')].name_label"`,
+		Example: `  xo pool tag add <id> production
+  xo pool tag remove <id> production`,
 	}
 	cmd.AddCommand(newTagAddCommand())
 	cmd.AddCommand(newTagRemoveCommand())
@@ -67,10 +73,8 @@ func newTagAddCommand() *cobra.Command {
 		Short: "Add a tag to a pool",
 		Long: `Add a tag to a pool.
 
-The pool is referenced by its UUID, as returned by 'xo pool list'.
-
-Examples:
-  xo pool tag add aaaaaaaa-bbbb-cccc-dddd-000000000001 production
+The pool is referenced by its UUID, as returned by 'xo pool list'.`,
+		Example: `  xo pool tag add aaaaaaaa-bbbb-cccc-dddd-000000000001 production
   xo pool tag add <id> web`,
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -100,10 +104,8 @@ func newTagRemoveCommand() *cobra.Command {
 		Short: "Remove a tag from a pool",
 		Long: `Remove a tag from a pool.
 
-The pool is referenced by its UUID, as returned by 'xo pool list'.
-
-Examples:
-  xo pool tag remove aaaaaaaa-bbbb-cccc-dddd-000000000001 production
+The pool is referenced by its UUID, as returned by 'xo pool list'.`,
+		Example: `  xo pool tag remove aaaaaaaa-bbbb-cccc-dddd-000000000001 production
   xo pool tag remove <id> web`,
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {

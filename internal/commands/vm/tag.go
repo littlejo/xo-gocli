@@ -20,6 +20,12 @@ func newTagCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "tag",
 		Short: "Manage the tags of a virtual machine",
+		Long: `Add or remove the tags of a virtual machine. Tags are free-form labels; filter on
+them with --query, for example:
+
+  xo vm list --query "[?contains(tags, 'production')].name_label"`,
+		Example: `  xo vm tag add <id> production
+  xo vm tag remove <id> production`,
 	}
 	cmd.AddCommand(newTagAddCommand())
 	cmd.AddCommand(newTagRemoveCommand())
@@ -67,10 +73,8 @@ func newTagAddCommand() *cobra.Command {
 		Short: "Add a tag to a virtual machine",
 		Long: `Add a tag to a virtual machine.
 
-The VM is referenced by its UUID, as returned by 'xo vm list'.
-
-Examples:
-  xo vm tag add 550e8400-e29b-41d4-a716-446655440001 production
+The VM is referenced by its UUID, as returned by 'xo vm list'.`,
+		Example: `  xo vm tag add 550e8400-e29b-41d4-a716-446655440001 production
   xo vm tag add <id> web`,
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -93,10 +97,8 @@ func newTagRemoveCommand() *cobra.Command {
 		Short: "Remove a tag from a virtual machine",
 		Long: `Remove a tag from a virtual machine.
 
-The VM is referenced by its UUID, as returned by 'xo vm list'.
-
-Examples:
-  xo vm tag remove 550e8400-e29b-41d4-a716-446655440001 production
+The VM is referenced by its UUID, as returned by 'xo vm list'.`,
+		Example: `  xo vm tag remove 550e8400-e29b-41d4-a716-446655440001 production
   xo vm tag remove <id> web`,
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
