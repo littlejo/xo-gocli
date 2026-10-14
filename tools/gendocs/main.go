@@ -12,6 +12,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -39,20 +40,38 @@ func main() {
 		}
 	}
 	if *manDir != "" {
-		var when *time.Time
-		if *date != "" {
-			t, err := time.Parse(time.RFC3339, *date)
-			if err != nil {
-				fmt.Fprintln(os.Stderr, "gendocs: invalid -date:", err)
-				os.Exit(2)
-			}
-			when = &t
+		when, err := manDate(*date)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, "gendocs:", err)
+			os.Exit(2)
 		}
 		if err := generateMan(*manDir, *version, when); err != nil {
 			fmt.Fprintln(os.Stderr, "gendocs:", err)
 			os.Exit(1)
 		}
 	}
+}
+
+// manDate returns the man page date: the -date flag (RFC 3339) when given,
+// else $SOURCE_DATE_EPOCH (Unix seconds, the reproducible-builds
+// convention), else nil, which means the current time.
+func manDate(flagValue string) (*time.Time, error) {
+	if flagValue != "" {
+		t, err := time.Parse(time.RFC3339, flagValue)
+		if err != nil {
+			return nil, fmt.Errorf("invalid -date: %w", err)
+		}
+		return &t, nil
+	}
+	if epoch := os.Getenv("SOURCE_DATE_EPOCH"); epoch != "" {
+		secs, err := strconv.ParseInt(epoch, 10, 64)
+		if err != nil {
+			return nil, fmt.Errorf("invalid SOURCE_DATE_EPOCH %q: %w", epoch, err)
+		}
+		t := time.Unix(secs, 0).UTC()
+		return &t, nil
+	}
+	return nil, nil
 }
 
 // generateMarkdown writes one page per command (xo.md, xo_vm.md,
@@ -67,8 +86,8 @@ func generateMarkdown(dir string) error {
 	return doc.GenMarkdownTree(root, dir)
 }
 
-// generateMan writes one man page per command (xo.1, xo-vm.1, ...). A nil
-// date falls back to $SOURCE_DATE_EPOCH, then to the current time.
+// generateMan writes one man page per command (xo.1, xo-vm.1, ...), dated
+// with date (see manDate); a nil date means the current time.
 func generateMan(dir, version string, date *time.Time) error {
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return err
@@ -85,13 +104,14 @@ func generateMan(dir, version string, date *time.Time) error {
 	}, dir)
 }
 
-// escapeAngles backslash-escapes '<' and '>' in each command's usage line
-// and description. The man pages go through a Markdown renderer that would
+// escapeAngles backslash-escapes '<' and '>' in each command's usage line,
+// one-line summary (the NAME section) and description. The man pages go through a Markdown renderer that would
 // otherwise read placeholders such as '<id>' as HTML tags and drop them
 // ('xo vm start  [flags]'). Examples are code blocks and need no escaping.
 func escapeAngles(cmd *cobra.Command) {
 	r := strings.NewReplacer("<", `\<`, ">", `\>`)
 	cmd.Use = r.Replace(cmd.Use)
+	cmd.Short = r.Replace(cmd.Short)
 	cmd.Long = r.Replace(cmd.Long)
 	for _, c := range cmd.Commands() {
 		escapeAngles(c)
