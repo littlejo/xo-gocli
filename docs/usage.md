@@ -8,9 +8,12 @@ quickstart, see the [README](../README.md).
 
 - [Installation](#installation)
 - [Configuration](#configuration)
+  - [Getting a token](#getting-a-token)
   - [`xo configure`](#xo-configure)
   - [Environment variables](#environment-variables)
   - [Insecure mode](#insecure-mode)
+  - [Debug mode](#debug-mode)
+  - [Timeouts and waiting](#timeouts-and-waiting)
 - [Commands](#commands)
   - [Global flags](#global-flags)
   - [`xo version`](#xo-version)
@@ -31,6 +34,8 @@ quickstart, see the [README](../README.md).
   - [Choosing the default format](#choosing-the-default-format)
   - [The JSON and YAML contract](#the-json-and-yaml-contract)
   - [Mutation and action output](#mutation-and-action-output)
+  - [Human view conventions](#human-view-conventions)
+- [Exit codes](#exit-codes)
 
 ## Installation
 
@@ -40,9 +45,27 @@ quickstart, see the [README](../README.md).
 curl -fsSL https://raw.githubusercontent.com/littlejo/xo-gocli/main/install.sh | sh
 ```
 
-The script detects your OS and architecture, downloads the latest release
-artifact, verifies its checksum, and installs the binary to
-`/usr/local/bin` (or `~/.local/bin` if you don't have write access).
+The script detects your OS and architecture (Linux or macOS, amd64 or arm64),
+downloads the latest release artifact and installs the binary to
+`/usr/local/bin` (or `~/.local/bin` if you don't have write access). It
+verifies the archive's SHA-256 checksum when `sha256sum` or `shasum` is
+available; without either, it prints a warning and installs **without**
+verifying, so check the archive by hand in that case (see below).
+
+Three environment variables change its defaults:
+
+| Variable              | Default                                   |
+| --------------------- | ----------------------------------------- |
+| `XOA_INSTALL_VERSION` | the latest release, e.g. `v1.0.0` to pin  |
+| `XOA_INSTALL_DIR`     | `/usr/local/bin`, then `~/.local/bin`     |
+| `XOA_INSTALL_REPO`    | `littlejo/xo-gocli`                       |
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/littlejo/xo-gocli/main/install.sh \
+  | XOA_INSTALL_VERSION=v1.0.0 XOA_INSTALL_DIR="$HOME/bin" sh
+```
+
+The script does not support Windows: use the manual download.
 
 ### Manual download
 
@@ -77,6 +100,34 @@ profiles:
 The active profile is resolved in this order: `--profile`, then `$XOA_PROFILE`,
 then the file's `current` entry, then the `default` profile.
 
+### Getting a token
+
+A token is the recommended way to authenticate (see [Environment
+variables](#environment-variables) for why). Xen Orchestra issues it to a
+user, and it carries that user's permissions. Pick one of these ways to get
+the first one:
+
+- **With `xo` itself**, starting from a username and password. The password is
+  prompted, so it stays out of your shell history:
+
+  ```sh
+  xo configure --profile bootstrap --endpoint https://xo.example.com --username admin
+  xo token create --profile bootstrap --description "laptop" --expires-in "90 days"
+  xo configure --profile lab --endpoint https://xo.example.com --token <token printed above>
+  xo configure remove bootstrap --yes
+  ```
+
+- **From the Xen Orchestra web UI**, in your user settings (create a new
+  authentication token there and copy it).
+- **With the Node.js `xo-cli`**: `xo-cli create-token xo.example.com admin`
+  prompts for the password and prints a token
+  ([XO REST API docs](https://docs.xen-orchestra.com/automation/restapi)).
+
+The token is printed only once: store it right away with `xo configure`.
+Tokens expire (the server's `maxTokenValidity` sets the upper bound); when one
+does, commands fail with an authentication error and you create a new one the
+same way.
+
 ### `xo configure`
 
 Manage configuration profiles: store or update one, and list, inspect or
@@ -93,7 +144,9 @@ xo configure --profile lab -k                  # skip TLS verification (--insecu
 # Inspect and manage the stored profiles
 xo configure list                              # all profiles (secrets masked)
 xo configure list --output json
+xo configure list --query '[].name'            # profile names only
 xo configure show lab                          # one profile, full secrets
+xo configure show lab --query endpoint         # one field
 xo configure remove lab                        # destructive: asks unless --yes
 ```
 
@@ -333,6 +386,7 @@ xo vm snapshot <id>                 # take a snapshot
 xo vm snapshot <id> --name backup   # label the snapshot
 xo vm export <id> > vm.xva          # export to XVA (or --file, --format ova)
 xo vm import vm.xva --pool <pool>   # import an XVA into a pool
+xo vm import vm.xva --pool <pool> --sr <sr-id>   # …with its disks on a given SR
 xo vm delete <id>                   # delete the VM (asks to confirm)
 xo vm delete <id> --yes             # skip confirmation (automation)
 ```
@@ -393,7 +447,8 @@ matching the AWS CLI, where none of these ask.
 `vm export` streams the archive to stdout by default (use `--file` for a
 file, `--format ova` for OVA, `--compress=false` to disable XVA
 compression); `vm import` reads the XVA from a file or stdin (`-`) and
-requires `--pool`. Both are performed through the SDK's own REST client
+requires `--pool`; `--sr` puts the VM's disks on an SR of that pool instead
+of the pool's default SR. Both are performed through the SDK's own REST client
 because the typed SDK service does not expose them yet (see
 [development](development.md#known-sdk-gaps-the-cli-works-around)).
 
@@ -518,6 +573,7 @@ xo network get <id>                 # one network, as a detail view
 # backing task and prints the created network)
 xo network create <name> --pool <pool-id> --pif <pif-id>
 xo network create <name> --pool <pool-id> --pif <pif-id> --vlan 100 --mtu 9000
+xo network create <name> --pool <pool-id> --pif <pif-id> --description "storage" --nbd
 xo network create-internal <name> --pool <pool-id>
 xo network create-bonded <name> --pool <pool-id> --pifs <pif-1>,<pif-2> --bond-mode active-backup
 
@@ -536,6 +592,11 @@ creates a network with no physical attachment, carrying virtual traffic
 between VMs. `create-bonded` links several PIFs into one logical network;
 `--bond-mode` is `active-backup`, `balance-slb` or `lacp`. PIFs are listed
 with `xo rest get pifs` (there is no typed PIF command yet).
+
+The three create commands share three optional flags: `--mtu` (0, the
+default, means the XenServer default of 1500), `--description`, and `--nbd`,
+which allows NBD (Network Block Device) access to the network, as used by
+backups that read disks over NBD.
 
 `network get` shows a single network as a **detail view** (distinct from
 `network list`). It shows the bridge, MTU and type, the **pool** the network
@@ -848,6 +909,11 @@ xo vm list --query 'length(@)'                # count
 Backtick literals (`` `Running` ``) work as in the AWS CLI even though the
 underlying JMESPath engine uses single quotes.
 
+Every `list` command also takes `--limit N` (0, the default, means no limit).
+The limit is applied by the server, before `--query`: `xo vm list --limit 10
+--query '[?power_state==`Running`]'` filters the first 10 VMs, not all of
+them.
+
 ### Choosing the default format
 
 `--output` applies to one invocation. For a recurring default, set
@@ -945,3 +1011,17 @@ The human views (table and detail sheets) share a few conventions:
 - **An empty list is not silent**: the table header is printed followed by
   `No <resources> found.` (`xo vm list` on an empty pool). Machine output is
   unaffected and still emits the empty structure (`[]` / `{}`).
+
+## Exit codes
+
+`xo` has two exit codes, so a script only needs to test for zero:
+
+| Code | Meaning |
+| ---- | ------- |
+| `0`  | The command succeeded. With `--wait` or `xo task wait`, the task also ended in `success`. |
+| `1`  | Any error: usage error (unknown command or flag, missing argument), configuration error (no profile, no endpoint), connection or authentication failure, API error, a confirmation refused or impossible without a terminal, a task that ended in `failure` or `interrupted` (with `--wait` or `xo task wait`), a wait deadline reached, or Ctrl+C. |
+
+The error message is always on stderr, prefixed with `Error: `; stdout only
+ever holds the requested data. Any other code (for example `2` with a Go
+stack trace) is a crash: please [report it](https://github.com/littlejo/xo-gocli/issues)
+with the output of `xo version` and the command run with `--debug`.

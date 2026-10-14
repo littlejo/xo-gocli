@@ -1,6 +1,6 @@
 # xo Go CLI
 
-A command line client for [Xen Orchestra](https://github.com/vates/xen-orchestra),
+A command line client for [Xen Orchestra](https://github.com/vatesfr/xen-orchestra),
 written in Go, with an AWS-CLI-like feel. It is the day-to-day tool for people
 who run VMs and the scriptable one for pipelines that need to talk to Xen
 Orchestra from the shell.
@@ -102,9 +102,9 @@ export XOA_PROFILE=lab
 xo vm list
 ```
 
-A token (or a username + password) is required to authenticate. Tokens can be
-created from the CLI with `xo token create` (see
-[Usage → `xo token`](docs/usage.md#xo-token)).
+A token (or a username + password) is required to authenticate. To get your
+first token from a username and password, from the XO web UI or with
+`xo-cli`, see [Usage → Getting a token](docs/usage.md#getting-a-token).
 
 ## Features
 
@@ -117,9 +117,10 @@ created from the CLI with `xo token create` (see
 - **`--query` (JMESPath)** to project and filter the result
 - **Multiple connection profiles**, AWS-style (`--profile`, `$XOA_PROFILE`),
   plus `XOA_*` environment overrides for CI (no token on the command line)
-- **Predictable automation contract**: `0` on success, `1` on error; `--wait`
-  (or `$XOA_WAIT`) to block on async actions; `--yes` (or `$XOA_YES`) so
-  destructive commands never hang a non-interactive pipeline
+- **Predictable automation contract**: `0` on success, `1` on error (see
+  [Exit codes](docs/usage.md#exit-codes)); `--wait` (or `$XOA_WAIT`) to block
+  on async actions; `--yes` (or `$XOA_YES`) so destructive commands never hang
+  a non-interactive pipeline
 - **Concise errors** by default; `-d`/`--debug` (or `$XOA_DEBUG`) reveals the
   raw SDK/API error on failure
 - **Self-signed / internal certificate escape hatch**: `xo configure --insecure`
@@ -174,6 +175,8 @@ broader — is in [docs/comparison.md](docs/comparison.md).
 | [Use cases](docs/usecases.md) | Task-oriented recipes (add a disk to a VM, …) |
 | [Development](docs/development.md) | Architecture, toolchain, testing, CI & release, versioning, roadmap, license |
 | [Comparison with `xo-cli`](docs/comparison.md) | Side-by-side with the reference XO CLI |
+| [Changelog](CHANGELOG.md) | What changed in each release |
+| [Security policy](SECURITY.md) | Supported versions, how to report a vulnerability |
 
 Architecture rules for contributors live in [AGENTS.md](AGENTS.md).
 
