@@ -7,15 +7,19 @@ Manage configuration profiles
 Initialize or update a Xen Orchestra connection profile, or inspect and
 manage the stored profiles.
 
-Without a sub-command, 'xo configure' stores (or updates) the profile
-selected with --profile: values can be provided with flags or interactively
-(when stdin is a terminal). Environment variables take precedence over the
-stored profile at run time.
+Without a sub-command, 'xo configure' stores the selected profile: the one
+named by --profile, else $XOA_PROFILE, else the current profile, else
+"default". Values come from the flags, then from the XOA_* environment
+variables, then from an interactive prompt (when stdin is a terminal).
 
-Sub-commands:
-  xo configure list           list the stored profiles
-  xo configure show [name]    show one profile (the selected one by default)
-  xo configure remove <name>  remove a stored profile
+Updating an existing profile only changes what you give: the other stored
+values (endpoint, credentials, --insecure, the "output" setting) are kept.
+Giving a token replaces a stored username and password, and the reverse.
+Use --insecure=false to turn TLS verification back on.
+
+The first profile you store becomes the current one. Storing another profile
+does not change the current one: select it per command with --profile or
+$XOA_PROFILE, or make it current with 'xo configure use <name>'.
 
 ```
 xo configure [flags]
@@ -27,6 +31,8 @@ xo configure [flags]
   xo configure
   xo configure --profile lab --endpoint https://xo.example.com --token <token>
   xo configure --profile lab --username admin --password <secret>
+  xo configure --profile lab --token <new-token>
+  xo configure use lab
   xo configure list
   xo configure remove lab
 ```
@@ -58,4 +64,5 @@ xo configure [flags]
 * [xo configure list](xo_configure_list.md)	 - List configuration profiles
 * [xo configure remove](xo_configure_remove.md)	 - Remove a configuration profile
 * [xo configure show](xo_configure_show.md)	 - Show a configuration profile
+* [xo configure use](xo_configure_use.md)	 - Make a profile the current one
 

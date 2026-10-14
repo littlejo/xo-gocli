@@ -174,7 +174,7 @@ func TestPoolRollingUpdate(t *testing.T) {
 	defer server.Close()
 	testenv.Isolate(t, server.URL)
 
-	out, _, err := runActionTest(t, "rolling-update", testPoolID)
+	out, _, err := runActionTest(t, "rolling-update", testPoolID, "--yes")
 	if err != nil {
 		t.Fatalf("pool rolling-update: %v", err)
 	}
@@ -190,16 +190,20 @@ func TestPoolRollingUpdate(t *testing.T) {
 	}
 }
 
-// rolling-update reboots the hosts one by one without ever taking the pool
-// down, so unlike the other two actions it must run without confirmation even
-// when stdin is not a terminal.
-func TestPoolRollingUpdateRequiresNoConfirmation(t *testing.T) {
+// rolling-update reboots every host and installs updates, like
+// rolling-reboot it asks for confirmation: without a terminal it refuses to
+// run unless --yes (or $XOA_YES) is given.
+func TestPoolRollingUpdateRequiresConfirmation(t *testing.T) {
 	server := newActionServer(t)
 	defer server.Close()
 	testenv.Isolate(t, server.URL)
 
-	if _, _, err := runActionTest(t, "rolling-update", testPoolID); err != nil {
-		t.Fatalf("rolling-update must not require confirmation: %v", err)
+	_, _, err := runActionTest(t, "rolling-update", testPoolID)
+	if err == nil || !strings.Contains(err.Error(), "--yes") {
+		t.Fatalf("expected a confirmation error mentioning --yes, got %v", err)
+	}
+	if _, ok := server.post(); ok {
+		t.Fatal("the update must not run without confirmation")
 	}
 }
 
@@ -208,7 +212,7 @@ func TestPoolRollingUpdateJSON(t *testing.T) {
 	defer server.Close()
 	testenv.Isolate(t, server.URL)
 
-	out, _, err := runActionTest(t, "rolling-update", testPoolID, "--output", "json")
+	out, _, err := runActionTest(t, "rolling-update", testPoolID, "--yes", "--output", "json")
 	if err != nil {
 		t.Fatalf("pool rolling-update --output json: %v", err)
 	}
@@ -231,7 +235,7 @@ func TestPoolRollingUpdateInterruptedTaskIsBoundedByTimeout(t *testing.T) {
 	defer server.Close()
 	testenv.Isolate(t, server.URL)
 
-	_, _, err := runActionTest(t, "rolling-update", testPoolID, "--wait-timeout", "1s")
+	_, _, err := runActionTest(t, "rolling-update", testPoolID, "--yes", "--wait-timeout", "1s")
 	if err == nil {
 		t.Fatal("expected a timeout error for an interrupted backing task")
 	}
@@ -342,7 +346,7 @@ func TestPoolActionAPIError(t *testing.T) {
 	defer server.Close()
 	testenv.Isolate(t, server.URL)
 
-	_, _, err := runActionTest(t, "rolling-update", testPoolID)
+	_, _, err := runActionTest(t, "rolling-update", testPoolID, "--yes")
 	if err == nil {
 		t.Fatal("expected an error when the API fails")
 	}
@@ -392,7 +396,7 @@ func TestPoolActionBadID(t *testing.T) {
 	defer server.Close()
 	testenv.Isolate(t, server.URL)
 
-	if _, _, err := runActionTest(t, "rolling-update", "not-a-uuid"); err == nil {
+	if _, _, err := runActionTest(t, "rolling-update", "not-a-uuid", "--yes"); err == nil {
 		t.Fatal("expected an error for an invalid id")
 	}
 }

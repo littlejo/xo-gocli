@@ -47,12 +47,14 @@ Manage configuration profiles: store or update one, and list, inspect or
 remove the stored profiles.
 
 ```sh
-# Store or update the profile selected with --profile
-xo configure                                   # interactive, default profile
+# Store or update a profile (--profile, else $XOA_PROFILE, else the current one)
+xo configure                                   # interactive
 xo configure --profile lab                     # interactive, named profile
 xo configure --profile lab --endpoint https://xo.example.com --token <token>
 xo configure --profile lab --username admin --password <secret>
 xo configure --profile lab -k                  # skip TLS verification (--insecure)
+xo configure --profile lab --token <new-token> # rotate the token, keep the rest
+xo configure use lab                           # make lab the current profile
 
 # Inspect and manage the stored profiles
 xo configure list                              # all profiles (secrets masked)
@@ -65,7 +67,15 @@ xo configure remove lab                        # destructive: asks unless --yes
 
 Values given with flags win over environment variables; unset values fall back
 to the environment (`XOA_ENDPOINT`, `XOA_TOKEN`, `XOA_USERNAME`, `XOA_PASSWORD`),
-then to an interactive prompt when stdin is a terminal.
+then to the stored profile, then to an interactive prompt when stdin is a
+terminal. An update only changes what you give: the other stored values
+(`--insecure` and the `output` setting included) are kept. A token replaces
+a stored username and password, and the reverse; `--insecure=false` turns TLS
+verification back on.
+
+The first profile you store becomes the current one. Storing another profile
+does not change the current profile: make it current with
+`xo configure use <name>`, or select it per command.
 
 ## Environment variables
 

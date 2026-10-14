@@ -3,7 +3,6 @@ package vdi
 import (
 	"fmt"
 	"io"
-	"os"
 
 	"github.com/spf13/cobra"
 
@@ -79,7 +78,7 @@ exporting or importing large disks.`,
 				name = id.String()
 			}
 
-			w, err := openExportOutput(cmd, file)
+			w, err := cli.OpenExport(cmd.OutOrStdout(), file)
 			if err != nil {
 				return err
 			}
@@ -90,13 +89,14 @@ exporting or importing large disks.`,
 			err = xo.VDI().Export(ctx, id, vdiFormat, func(r io.Reader) error {
 				var err error
 				n, err = io.Copy(w, r)
-				if cerr := w.Close(); err == nil {
-					err = cerr
-				}
 				return err
 			})
 			if err != nil {
+				w.Abort()
 				return cli.InsecureHint(fmt.Sprintf("cannot export VDI %q: %v", name, err), cfg.Insecure)
+			}
+			if err := w.Commit(); err != nil {
+				return err
 			}
 
 			return renderExported(cmd, name, exportDest(file), n)
@@ -108,26 +108,6 @@ exporting or importing large disks.`,
 	flags.StringVar(&format, flagVDIExportFormat, "raw", "image format: raw or vhd")
 	return cmd
 }
-
-// openExportOutput opens the export destination. An empty or "-" file
-// streams to the command's stdout; anything else is a regular file.
-func openExportOutput(cmd *cobra.Command, file string) (io.WriteCloser, error) {
-	if file == "" || file == "-" {
-		return &stdoutCloser{w: cmd.OutOrStdout()}, nil
-	}
-	f, err := os.Create(file)
-	if err != nil {
-		return nil, fmt.Errorf("cannot create %q: %v", file, err)
-	}
-	return f, nil
-}
-
-// stdoutCloser adapts a plain io.Writer to io.WriteCloser for exports piped
-// to stdout (there is nothing to close).
-type stdoutCloser struct{ w io.Writer }
-
-func (s *stdoutCloser) Write(p []byte) (int, error) { return s.w.Write(p) }
-func (s *stdoutCloser) Close() error                { return nil }
 
 // renderExported prints the outcome of a VDI export. When the image went to
 // stdout, the message goes to stderr so stdout stays a clean binary stream.
