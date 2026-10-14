@@ -34,16 +34,18 @@ self-signed certificate.
 
 Things to know:
 
-- **The last profile you configure becomes the current one.** After the two
-  commands above, `lab` is current. To make `prod` current again, re-run
-  `xo configure --profile prod --endpoint <url> --token <token>` with its
-  values.
-- `xo configure` replaces the whole profile: pass every value again
-  (including `--insecure`) when you update one.
-- `xo configure` reads its target profile from `--profile` only, not from
-  `$XOA_PROFILE`; without `--profile` it writes the `default` profile. Missing
-  `--endpoint` and `--token` values are taken from `$XOA_ENDPOINT` and
-  `$XOA_TOKEN` when they are set, then prompted for on a terminal.
+- **Only the first profile you store becomes the current one.** After the
+  two commands above, `prod` is current; storing `lab` does not change that
+  (the command says so). Switch with `xo configure use lab`.
+- **An update only changes what you give.** `xo configure --profile lab
+  --token <new-token>` rotates the token and keeps the endpoint,
+  `--insecure` and the `output` setting. A token replaces a stored username
+  and password, and the reverse. Use `--insecure=false` to turn TLS
+  verification back on.
+- `xo configure` works on the same profile as every other command:
+  `--profile`, then `$XOA_PROFILE`, then the current profile. Missing
+  values are taken from `$XOA_ENDPOINT` and `$XOA_TOKEN` when they are set,
+  then from the stored profile, then prompted for on a terminal.
 
 ## Step 2: check what is stored
 
@@ -128,8 +130,7 @@ profile was the current one, the first remaining profile becomes current.
 | ------- | ------------------ |
 | `profile "lab" is not configured, run 'xo configure --profile lab'` | `--profile` or `$XOA_PROFILE` names a profile that is not stored. Check `xo configure list` and `echo $XOA_PROFILE`. |
 | Commands hit the wrong instance | An `XOA_ENDPOINT` / `XOA_TOKEN` variable overrides the profile. Run `env \| grep ^XOA_` and unset them. |
-| The current profile changed by itself | Configuring a profile makes it current. Use `--profile` or `$XOA_PROFILE` explicitly in scripts. |
-| `xo configure` updated `default` although `XOA_PROFILE=lab` is set | `xo configure` only honors `--profile`. Use `xo configure --profile lab --endpoint <url> --token <token>`. |
+| `xo configure` updated `lab` although you meant another profile | It works on `--profile`, then `$XOA_PROFILE`, then the current profile. Check `echo $XOA_PROFILE` and `xo configure list`. |
 | TLS errors on one instance only | Its certificate is self-signed: store that profile again with `--insecure`. |
 | `confirmation required: re-run with --yes to proceed non-interactively` | `xo configure remove` was run from a script. Add `--yes`. |
 

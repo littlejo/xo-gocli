@@ -205,12 +205,72 @@ func TestVMExportAPIError(t *testing.T) {
 	defer server.Close()
 	isolateVM(t, server.URL)
 
-	_, err := runVM(t, "vm", "export", "550e8400-e29b-41d4-a716-446655440001", "--file", t.TempDir()+"/x.xva")
+	dir := t.TempDir()
+	dst := dir + "/x.xva"
+	if err := writeFile(dst, "yesterday"); err != nil {
+		t.Fatal(err)
+	}
+	_, err := runVM(t, "vm", "export", "550e8400-e29b-41d4-a716-446655440001", "--file", dst)
 	if err == nil {
 		t.Fatal("expected an error when the export fails")
 	}
 	if !strings.Contains(err.Error(), "cannot export") {
 		t.Fatalf("unexpected error: %v", err)
+	}
+	// A failed export must not touch an earlier archive with the same name.
+	if data, err := os.ReadFile(dst); err != nil || string(data) != "yesterday" {
+		t.Fatalf("the existing archive was changed: %q, %v", data, err)
+	}
+	assertOnlyFile(t, dir, "x.xva")
+}
+
+// TestVMExportCutStreamLeavesNoFile covers a transfer that breaks mid-way
+// (a server or network failure, or a client timeout): no truncated archive
+// may be left at the destination.
+func TestVMExportCutStreamLeavesNoFile(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet && strings.Contains(r.URL.Path, ".xva") {
+			// Promise more bytes than are sent, then drop the connection.
+			w.Header().Set("Content-Length", "1000000")
+			_, _ = fmt.Fprint(w, "XVA-PARTIAL")
+			w.(http.Flusher).Flush()
+			conn, _, err := w.(http.Hijacker).Hijack()
+			if err == nil {
+				_ = conn.Close()
+			}
+			return
+		}
+		if r.Method == http.MethodGet && strings.Contains(r.URL.Path, "/rest/v0/vms/") {
+			_, _ = fmt.Fprint(w, fixtureVM)
+			return
+		}
+		http.NotFound(w, r)
+	}))
+	defer server.Close()
+	isolateVM(t, server.URL)
+
+	dir := t.TempDir()
+	_, err := runVM(t, "vm", "export", "550e8400-e29b-41d4-a716-446655440001", "--file", dir+"/web-01.xva")
+	if err == nil {
+		t.Fatal("expected an error when the stream is cut")
+	}
+	assertOnlyFile(t, dir)
+}
+
+// assertOnlyFile fails when dir holds anything but the given files (for
+// example a truncated archive or a leftover temporary file).
+func assertOnlyFile(t *testing.T, dir string, want ...string) {
+	t.Helper()
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got []string
+	for _, e := range entries {
+		got = append(got, e.Name())
+	}
+	if strings.Join(got, ",") != strings.Join(want, ",") {
+		t.Fatalf("files in the export directory: %v, want %v", got, want)
 	}
 }
 

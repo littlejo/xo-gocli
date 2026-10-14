@@ -149,17 +149,11 @@ $XOA_PROFILE; the current profile when neither is set).`,
 				return err
 			}
 
-			name := cli.ProfileName(cmd)
+			var name string
 			if len(args) > 0 {
 				name = args[0]
-			}
-			if name == "" {
-				// No explicit selection: show the file's current profile
-				// (List returns the default profile name when there is none).
-				name, _, err = config.List()
-				if err != nil {
-					return err
-				}
+			} else if name, err = selectedProfile(cmd); err != nil {
+				return err
 			}
 
 			profile, err := config.GetProfile(name)
@@ -261,4 +255,24 @@ func confirm(cmd *cobra.Command, message string) (bool, error) {
 		return false, fmt.Errorf("cannot read confirmation: %w", err)
 	}
 	return answer == "y" || answer == "yes", nil
+}
+
+func newUseCommand() *cobra.Command {
+	return &cobra.Command{
+		Use:   "use <name>",
+		Short: "Make a profile the current one",
+		Long: `Make a stored profile the current one: the profile every command uses when
+neither --profile nor $XOA_PROFILE is set. 'xo configure list' marks it.`,
+		Example: `  xo configure use lab
+  xo configure list`,
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			path, err := config.SetCurrent(args[0])
+			if err != nil {
+				return err
+			}
+			_, err = fmt.Fprintf(cmd.ErrOrStderr(), "Profile %q is now the current profile (%s)\n", args[0], path)
+			return err
+		},
+	}
 }

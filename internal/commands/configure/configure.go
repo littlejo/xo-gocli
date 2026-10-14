@@ -32,18 +32,24 @@ func NewCommand() *cobra.Command {
 		Long: `Initialize or update a Xen Orchestra connection profile, or inspect and
 manage the stored profiles.
 
-Without a sub-command, 'xo configure' stores (or updates) the profile
-selected with --profile: values can be provided with flags or interactively
-(when stdin is a terminal). Environment variables take precedence over the
-stored profile at run time.
+Without a sub-command, 'xo configure' stores the selected profile: the one
+named by --profile, else $XOA_PROFILE, else the current profile, else
+"default". Values come from the flags, then from the XOA_* environment
+variables, then from an interactive prompt (when stdin is a terminal).
 
-Sub-commands:
-  xo configure list           list the stored profiles
-  xo configure show [name]    show one profile (the selected one by default)
-  xo configure remove <name>  remove a stored profile`,
+Updating an existing profile only changes what you give: the other stored
+values (endpoint, credentials, --insecure, the "output" setting) are kept.
+Giving a token replaces a stored username and password, and the reverse.
+Use --insecure=false to turn TLS verification back on.
+
+The first profile you store becomes the current one. Storing another profile
+does not change the current one: select it per command with --profile or
+$XOA_PROFILE, or make it current with 'xo configure use <name>'.`,
 		Example: `  xo configure
   xo configure --profile lab --endpoint https://xo.example.com --token <token>
   xo configure --profile lab --username admin --password <secret>
+  xo configure --profile lab --token <new-token>
+  xo configure use lab
   xo configure list
   xo configure remove lab`,
 		// No positional argument: without this, a typo of a sub-command
@@ -55,66 +61,97 @@ Sub-commands:
 			out := cmd.ErrOrStderr()
 			interactive := isTerminal(in)
 
+			name, err := selectedProfile(cmd)
+			if err != nil {
+				return err
+			}
+			stored, err := config.Lookup(name)
+			if err != nil {
+				return err
+			}
+			_, profiles, err := config.List()
+			if err != nil {
+				return err
+			}
+			profile := config.Profile{Name: name}
+			if stored != nil {
+				profile = *stored
+			}
+
 			if endpoint == "" {
 				endpoint = os.Getenv(config.EnvEndpoint)
 			}
 			if endpoint == "" {
-				var err error
-				if endpoint, err = prompt(in, out, "endpoint", interactive); err != nil {
+				if endpoint, err = prompt(in, out, "endpoint", interactive, profile.Endpoint); err != nil {
 					return err
 				}
 			}
 			if !strings.HasPrefix(endpoint, "http://") && !strings.HasPrefix(endpoint, "https://") {
 				return fmt.Errorf("invalid endpoint %q: it must start with http:// or https://", endpoint)
 			}
+			profile.Endpoint = endpoint
 
 			if token == "" {
 				token = os.Getenv(config.EnvToken)
 			}
-			if token == "" {
+			if username == "" {
+				username = os.Getenv(config.EnvUsername)
+			}
+			if password == "" {
+				password = os.Getenv(config.EnvPassword)
+			}
+			switch {
+			case token != "":
+				// A token replaces stored password credentials.
+				profile.Token, profile.Username, profile.Password = token, "", ""
+			case username != "" || password != "":
 				if username == "" {
-					username = os.Getenv(config.EnvUsername)
-				}
-				if username == "" {
-					if interactive {
-						var err error
-						if username, err = prompt(in, out, "username", true); err != nil {
-							return err
-						}
-					} else {
-						return fmt.Errorf("--token or --username/--password is required")
+					if username, err = prompt(in, out, "username", interactive, profile.Username); err != nil {
+						return err
 					}
 				}
 				if password == "" {
-					password = os.Getenv(config.EnvPassword)
-				}
-				if password == "" {
-					if interactive {
-						var err error
-						if password, err = promptSecret(in, out, "password"); err != nil {
-							return err
-						}
-					} else {
+					if !interactive {
 						return fmt.Errorf("--password is required when --username is set")
 					}
+					if password, err = promptSecret(in, out, "password"); err != nil {
+						return err
+					}
 				}
+				profile.Token, profile.Username, profile.Password = "", username, password
+			case profile.Token != "" || (profile.Username != "" && profile.Password != ""):
+				// Nothing given: keep the stored credentials.
+			default:
+				if !interactive {
+					return fmt.Errorf("--token or --username/--password is required")
+				}
+				if username, err = prompt(in, out, "username", true, ""); err != nil {
+					return err
+				}
+				if password, err = promptSecret(in, out, "password"); err != nil {
+					return err
+				}
+				profile.Token, profile.Username, profile.Password = "", username, password
 			}
 
-			profile := config.Profile{
-				Name:     normalizeProfileName(cli.ProfileName(cmd)),
-				Endpoint: endpoint,
-				Token:    token,
-				Username: username,
-				Password: password,
-				Insecure: insecure,
+			if cmd.Flags().Changed("insecure") {
+				profile.Insecure = insecure
 			}
 
-			path, err := config.Upsert(profile, true)
+			// Only the first profile becomes current on its own; switching
+			// is explicit ('xo configure use').
+			makeCurrent := len(profiles) == 0
+			path, err := config.Upsert(profile, makeCurrent)
 			if err != nil {
 				return err
 			}
 			if _, err := fmt.Fprintf(out, "Profile %q saved to %s\n", profile.Name, path); err != nil {
 				return err
+			}
+			if current, _, err := config.List(); err == nil && current != profile.Name {
+				if _, err := fmt.Fprintf(out, "It is not the current profile (%q): use --profile %s, or 'xo configure use %s'.\n", current, profile.Name, profile.Name); err != nil {
+					return err
+				}
 			}
 			return nil
 		},
@@ -130,15 +167,26 @@ Sub-commands:
 	cmd.AddCommand(newListCommand())
 	cmd.AddCommand(newShowCommand())
 	cmd.AddCommand(newRemoveCommand())
+	cmd.AddCommand(newUseCommand())
 
 	return cmd
 }
 
-func normalizeProfileName(name string) string {
-	if strings.TrimSpace(name) == "" {
-		return config.DefaultProfile
+// selectedProfile returns the profile a configure command works on, with
+// the same precedence as every other command: --profile, then
+// $XOA_PROFILE, then the current profile, then "default".
+func selectedProfile(cmd *cobra.Command) (string, error) {
+	if name := strings.TrimSpace(cli.ProfileName(cmd)); name != "" {
+		return name, nil
 	}
-	return strings.TrimSpace(name)
+	if name := strings.TrimSpace(os.Getenv(config.EnvProfile)); name != "" {
+		return name, nil
+	}
+	current, _, err := config.List()
+	if err != nil {
+		return "", err
+	}
+	return current, nil
 }
 
 func isTerminal(in io.Reader) bool {
@@ -149,18 +197,31 @@ func isTerminal(in io.Reader) bool {
 	return term.IsTerminal(int(file.Fd()))
 }
 
-func prompt(in io.Reader, out io.Writer, label string, interactive bool) (string, error) {
+// prompt reads a value. A non-empty def is the stored value: it is shown in
+// brackets and kept when the answer is empty, and used as is when stdin is
+// not a terminal.
+func prompt(in io.Reader, out io.Writer, label string, interactive bool, def string) (string, error) {
 	if !interactive {
+		if def != "" {
+			return def, nil
+		}
 		return "", fmt.Errorf("--%s is required (or set the corresponding XOA_ environment variable)", label)
 	}
-	if _, err := fmt.Fprintf(out, "%s: ", label); err != nil {
+	question := label + ": "
+	if def != "" {
+		question = fmt.Sprintf("%s [%s]: ", label, def)
+	}
+	if _, err := fmt.Fprint(out, question); err != nil {
 		return "", err
 	}
 	line, err := bufio.NewReader(in).ReadString('\n')
-	if err != nil && strings.TrimSpace(line) == "" {
+	if err != nil && strings.TrimSpace(line) == "" && def == "" {
 		return "", fmt.Errorf("cannot read %s: %w", label, err)
 	}
-	return strings.TrimSpace(line), nil
+	if answer := strings.TrimSpace(line); answer != "" {
+		return answer, nil
+	}
+	return def, nil
 }
 
 func promptSecret(in io.Reader, out io.Writer, label string) (string, error) {

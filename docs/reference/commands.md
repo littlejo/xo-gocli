@@ -250,9 +250,9 @@ xo pool tag remove <id> production
 
 `rolling-update` applies the latest pool update, rolling it across the hosts
 one by one (each host is rebooted in turn, with its VMs moved away first);
-the pool stays available the whole time and the command runs without
-confirmation. `rolling-reboot` reboots the hosts in the same rolling fashion
-but is destructive and asks for confirmation. `emergency-shutdown` powers off
+the pool stays available the whole time. `rolling-reboot` reboots the hosts
+in the same rolling fashion without installing anything. Both reboot every
+host and ask for confirmation. `emergency-shutdown` powers off
 every host at once **without evacuating the VMs first**: the pool is down
 afterwards, so it is a last resort. Like the other destructive commands,
 `--yes` (or `$XOA_YES=1`) skips the confirmation. All three block until the

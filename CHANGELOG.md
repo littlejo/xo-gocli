@@ -45,6 +45,14 @@ exit codes or machine output requires a new major version.
 - JSON and YAML output always include empty collections, as `[]` or `{}`
   (a VM without tags has `"tags": []`), as the Xen Orchestra API returns
   them. Empty scalars are still omitted.
+- `xo configure` updates a profile instead of replacing it: values you do not
+  give (endpoint, credentials, `--insecure`, the `output` setting) are kept,
+  and `--insecure=false` turns TLS verification back on. It works on the
+  same profile as every command (`--profile`, then `$XOA_PROFILE`, then the
+  current profile), and only the first stored profile becomes current on its
+  own: the new `xo configure use <name>` switches explicitly.
+- `xo pool rolling-update` asks for confirmation, like `rolling-reboot`: it
+  also reboots every host. Scripts must pass `--yes` (or set `XOA_YES=1`).
 
 ### Fixed
 
@@ -60,6 +68,10 @@ exit codes or machine output requires a new major version.
   a field name).
 - `--query 'contains(tags, ...)'` (and `length(tags)`) no longer fails with
   `invalid type for: <nil>` when a VM has no tags.
+- `xo configure show` follows `$XOA_PROFILE`, as its help says.
+- `xo vm export --file` and `xo vdi export --file` write to a temporary file
+  renamed on success: a failed or interrupted export no longer leaves a
+  truncated archive, nor empties an existing file of the same name.
 
 ### Security
 

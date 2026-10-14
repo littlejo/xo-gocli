@@ -229,6 +229,30 @@ func List() (current string, profiles []Profile, err error) {
 	return file.Current, file.Profiles, nil
 }
 
+// Lookup returns the stored profile named name, or nil when there is none.
+func Lookup(name string) (*Profile, error) {
+	file, err := read()
+	if err != nil {
+		return nil, err
+	}
+	return findProfile(file, name), nil
+}
+
+// SetCurrent makes the stored profile named name the current one (the
+// profile used when neither --profile nor $XOA_PROFILE is set). It returns
+// the path of the written file.
+func SetCurrent(name string) (string, error) {
+	file, err := read()
+	if err != nil {
+		return "", err
+	}
+	if findProfile(file, name) == nil {
+		return "", fmt.Errorf("profile %q is not configured, run 'xo configure --profile %s'", name, name)
+	}
+	file.Current = name
+	return WriteFile(file)
+}
+
 // GetProfile returns the stored profile named name.
 func GetProfile(name string) (*Profile, error) {
 	file, err := read()

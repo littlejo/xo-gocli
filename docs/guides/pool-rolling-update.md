@@ -43,7 +43,7 @@ quoted in JMESPath (here escaped for the shell).
 ## Step 2: apply the updates
 
 ```sh
-xo pool rolling-update <pool-id> --wait-timeout 2h
+xo pool rolling-update <pool-id> --wait-timeout 2h   # add --yes in a script
 ```
 
 What happens:
@@ -68,7 +68,11 @@ Two timeouts are involved:
   is each poll, not the whole operation. You do not need to raise it for a
   long update.
 
-`xo pool rolling-update` does not ask for confirmation.
+Like `rolling-reboot`, `xo pool rolling-update` asks for confirmation
+(`Are you sure you want to rolling update pool "<name>"? [y/N]`). In a
+script or without a terminal, pass `--yes` (or set `XOA_YES=1`); otherwise
+the command stops with `confirmation required: re-run with --yes to proceed
+non-interactively`.
 
 ## Step 3 (alternative): reboot every host
 
@@ -127,7 +131,7 @@ it only when the pool is in a bad state that nothing else can handle.
 set -euo pipefail
 POOL=$(xo pool list --query "[?name_label=='pool-01'].id | [0]" --output text)
 
-xo pool rolling-update "$POOL" --wait-timeout 3h --output json
+xo pool rolling-update "$POOL" --yes --wait-timeout 3h --output json
 xo host list --query "[?\"\$pool\"=='$POOL'].{name: name_label, state: power_state, version: version}"
 ```
 

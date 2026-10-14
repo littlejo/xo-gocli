@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"io"
 	"net/url"
-	"os"
 
 	"github.com/spf13/cobra"
 
@@ -84,7 +83,7 @@ $XOA_TIMEOUT when exporting or importing large archives.`,
 				return err
 			}
 
-			w, err := openExportOutput(cmd, file)
+			w, err := cli.OpenExport(cmd.OutOrStdout(), file)
 			if err != nil {
 				return err
 			}
@@ -95,26 +94,26 @@ $XOA_TIMEOUT when exporting or importing large archives.`,
 			}
 			resp, err := xvRequest(cmd.Context(), httpClient, "GET", "vms/"+id.String()+"."+format, query, nil, "", -1)
 			if err != nil {
-				_ = w.Close()
+				w.Abort()
 				return cli.InsecureHint(fmt.Sprintf("cannot export VM %q: %v", vm.NameLabel, err), cfg.Insecure)
 			}
 			if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 				apiErr := xvaAPIError(resp)
 				_ = resp.Body.Close()
-				_ = w.Close()
+				w.Abort()
 				return cli.InsecureHint(fmt.Sprintf("cannot export VM %q: %v", vm.NameLabel, apiErr), cfg.Insecure)
 			}
 
 			n, err := io.Copy(w, resp.Body)
-			closeErr := resp.Body.Close()
-			if werr := w.Close(); closeErr == nil {
-				closeErr = werr
-			}
-			if err == nil {
+			if closeErr := resp.Body.Close(); err == nil {
 				err = closeErr
 			}
 			if err != nil {
+				w.Abort()
 				return cli.InsecureHint(fmt.Sprintf("cannot export VM %q: %v", vm.NameLabel, err), cfg.Insecure)
+			}
+			if err := w.Commit(); err != nil {
+				return err
 			}
 
 			return renderExported(cmd, vm.NameLabel, exportDest(file), n)
@@ -127,26 +126,6 @@ $XOA_TIMEOUT when exporting or importing large archives.`,
 	flags.BoolVar(&compress, flagCompress, true, "compress the archive (xva only)")
 	return cmd
 }
-
-// openExportOutput opens the export destination. An empty or "-" file
-// streams to the command's stdout; anything else is a regular file.
-func openExportOutput(cmd *cobra.Command, file string) (io.WriteCloser, error) {
-	if file == "" || file == "-" {
-		return &stdoutCloser{w: cmd.OutOrStdout()}, nil
-	}
-	f, err := os.Create(file)
-	if err != nil {
-		return nil, fmt.Errorf("cannot create %q: %v", file, err)
-	}
-	return f, nil
-}
-
-// stdoutCloser adapts a plain io.Writer to io.WriteCloser for exports piped
-// to stdout (there is nothing to close).
-type stdoutCloser struct{ w io.Writer }
-
-func (s *stdoutCloser) Write(p []byte) (int, error) { return s.w.Write(p) }
-func (s *stdoutCloser) Close() error                { return nil }
 
 // renderExported prints the outcome of a VM export. When the archive went to
 // stdout, the message goes to stderr so stdout stays a clean binary stream.

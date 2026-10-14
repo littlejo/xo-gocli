@@ -11,7 +11,9 @@ hosts of the pool one by one, so the pool stays available the whole time.
 Each host is rebooted in turn with the VMs that run on it moved away first
 (live migration when possible, otherwise a scheduled downtime for the VMs).
 
-The command is synchronous: it blocks until the backing task completes (or
+Like a rolling reboot, it reboots every host and cannot be undone, so it asks
+for confirmation unless --yes (or $XOA_YES) is given. The command is
+synchronous: it blocks until the backing task completes (or
 Ctrl+C), and reports the final result. There is no default wait deadline —
 a pool update can legitimately run for a long time — so use --wait-timeout
 to bound the wait if you need one. The global --timeout still bounds each
@@ -27,8 +29,8 @@ xo pool rolling-update <id> [flags]
 
 ```
   xo pool rolling-update aaaaaaaa-bbbb-cccc-dddd-000000000001
-  xo pool rolling-update <id> --wait-timeout 30m
-  xo pool rolling-update <id> --output json
+  xo pool rolling-update <id> --yes --wait-timeout 30m
+  xo pool rolling-update <id> --yes --output json
 ```
 
 ### Options
@@ -36,6 +38,7 @@ xo pool rolling-update <id> [flags]
 ```
   -h, --help                    help for rolling-update
       --wait-timeout duration   wait at most this long for the operation to complete, e.g. 30m (default: wait until it completes or Ctrl+C)
+      --yes                     do not ask for confirmation (or set XOA_YES=1)
 ```
 
 ### Options inherited from parent commands
