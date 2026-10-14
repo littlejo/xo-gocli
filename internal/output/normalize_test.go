@@ -123,3 +123,34 @@ func TestQueryBacktickLiterals(t *testing.T) {
 		}
 	}
 }
+
+type normPtrBase struct {
+	Groups []string `json:"groups,omitempty"`
+}
+
+type normEmbedded struct {
+	*normPtrBase
+	Name string `json:"name"`
+}
+
+// TestNormalizeFollowsEmbeddingRules pins that only the fields encoding/json
+// itself emits get their empty collections restored: the exported fields of
+// an unexported embedded struct are promoted (by value, see normItem, and by
+// non-nil pointer), while a nil embedded pointer contributes no field at all.
+func TestNormalizeFollowsEmbeddingRules(t *testing.T) {
+	got, err := Normalize(normEmbedded{normPtrBase: &normPtrBase{}, Name: "a"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if obj := got.(map[string]any); !reflect.DeepEqual(obj["groups"], []any{}) {
+		t.Errorf("a field promoted through a non-nil embedded pointer should be kept, got %#v", obj)
+	}
+
+	got, err = Normalize(normEmbedded{Name: "b"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if obj := got.(map[string]any); len(obj) != 1 || obj["name"] != "b" {
+		t.Errorf("a nil embedded pointer must not add fields, got %#v", obj)
+	}
+}
