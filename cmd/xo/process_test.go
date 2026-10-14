@@ -1,6 +1,6 @@
 package main
 
-// Process-level tests for the scripting contract (docs/road-to-v1.md, S1).
+// Process-level tests for the scripting contract (docs/archive/road-to-v1.md, S1).
 //
 // Every other test in this repository drives the in-process command APIs, so
 // the behaviors a script actually relies on — exit codes, the stdout/stderr

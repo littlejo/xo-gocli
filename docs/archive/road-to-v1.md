@@ -1,5 +1,7 @@
 # Road to v1.0.0
 
+> **Archive.** This is the historical pre-1.0 audit, kept for reference; it is no longer updated. Current plans live in the [roadmap](../internals/roadmap.md), and what shipped in the [changelog](../../CHANGELOG.md).
+
 Status snapshot and the minimal checklist for releasing `xo` v1.0.0.
 
 > **Snapshot**: `main` at `192f0fe` (2026-10-13). B1, B2, S1–S7 and C1–C5
@@ -685,5 +687,5 @@ published v1.0.0:
       [vatesfr/xenorchestra-go-sdk#121](https://github.com/vatesfr/xenorchestra-go-sdk/issues/121)
 
 Everything in [Deferred to v1.1+](#deferred-to-v11) can wait; the
-[roadmap in development.md](development.md#roadmap) remains the home for
+[roadmap](../internals/roadmap.md) remains the home for
 post-1.0 planning.
