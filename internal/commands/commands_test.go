@@ -55,6 +55,54 @@ func TestVersionCommand(t *testing.T) {
 	}
 }
 
+// TestVersionFlagHasNoShorthand pins that --version works and that -v is not
+// taken: -v is kept free (e.g. for a future --verbose).
+func TestVersionFlagHasNoShorthand(t *testing.T) {
+	root := NewRoot()
+	var out bytes.Buffer
+	root.SetOut(&out)
+	root.SetErr(&out)
+	root.SetArgs([]string{"--version"})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("xo --version: %v", err)
+	}
+	if got, want := strings.TrimSpace(out.String()), "xo version "+cli.Version; got != want {
+		t.Fatalf("xo --version = %q, want %q", got, want)
+	}
+
+	root = NewRoot()
+	root.SetOut(&bytes.Buffer{})
+	root.SetErr(&bytes.Buffer{})
+	root.SetArgs([]string{"-v"})
+	if err := root.Execute(); err == nil {
+		t.Fatal("xo -v should be an unknown shorthand, got no error")
+	}
+}
+
+// TestWaitTimeoutDoesNotShadowGlobal pins that the commands with a wait
+// deadline name it --wait-timeout, so the global --timeout keeps its
+// per-request meaning there instead of being shadowed by a local flag.
+func TestWaitTimeoutDoesNotShadowGlobal(t *testing.T) {
+	root := NewRoot()
+	for _, path := range [][]string{
+		{"task", "wait"},
+		{"pool", "rolling-update"},
+		{"pool", "rolling-reboot"},
+		{"pool", "emergency-shutdown"},
+	} {
+		cmd, _, err := root.Find(path)
+		if err != nil {
+			t.Fatalf("%v: %v", path, err)
+		}
+		if cmd.LocalNonPersistentFlags().Lookup(cli.FlagTimeout) != nil {
+			t.Errorf("%v defines a local --%s that shadows the global one", path, cli.FlagTimeout)
+		}
+		if cmd.LocalNonPersistentFlags().Lookup(cli.FlagWaitTimeout) == nil {
+			t.Errorf("%v has no --%s flag", path, cli.FlagWaitTimeout)
+		}
+	}
+}
+
 // TestRootRestFlagMerge guards against the 'xo rest' panic (blocker B1 in
 // docs/road-to-v1.md): when a local subcommand flag reuses a shorthand the
 // root persistent flags already own, cobra panics in mergePersistentFlags on

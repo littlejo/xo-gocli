@@ -26,16 +26,15 @@ a bad state and cannot be handled by any other means.
 This is a destructive operation and asks for confirmation unless --yes is
 given. The command is synchronous: it blocks until the backing task completes
 (or Ctrl+C) and reports the final result. There is no default wait deadline,
-so use --timeout to bound the wait if you need one; on this command that
---timeout is the *wait* deadline (not the global HTTP client timeout) and it
-shadows the global flag.
+so use --wait-timeout to bound the wait if you need one. The global --timeout
+still bounds each HTTP request (each poll), not the whole wait.
 
 The pool is referenced by its UUID, as returned by 'xo pool list'.
 
 Examples:
   xo pool emergency-shutdown aaaaaaaa-bbbb-cccc-dddd-000000000001
   xo pool emergency-shutdown <id> --yes
-  xo pool emergency-shutdown <id> --yes --timeout 10m`,
+  xo pool emergency-shutdown <id> --yes --wait-timeout 10m`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runAction(cmd, args[0], actionSpec{

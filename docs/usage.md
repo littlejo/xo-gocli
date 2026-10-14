@@ -209,14 +209,13 @@ completes (the pool `rolling-update` / `rolling-reboot` / `emergency-shutdown`,
 client timeout only bounds each individual poll request, **not** how long the
 command blocks overall. By default that overall wait is **unbounded**: the
 command blocks until the task completes (or Ctrl+C). The flag that *does*
-bound it is the `--timeout` that `task wait` and the three pool maintenance
-commands define locally; on those commands it is the *wait* deadline (not the
-HTTP client timeout) and it shadows the global flag — like `task wait` already
-did:
+bound it is `--wait-timeout`, on `task wait` and the three pool maintenance
+commands. The global `--timeout` keeps its meaning there (each poll request):
 
 ```sh
-xo pool rolling-update <id> --timeout 30m   # give up on the wait after 30 min
-xo task wait <id> --timeout 5m              # …but give up after 5 minutes
+xo pool rolling-update <id> --wait-timeout 30m   # give up on the wait after 30 min
+xo task wait <id> --wait-timeout 5m              # …but give up after 5 minutes
+xo task wait <id> --wait-timeout 1h --timeout 2m # long wait, slow polls allowed
 ```
 
 There is **no default wait deadline**: a pool update, a stuck task or a large
@@ -224,7 +223,7 @@ import can legitimately run for a long time, and a fixed cutoff would report
 a timeout even when the operation is still progressing (or has completed)
 server-side — leaving the caller unsure of the real state. Instead the wait
 ends when the task completes or you press Ctrl+C (which propagates from the
-CLI through the SDK to the HTTP layer); use the wait `--timeout` above when
+CLI through the SDK to the HTTP layer); use `--wait-timeout` above when
 you want a bound anyway. The wait deadline and the per-request HTTP timeout
 are independent: a 30-minute wait is made of many 30-second-bounded polls, so
 a broken connection can never hang a single poll forever.
@@ -250,7 +249,7 @@ Commands that return data also accept `--query` / `-q`
 Print the CLI version, offline:
 
 ```sh
-xo version          # or: xo --version, xo -v
+xo version          # or: xo --version
 ```
 
 The Xen Orchestra server version is not shown: the REST API does not expose
@@ -475,8 +474,7 @@ every host at once **without evacuating the VMs first**: the pool is down
 afterwards, so it is a last resort. Like the other destructive commands,
 `--yes` (or `$XOA_YES=1`) skips the confirmation. All three block until the
 backing task completes (or Ctrl+C); there is no default wait deadline, and
-their `--timeout` is that *wait* deadline, not the global HTTP client
-timeout — see [Timeouts and
+`--wait-timeout` sets one — see [Timeouts and
 waiting](#timeouts-and-waiting).
 
 `pool get` shows a single pool as a **detail view** (distinct from `pool
@@ -688,7 +686,7 @@ xo task list --status failure       # filter by status (pending, success, failur
 xo task list --query '[].id'
 xo task get <id>                    # one task, as a detail view
 xo task wait <id>                   # block until the task completes
-xo task wait <id> --timeout 5m      # …but give up after 5 minutes
+xo task wait <id> --wait-timeout 5m # …but give up after 5 minutes
 xo task abort <id>                  # ask Xen Orchestra to interrupt a running task
 xo task abort <id> --yes            # …without the confirmation prompt
 ```
@@ -725,14 +723,12 @@ given. Aborting a task that already reached a terminal state (`success`,
 `task wait` polls the task every 2 seconds until it reaches a terminal state
 (`success`, `failure` or `interrupted`) and prints it like `task get`. It is
 meant to be scripted: the exit status reflects the outcome — `0` on success,
-non-zero if the task fails, is interrupted, the `--timeout` deadline is hit,
+non-zero if the task fails, is interrupted, the `--wait-timeout` deadline is hit,
 or the task does not exist — while the completed task is still written to
 stdout in the chosen format.
 
-Note that `task wait`'s `--timeout` is the **wait** deadline and is a
-command-local flag: it shadows the global HTTP `--timeout` on this command. To
-also raise the per-request HTTP timeout (applied to each poll) set
-`$XOA_TIMEOUT`.
+`--wait-timeout` bounds the whole wait; the global `--timeout` (or
+`$XOA_TIMEOUT`) bounds each poll request.
 
 ### `xo token`
 

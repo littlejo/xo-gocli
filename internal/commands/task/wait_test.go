@@ -202,7 +202,7 @@ func TestTaskWaitTimeout(t *testing.T) {
 	isolatePointers(t, server.URL)
 	shortenPoll(t, 5*time.Millisecond)
 
-	_, _, err := runWaitCmd(t, "wait", "p1", "--timeout", "150ms")
+	_, _, err := runWaitCmd(t, "wait", "p1", "--wait-timeout", "150ms")
 	if err == nil {
 		t.Fatal("expected a timeout error when the task does not complete")
 	}

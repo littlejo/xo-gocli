@@ -20,7 +20,7 @@ func newVersionCommand() *cobra.Command {
 		Long: `Print the version of the xo CLI.
 
 This works offline, like 'aws version' or 'kubectl version --client'.
-It prints the same line as '--version' / '-v', so both can be used
+It prints the same line as '--version', so both can be used
 interchangeably in scripts.
 
 The Xen Orchestra server version is not shown: the REST API (v0) does not

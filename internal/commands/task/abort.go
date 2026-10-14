@@ -47,7 +47,7 @@ an asynchronous operation (for example 'xo vm start').
 Examples:
   xo task abort a1b2c3d4e5f6
   xo task abort <id> --yes
-  xo task wait <id> --timeout 5m   # then abort if it is stuck`,
+  xo task wait <id> --wait-timeout 5m   # then abort if it is stuck`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			id := args[0]

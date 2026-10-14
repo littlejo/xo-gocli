@@ -36,7 +36,7 @@ const fixtureTaskFailure = `{
 // fixtureTaskInterrupted is a task the server interrupted. It is the case the
 // SDK's own task.Wait never treats as terminal (it only stops on success or
 // failure), so an action run against it would block until the context dies:
-// the tests exercise it with a --timeout to prove the wait is bounded.
+// the tests exercise it with a --wait-timeout to prove the wait is bounded.
 const fixtureTaskInterrupted = `{
 	"id": "task-123",
 	"status": "interrupted",
@@ -222,7 +222,7 @@ func TestPoolRollingUpdateJSON(t *testing.T) {
 
 // A backing task that the server interrupted is never terminal for the SDK's
 // own wait loop (it stops only on success/failure), so without a bound the
-// command would block until the context dies. With --timeout the wait must
+// command would block until the context dies. With --wait-timeout the wait must
 // end with a concise deadline error instead (S3: bound the unbounded waits).
 func TestPoolRollingUpdateInterruptedTaskIsBoundedByTimeout(t *testing.T) {
 	server := newActionServer(t)
@@ -230,7 +230,7 @@ func TestPoolRollingUpdateInterruptedTaskIsBoundedByTimeout(t *testing.T) {
 	defer server.Close()
 	isolatePointers(t, server.URL)
 
-	_, _, err := runActionTest(t, "rolling-update", testPoolID, "--timeout", "1s")
+	_, _, err := runActionTest(t, "rolling-update", testPoolID, "--wait-timeout", "1s")
 	if err == nil {
 		t.Fatal("expected a timeout error for an interrupted backing task")
 	}

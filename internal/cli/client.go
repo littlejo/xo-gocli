@@ -33,6 +33,11 @@ const (
 	FlagDebug = "debug"
 	// FlagTimeout is the global --timeout flag.
 	FlagTimeout = "timeout"
+	// FlagWaitTimeout is the wait deadline of the commands that block on a
+	// task ('xo task wait', the pool maintenance actions). It has its own
+	// name so the global --timeout keeps meaning the per-request HTTP
+	// timeout on every command.
+	FlagWaitTimeout = "wait-timeout"
 	// EnvDebug enables verbose SDK/API error diagnostics (like --debug).
 	EnvDebug = "XOA_DEBUG"
 	// EnvTimeout is the script counterpart of --timeout (a Go duration like
