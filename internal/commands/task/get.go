@@ -70,7 +70,7 @@ machine readable behavior of 'xo task get <id> --output json' is unchanged.`,
 			// straight from the raw object, exactly as before; only the default
 			// human view is the new detail sheet.
 			if format != output.FormatTable || query != "" {
-				return renderTaskRaw(cmd.OutOrStdout(), format, task, query)
+				return output.RenderRaw(cmd.OutOrStdout(), format, task, query)
 			}
 			return renderTaskDetail(cmd.OutOrStdout(), task)
 		},
@@ -84,25 +84,6 @@ machine readable behavior of 'xo task get <id> --output json' is unchanged.`,
 // keeps the raw API error as debug detail.
 func taskNotFound(id string, err error, insecure bool) error {
 	return cli.NotFound("task", "get", id, err, insecure)
-}
-
-// renderTaskRaw renders the task in the structured formats (json/yaml/text) or
-// as a --query projection. It emits the raw object so machine readable output
-// and the query pipeline are unchanged.
-func renderTaskRaw(w io.Writer, format output.Format, t map[string]any, query string) error {
-	if query != "" {
-		queryResult, err := output.Query(query, t)
-		if err != nil {
-			return err
-		}
-		return output.Render(w, format, output.Table{}, t, queryResult)
-	}
-
-	normalized, err := output.Normalize(t)
-	if err != nil {
-		return err
-	}
-	return output.Render(w, format, output.Table{}, normalized, nil)
 }
 
 // renderTaskDetail renders the single task as a human readable detail sheet.

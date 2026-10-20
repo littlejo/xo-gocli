@@ -135,9 +135,10 @@ internal/
                      tags/ builds the shared '<resource> tag' group
   config/            profiles, XOA_* environment overrides, config file
   output/            table/json/yaml/text rendering, JMESPath (--query),
-                     detail-sheet helpers
+                     raw-object rendering of 'get' (RenderRaw), detail-sheet helpers
   resolve/           reference → name resolution, single and batch (anti-N+1)
-  taskwait/          the shared --wait poll loop (also used by task wait)
+  taskwait/          the shared --wait flag and poll loop (also used by task
+                     wait), and the "action started" output
   testenv/           test isolation from the developer's XOA_* settings
 tools/gendocs/       generates docs/reference/cli (Markdown) and man pages
 ci/                  xo-api-sim cookie-auth patch, perf counting proxy

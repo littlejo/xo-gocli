@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strconv"
 
 	"github.com/gofrs/uuid"
 	"github.com/spf13/cobra"
@@ -11,8 +12,6 @@ import (
 	"github.com/vatesfr/xenorchestra-go-sdk/pkg/services/library"
 
 	"github.com/littlejo/xo-gocli/internal/cli"
-	"github.com/littlejo/xo-gocli/internal/config"
-	"github.com/littlejo/xo-gocli/internal/output"
 	"github.com/littlejo/xo-gocli/internal/taskwait"
 )
 
@@ -20,16 +19,6 @@ import (
 // required whenever stdin is not a terminal so automation never blocks; the
 // $XOA_YES environment variable is an equivalent for scripts (cli.SkipConfirm).
 const flagYes = "yes"
-
-// flagWait makes an asynchronous action block until its task completes and
-// render the task, instead of returning right after the action is started.
-const flagWait = "wait"
-
-// addWaitFlag registers the --wait flag on an asynchronous action. The
-// $XOA_WAIT environment variable is an equivalent for scripts (cli.WaitEnabled).
-func addWaitFlag(cmd *cobra.Command) {
-	cmd.Flags().Bool(flagWait, false, "wait for the task to complete before returning, and print it (like 'xo task wait'; or set XOA_WAIT=1)")
-}
 
 // parseID converts a positional VM identifier into a UUID.
 func parseID(id string) (uuid.UUID, error) {
@@ -102,54 +91,8 @@ func runAction(cmd *cobra.Command, spec actionSpec) error {
 	}
 
 	if cli.WaitEnabled(cmd) && taskID != "" {
-		return waitOnTask(cmd, cfg, ctx, taskID)
+		return taskwait.ForCommand(ctx, cmd, cfg, taskID)
 	}
 
-	return renderActionResult(cmd, spec.verb, name, taskID)
-}
-
-// waitOnTask blocks until the action's task reaches a terminal state and
-// renders the completed task (like 'xo task wait'); the returned error
-// reflects the outcome so the exit status does too. Each poll is bounded by
-// the HTTP client timeout (--timeout / $XOA_TIMEOUT); the wait itself ends on
-// a terminal state or Ctrl+C.
-func waitOnTask(cmd *cobra.Command, cfg *config.ClientConfig, ctx context.Context, taskID string) error {
-	format, err := output.ParseFormat(cli.OutputFormat(cmd))
-	if err != nil {
-		return err
-	}
-	httpClient, err := cli.NewHTTPClient(cmd, cfg)
-	if err != nil {
-		return err
-	}
-	return taskwait.Wait(ctx, httpClient, taskwait.Options{
-		Out:    cmd.OutOrStdout(),
-		Stderr: cmd.ErrOrStderr(),
-		ID:     taskID,
-		Format: format,
-		NotFound: func(id string, err error) error {
-			return cli.NotFound("task", "get", id, err, cfg.Insecure)
-		},
-	})
-}
-
-// renderActionResult prints the outcome of an async VM action: a friendly line
-// for the human formats and a small machine document for json/yaml.
-func renderActionResult(cmd *cobra.Command, verb, name, taskID string) error {
-	format, err := output.ParseFormat(cli.OutputFormat(cmd))
-	if err != nil {
-		return err
-	}
-	w := cmd.OutOrStdout()
-	switch format {
-	case output.FormatJSON, output.FormatYAML:
-		raw, err := output.Normalize(map[string]any{"action": verb, "vm": name, "task_id": taskID})
-		if err != nil {
-			return err
-		}
-		return output.Render(w, format, output.Table{}, raw, nil)
-	default:
-		_, err := fmt.Fprintf(w, "Requested %s of %q (task %s)\n", verb, name, taskID)
-		return err
-	}
+	return taskwait.RenderStarted(cmd, "vm", spec.verb, name, strconv.Quote(name), taskID)
 }

@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/gofrs/uuid"
+	"github.com/littlejo/xo-gocli/internal/taskwait"
 	"github.com/spf13/cobra"
 
 	"github.com/vatesfr/xenorchestra-go-sdk/pkg/services/library"
@@ -43,6 +44,6 @@ The VM is referenced by its UUID, as returned by 'xo vm list'.`,
 	}
 
 	cmd.Flags().BoolVar(&hard, flagHard, false, "force a hard reboot instead of a clean one")
-	addWaitFlag(cmd)
+	taskwait.AddFlag(cmd)
 	return cmd
 }

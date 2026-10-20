@@ -13,7 +13,7 @@ import (
 	"github.com/gofrs/uuid"
 
 	sdkconfig "github.com/vatesfr/xenorchestra-go-sdk/pkg/config"
-	"github.com/vatesfr/xenorchestra-go-sdk/v2"
+	v2 "github.com/vatesfr/xenorchestra-go-sdk/v2"
 	"github.com/vatesfr/xenorchestra-go-sdk/v2/client"
 )
 

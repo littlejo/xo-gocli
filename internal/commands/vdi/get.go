@@ -71,7 +71,7 @@ machine readable behavior of 'xo vdi get <id> --output json' is unchanged.`,
 			// straight from the raw object, exactly as before; only the default
 			// human view is the new detail sheet, which resolves relationships.
 			if format != output.FormatTable || query != "" {
-				return renderVDIRaw(cmd.OutOrStdout(), format, vdi, query)
+				return output.RenderRaw(cmd.OutOrStdout(), format, vdi, query)
 			}
 
 			resolver, err := cli.NewResolver(cmd, cfg)
@@ -95,25 +95,6 @@ func parseID(id string) (uuid.UUID, error) {
 // the raw API error as debug detail.
 func notFound(id string, err error, insecure bool) error {
 	return cli.NotFound("VDI", "get", id, err, insecure)
-}
-
-// renderVDIRaw renders the VDI in the structured formats (json/yaml/text) or
-// as a --query projection. It emits the raw object so machine readable output
-// and the query pipeline are unchanged.
-func renderVDIRaw(w io.Writer, format output.Format, vdi *payloads.VDI, query string) error {
-	if query != "" {
-		queryResult, err := output.Query(query, vdi)
-		if err != nil {
-			return err
-		}
-		return output.Render(w, format, output.Table{}, vdi, queryResult)
-	}
-
-	normalized, err := output.Normalize(vdi)
-	if err != nil {
-		return err
-	}
-	return output.Render(w, format, output.Table{}, normalized, nil)
 }
 
 // renderVDIDetail renders the single VDI as a human readable detail sheet.
