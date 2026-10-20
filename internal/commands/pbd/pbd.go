@@ -2,7 +2,11 @@
 package pbd
 
 import (
+	"context"
+
+	"github.com/littlejo/xo-gocli/internal/cli"
 	"github.com/spf13/cobra"
+	"github.com/vatesfr/xenorchestra-go-sdk/pkg/services/library"
 )
 
 // NewCommand builds the 'xo pbd' command group.
@@ -22,5 +26,20 @@ PBDs are referenced by their UUID, as printed by 'xo pbd list'.`,
 	cmd.AddCommand(newGetCommand())
 	cmd.AddCommand(newPlugCommand())
 	cmd.AddCommand(newUnplugCommand())
+	cli.CompleteIDs(cmd, listCandidates)
 	return cmd
+}
+
+// listCandidates lists the PBDs for the shell completion of their ids
+// (see cli.CompleteIDs).
+func listCandidates(ctx context.Context, xo library.Library) ([]cli.Candidate, error) {
+	objects, err := xo.PBD().GetAll(ctx, 0, "")
+	if err != nil {
+		return nil, err
+	}
+	candidates := make([]cli.Candidate, 0, len(objects))
+	for _, o := range objects {
+		candidates = append(candidates, cli.Candidate{ID: o.ID.String(), Name: ""})
+	}
+	return candidates, nil
 }

@@ -55,6 +55,7 @@ xo vm list --power-state Running    # filter by power state
 xo vm list --limit 10               # cap the number of results
 xo vm list --query '[].name_label'  # project a single field
 xo vm get <id>                      # one VM, as a detail view
+xo vm get web-01                    # the same, by exact name
 
 # Create
 xo vm create web-02 --pool <pool-id> --template <template-id>

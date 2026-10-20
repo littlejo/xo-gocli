@@ -31,6 +31,11 @@ exit codes or machine output requires a new major version.
 - `--yes` and `$XOA_YES` for destructive commands; without a terminal they
   fail instead of waiting for input.
 - `--debug` and `$XOA_DEBUG` to show the raw SDK/API error behind a short one.
+- `get` takes an exact name as well as a UUID for `vm`, `host`, `pool`,
+  `sr`, `network` and `vdi` (`xo vm get web-01`); a name shared by several
+  objects is an error that lists their ids.
+- Shell completion of object ids (`xo vm start <TAB>`), with names shown
+  beside them where the shell supports descriptions.
 - Static binaries for Linux, macOS and Windows on amd64 and arm64, with
   checksums, and `install.sh` for Linux and macOS.
 
