@@ -2,7 +2,6 @@ package sr
 
 import (
 	"context"
-	"fmt"
 	"strconv"
 
 	"github.com/gofrs/uuid"
@@ -57,7 +56,7 @@ func runAction(cmd *cobra.Command, spec actionSpec) error {
 
 	taskID, err := spec.perform(ctx, xo, id)
 	if err != nil {
-		return cli.InsecureHint(fmt.Sprintf("cannot %s SR %q: %v", spec.verb, name, err), cfg.Insecure)
+		return cli.APIError(err, cfg.Insecure, "cannot %s SR %q", spec.verb, name)
 	}
 
 	if cli.WaitEnabled(cmd) && taskID != "" {

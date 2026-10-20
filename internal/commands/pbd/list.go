@@ -58,7 +58,7 @@ connect or disconnect it.`,
 
 			pbds, err := xo.PBD().GetAll(cmd.Context(), limit, "")
 			if err != nil {
-				return cli.InsecureHint(fmt.Sprintf("cannot list PBDs: %v", err), cfg.Insecure)
+				return cli.APIError(err, cfg.Insecure, "cannot list PBDs")
 			}
 
 			// Names (instead of raw UUIDs) are only shown in the human table;

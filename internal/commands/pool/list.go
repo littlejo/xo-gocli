@@ -54,7 +54,7 @@ func newListCommand() *cobra.Command {
 
 			pools, err := xo.Pool().GetAll(cmd.Context(), limit, "")
 			if err != nil {
-				return cli.InsecureHint(fmt.Sprintf("cannot list pools: %v", err), cfg.Insecure)
+				return cli.APIError(err, cfg.Insecure, "cannot list pools")
 			}
 
 			// Names (instead of raw UUIDs) are only shown in the human table;

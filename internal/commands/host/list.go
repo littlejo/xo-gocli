@@ -55,7 +55,7 @@ func newListCommand() *cobra.Command {
 
 			hosts, err := xo.Host().GetAll(cmd.Context(), limit, "")
 			if err != nil {
-				return cli.InsecureHint(fmt.Sprintf("cannot list hosts: %v", err), cfg.Insecure)
+				return cli.APIError(err, cfg.Insecure, "cannot list hosts")
 			}
 
 			// Names (instead of raw UUIDs) are only shown in the human table;

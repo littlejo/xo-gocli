@@ -84,7 +84,7 @@ interrupted.`,
 
 			var tasks []map[string]any
 			if err := client.TypedGet(cmd.Context(), httpClient, tasksEndpoint, params, &tasks); err != nil {
-				return cli.InsecureHint(fmt.Sprintf("cannot list tasks: %v", err), cfg.Insecure)
+				return cli.APIError(err, cfg.Insecure, "cannot list tasks")
 			}
 
 			return renderTasks(cmd.OutOrStdout(), format, tasks, query)

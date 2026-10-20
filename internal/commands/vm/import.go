@@ -95,12 +95,12 @@ large archives.`,
 			// be surfaced as a failure.
 			_ = body.Close()
 			if err != nil {
-				return cli.InsecureHint(fmt.Sprintf("cannot import VM from %q: %v", args[0], err), cfg.Insecure)
+				return cli.APIError(err, cfg.Insecure, "cannot import VM from %q", args[0])
 			}
 			if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 				apiErr := xvaAPIError(resp)
 				_ = resp.Body.Close()
-				return cli.InsecureHint(fmt.Sprintf("cannot import VM from %q: %v", args[0], apiErr), cfg.Insecure)
+				return cli.APIError(apiErr, cfg.Insecure, "cannot import VM from %q", args[0])
 			}
 
 			var result struct {
@@ -108,10 +108,10 @@ large archives.`,
 			}
 			if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
 				_ = resp.Body.Close()
-				return fmt.Errorf("cannot read import response: %v", err)
+				return fmt.Errorf("cannot read import response: %w", err)
 			}
 			if cerr := resp.Body.Close(); cerr != nil {
-				return fmt.Errorf("cannot read import response: %v", cerr)
+				return fmt.Errorf("cannot read import response: %w", cerr)
 			}
 			if result.ID == "" {
 				return fmt.Errorf("import response did not include the new VM id")
@@ -136,12 +136,12 @@ func openImportSource(cmd *cobra.Command, file string) (io.ReadCloser, int64, er
 	}
 	f, err := os.Open(file)
 	if err != nil {
-		return nil, 0, fmt.Errorf("cannot open %q: %v", file, err)
+		return nil, 0, fmt.Errorf("cannot open %q: %w", file, err)
 	}
 	fi, err := f.Stat()
 	if err != nil {
 		_ = f.Close()
-		return nil, 0, fmt.Errorf("cannot stat %q: %v", file, err)
+		return nil, 0, fmt.Errorf("cannot stat %q: %w", file, err)
 	}
 	if fi.Size() <= 0 {
 		_ = f.Close()

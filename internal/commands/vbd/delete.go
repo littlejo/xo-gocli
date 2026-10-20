@@ -80,7 +80,7 @@ func runDelete(cmd *cobra.Command, idStr string, yes bool) error {
 	}
 
 	if err := xo.VBD().Delete(ctx, id); err != nil {
-		return cli.InsecureHint(fmt.Sprintf("cannot delete VBD %s: %v", label, err), cfg.Insecure)
+		return cli.APIError(err, cfg.Insecure, "cannot delete VBD %s", label)
 	}
 
 	return renderDeleted(cmd, label)

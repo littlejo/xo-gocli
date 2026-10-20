@@ -124,11 +124,11 @@ func Detail(err error) string {
 func NotFound(kind, verb, id string, err error, insecure bool) error {
 	if err != nil && APIStatus(err) == http.StatusNotFound {
 		return &detailError{
-			err:    fmt.Errorf("%s %q not found", kind, id),
+			err:    &causeError{msg: fmt.Sprintf("%s %q not found", kind, id), cause: err},
 			detail: err.Error(),
 		}
 	}
-	return InsecureHint(fmt.Sprintf("cannot %s %s %q: %v", verb, kind, id, err), insecure)
+	return APIError(err, insecure, "cannot %s %s %q", verb, kind, id)
 }
 
 // printDebugError prints the --debug diagnostics for a failing run to w:
@@ -309,15 +309,12 @@ func newConnectionError(cfg *xoconfig.ClientConfig, err error) error {
 	// A transport failure while building the client (or logging in) is
 	// translated like any other SDK error; the raw text is kept as detail.
 	if translated, raw := translateSDKError(err.Error()); translated != "" {
-		return &detailError{err: errors.New(translated), detail: raw}
+		return &detailError{err: &causeError{msg: translated, cause: err}, detail: raw}
 	}
-	var msg string
 	if cfg.Token == "" && cfg.Username != "" {
-		msg = fmt.Sprintf("authentication to %s failed: %v", cfg.Endpoint, err)
-	} else {
-		msg = fmt.Sprintf("cannot connect to %s: %v", cfg.Endpoint, err)
+		return APIError(err, cfg.Insecure, "authentication to %s failed", cfg.Endpoint)
 	}
-	return InsecureHint(msg, cfg.Insecure)
+	return APIError(err, cfg.Insecure, "cannot connect to %s", cfg.Endpoint)
 }
 
 // InsecureHint returns a concise error for msg, appending a hint when the
@@ -330,16 +327,43 @@ func newConnectionError(cfg *xoconfig.ClientConfig, err error) error {
 // debug-only detail that Execute reveals with --debug. Messages that match no
 // known form (including local I/O errors and "API error: 5xx" lines carrying
 // the server's own body) are returned unchanged.
+//
+// Prefer APIError when the message wraps an error: it keeps that error in the
+// chain for errors.Is / errors.As.
 func InsecureHint(msg string, alreadyInsecure bool) error {
+	return hint(msg, nil, alreadyInsecure)
+}
+
+// APIError reports a failed SDK or API call as "<context>: <err>", where the
+// context is format and args (for example "cannot list VMs"). The message is
+// translated and given the TLS hint like InsecureHint, and err stays in the
+// chain, so callers can still test errors.Is(err, context.Canceled).
+func APIError(err error, alreadyInsecure bool, format string, args ...any) error {
+	return hint(fmt.Sprintf(format, args...)+": "+fmt.Sprint(err), err, alreadyInsecure)
+}
+
+// hint builds the concise error of InsecureHint and APIError; cause, when
+// set, is what the returned error unwraps to.
+func hint(msg string, cause error, alreadyInsecure bool) error {
 	msg = cleanSDKArtifact(msg)
 	if translated, raw := translateSDKError(msg); translated != "" {
-		return &detailError{err: errors.New(translated), detail: raw}
+		return &detailError{err: &causeError{msg: translated, cause: cause}, detail: raw}
 	}
-	if alreadyInsecure || !isTLSVerifyError(msg) {
-		return errors.New(msg)
+	if !alreadyInsecure && isTLSVerifyError(msg) {
+		msg += "\n\nthe server certificate could not be verified; if this is a self-signed or internal certificate, retry with 'xo configure --insecure' (or set XOA_INSECURE=1)"
 	}
-	return errors.New(msg + "\n\nthe server certificate could not be verified; if this is a self-signed or internal certificate, retry with 'xo configure --insecure' (or set XOA_INSECURE=1)")
+	return &causeError{msg: msg, cause: cause}
 }
+
+// causeError is a message that replaces the text of the error it wraps
+// (translated, or with a hint appended) while keeping it in the chain.
+type causeError struct {
+	msg   string
+	cause error
+}
+
+func (e *causeError) Error() string { return e.msg }
+func (e *causeError) Unwrap() error { return e.cause }
 
 // cleanSDKArtifact removes the trailing "%!(EXTRA ...)" marker that the Go
 // runtime appends when the SDK formats an error with more arguments than

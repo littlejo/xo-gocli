@@ -163,7 +163,7 @@ to read it from stdin.
 
 			statusLine, respHeaders, respBody, err := doRestRequest(cmd.Context(), httpClient, method, endpoint, body, queryParams, extraHeaders)
 			if err != nil {
-				return cli.InsecureHint(fmt.Sprintf("rest %s %s: %v", strings.ToLower(method), endpoint, err), cfg.Insecure)
+				return cli.APIError(err, cfg.Insecure, "rest %s %s", strings.ToLower(method), endpoint)
 			}
 
 			if include {
@@ -272,7 +272,7 @@ func parseData(data string, in io.Reader) ([]byte, error) {
 	if data == "-" {
 		b, err := io.ReadAll(in)
 		if err != nil {
-			return nil, fmt.Errorf("cannot read body from stdin: %v", err)
+			return nil, fmt.Errorf("cannot read body from stdin: %w", err)
 		}
 		src = b
 	} else {
@@ -283,11 +283,11 @@ func parseData(data string, in io.Reader) ([]byte, error) {
 	}
 	var decoded any
 	if err := json.Unmarshal(src, &decoded); err != nil {
-		return nil, fmt.Errorf("invalid --data: expected JSON, got: %v", err)
+		return nil, fmt.Errorf("invalid --data: expected JSON, got: %w", err)
 	}
 	encoded, err := json.Marshal(decoded)
 	if err != nil {
-		return nil, fmt.Errorf("invalid --data: %v", err)
+		return nil, fmt.Errorf("invalid --data: %w", err)
 	}
 	return encoded, nil
 }

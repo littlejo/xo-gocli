@@ -65,7 +65,7 @@ func runDelete(cmd *cobra.Command, idStr string, yes bool) error {
 	}
 
 	if err := xo.VM().Delete(ctx, id); err != nil {
-		return cli.InsecureHint(fmt.Sprintf("cannot delete VM %q: %v", name, err), cfg.Insecure)
+		return cli.APIError(err, cfg.Insecure, "cannot delete VM %q", name)
 	}
 
 	return renderDeleted(cmd, name)

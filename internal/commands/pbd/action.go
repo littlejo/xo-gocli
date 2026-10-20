@@ -85,7 +85,7 @@ func runAction(cmd *cobra.Command, idStr string, verb string, perform func(ctx c
 
 	taskID, err := perform(ctx, xo, id)
 	if err != nil {
-		return cli.InsecureHint(fmt.Sprintf("cannot %s PBD %q: %v", verb, idStr, err), cfg.Insecure)
+		return cli.APIError(err, cfg.Insecure, "cannot %s PBD %q", verb, idStr)
 	}
 
 	if cli.WaitEnabled(cmd) && taskID != "" {

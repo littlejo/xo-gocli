@@ -135,7 +135,7 @@ func runAbort(cmd *cobra.Command, id string, yes bool) error {
 	}
 
 	if err := xo.Task().Abort(ctx, id); err != nil {
-		return cli.InsecureHint(fmt.Sprintf("cannot abort task %q: %v", id, err), cfg.Insecure)
+		return cli.APIError(err, cfg.Insecure, "cannot abort task %q", id)
 	}
 
 	return renderAborted(cmd, id)

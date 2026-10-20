@@ -122,7 +122,7 @@ func runAction(cmd *cobra.Command, idStr string, spec actionSpec) error {
 		if ctxErr := ctx.Err(); ctxErr != nil {
 			return waitDeadlineError(spec.verb, name, waitTimeout, ctxErr)
 		}
-		return cli.InsecureHint(fmt.Sprintf("cannot %s pool %q: %v", spec.verb, name, err), cfg.Insecure)
+		return cli.APIError(err, cfg.Insecure, "cannot %s pool %q", spec.verb, name)
 	}
 
 	return renderActionResult(cmd, spec, name)

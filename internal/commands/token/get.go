@@ -58,12 +58,12 @@ pass --no-secret to reveal the full value (use with care).`,
 
 			body, err := doTokensRequest(cmd.Context(), httpClient, "GET", tokensEndpoint, nil, nil)
 			if err != nil {
-				return cli.InsecureHint(fmt.Sprintf("cannot get token %q: %v", id, err), cfg.Insecure)
+				return cli.APIError(err, cfg.Insecure, "cannot get token %q", id)
 			}
 
 			var tokens []map[string]any
 			if err := json.Unmarshal(body, &tokens); err != nil {
-				return fmt.Errorf("cannot get token %q: %v", id, err)
+				return fmt.Errorf("cannot get token %q: %w", id, err)
 			}
 
 			var found map[string]any

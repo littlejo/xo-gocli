@@ -89,7 +89,7 @@ kept).`,
 			}
 			vbdID, err := xo.VBD().Create(cmd.Context(), params)
 			if err != nil {
-				return cli.InsecureHint(fmt.Sprintf("cannot attach VDI %q to VM %q: %v", vdiID, vmID, err), cfg.Insecure)
+				return cli.APIError(err, cfg.Insecure, "cannot attach VDI %q to VM %q", vdiID, vmID)
 			}
 
 			return renderCreated(cmd, vmID, vdiID, vbdID)

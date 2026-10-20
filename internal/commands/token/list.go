@@ -67,12 +67,12 @@ pass --no-secret to reveal the full values (use with care).`,
 
 			body, err := doTokensRequest(cmd.Context(), httpClient, "GET", tokensEndpoint, nil, params)
 			if err != nil {
-				return cli.InsecureHint(fmt.Sprintf("cannot list tokens: %v", err), cfg.Insecure)
+				return cli.APIError(err, cfg.Insecure, "cannot list tokens")
 			}
 
 			var tokens []map[string]any
 			if err := json.Unmarshal(body, &tokens); err != nil {
-				return fmt.Errorf("cannot list tokens: %v", err)
+				return fmt.Errorf("cannot list tokens: %w", err)
 			}
 
 			return renderTokens(cmd.OutOrStdout(), format, tokens, query, noSecret)

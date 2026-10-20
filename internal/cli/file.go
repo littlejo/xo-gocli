@@ -33,7 +33,7 @@ func OpenExport(stdout io.Writer, path string) (ExportWriter, error) {
 	}
 	tmp, err := os.CreateTemp(dir, "."+base+".*.partial")
 	if err != nil {
-		return nil, fmt.Errorf("cannot create %q: %v", path, err)
+		return nil, fmt.Errorf("cannot create %q: %w", path, err)
 	}
 	return &fileExport{File: tmp, path: path}, nil
 }
@@ -51,20 +51,20 @@ type fileExport struct {
 func (f *fileExport) Commit() error {
 	if err := f.Sync(); err != nil {
 		f.Abort()
-		return fmt.Errorf("cannot write %q: %v", f.path, err)
+		return fmt.Errorf("cannot write %q: %w", f.path, err)
 	}
 	if err := f.Close(); err != nil {
 		_ = os.Remove(f.Name())
-		return fmt.Errorf("cannot write %q: %v", f.path, err)
+		return fmt.Errorf("cannot write %q: %w", f.path, err)
 	}
 	// os.CreateTemp uses 0600; give the archive the usual file mode.
 	if err := os.Chmod(f.Name(), 0o644); err != nil {
 		_ = os.Remove(f.Name())
-		return fmt.Errorf("cannot write %q: %v", f.path, err)
+		return fmt.Errorf("cannot write %q: %w", f.path, err)
 	}
 	if err := os.Rename(f.Name(), f.path); err != nil {
 		_ = os.Remove(f.Name())
-		return fmt.Errorf("cannot write %q: %v", f.path, err)
+		return fmt.Errorf("cannot write %q: %w", f.path, err)
 	}
 	return nil
 }

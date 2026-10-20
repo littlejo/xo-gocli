@@ -64,7 +64,7 @@ A VDI is a virtual disk that lives on a storage repository (SR). Use
 
 			vdis, err := xo.VDI().GetAll(cmd.Context(), limit, filter)
 			if err != nil {
-				return cli.InsecureHint(fmt.Sprintf("cannot list VDIs: %v", err), cfg.Insecure)
+				return cli.APIError(err, cfg.Insecure, "cannot list VDIs")
 			}
 
 			// Names (instead of raw UUIDs) are only shown in the human table;

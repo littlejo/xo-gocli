@@ -62,7 +62,7 @@ func newListCommand() *cobra.Command {
 
 			vms, err := xo.VM().GetAll(cmd.Context(), limit, filter)
 			if err != nil {
-				return cli.InsecureHint(fmt.Sprintf("cannot list VMs: %v", err), cfg.Insecure)
+				return cli.APIError(err, cfg.Insecure, "cannot list VMs")
 			}
 
 			// Names (instead of raw UUIDs) are only shown in the human table;

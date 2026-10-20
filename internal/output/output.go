@@ -128,7 +128,7 @@ func ValidateQuery(expression string) error {
 		return nil
 	}
 	if _, err := jmespath.Compile(awsBackticks(expression)); err != nil {
-		return fmt.Errorf("invalid --query expression %q: %v", expression, err)
+		return fmt.Errorf("invalid --query expression %q: %w", expression, err)
 	}
 	return nil
 }

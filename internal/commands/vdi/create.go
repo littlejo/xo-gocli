@@ -86,7 +86,7 @@ docs/usecases.md, 'Add a disk to a VM').`,
 			}
 			vdiID, err := xo.VDI().Create(cmd.Context(), params)
 			if err != nil {
-				return cli.InsecureHint(fmt.Sprintf("cannot create VDI %q: %v", args[0], err), cfg.Insecure)
+				return cli.APIError(err, cfg.Insecure, "cannot create VDI %q", args[0])
 			}
 
 			return renderCreated(cmd, vdiID)

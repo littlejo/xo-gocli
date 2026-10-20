@@ -96,7 +96,7 @@ large disks.`,
 					err = cerr
 				}
 				if err != nil {
-					return cli.InsecureHint(fmt.Sprintf("cannot read %s: %v", source, err), cfg.Insecure)
+					return cli.APIError(err, cfg.Insecure, "cannot read %s", source)
 				}
 				body = io.NopCloser(bytes.NewReader(data))
 				size = int64(len(data))
@@ -108,7 +108,7 @@ large disks.`,
 			// that is harmless and must not be surfaced as a failure.
 			_ = body.Close()
 			if err != nil {
-				return cli.InsecureHint(fmt.Sprintf("cannot import into VDI %q: %v", name, err), cfg.Insecure)
+				return cli.APIError(err, cfg.Insecure, "cannot import into VDI %q", name)
 			}
 
 			return renderImported(cmd, name)
@@ -132,12 +132,12 @@ func openImportSource(cmd *cobra.Command, file string) (io.ReadCloser, int64, er
 	}
 	f, err := os.Open(file)
 	if err != nil {
-		return nil, 0, fmt.Errorf("cannot open %q: %v", file, err)
+		return nil, 0, fmt.Errorf("cannot open %q: %w", file, err)
 	}
 	fi, err := f.Stat()
 	if err != nil {
 		_ = f.Close()
-		return nil, 0, fmt.Errorf("cannot stat %q: %v", file, err)
+		return nil, 0, fmt.Errorf("cannot stat %q: %w", file, err)
 	}
 	if fi.Size() <= 0 {
 		_ = f.Close()

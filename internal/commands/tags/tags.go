@@ -105,7 +105,7 @@ func run(cmd *cobra.Command, spec Spec, op operation, idStr, tag string) error {
 	}
 
 	if err := op.perform(ctx, xo, id, tag); err != nil {
-		return cli.InsecureHint(fmt.Sprintf("cannot %s tag %q on %s %q: %v", op.verb, tag, spec.Kind, name, err), cfg.Insecure)
+		return cli.APIError(err, cfg.Insecure, "cannot %s tag %q on %s %q", op.verb, tag, spec.Kind, name)
 	}
 
 	_, err = fmt.Fprintf(cmd.OutOrStdout(), "Tag %q %s on %s %q\n", tag, op.past, spec.Kind, name)

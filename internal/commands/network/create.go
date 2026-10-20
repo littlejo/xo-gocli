@@ -296,7 +296,7 @@ func runCreate(cmd *cobra.Command, name string, create func(ctx context.Context,
 
 	networkID, err := create(ctx, xo)
 	if err != nil {
-		return cli.InsecureHint(fmt.Sprintf("cannot create network %q: %v", name, err), cfg.Insecure)
+		return cli.APIError(err, cfg.Insecure, "cannot create network %q", name)
 	}
 
 	// The create task returned the network id; re-fetch the network so the
