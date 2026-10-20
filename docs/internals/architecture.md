@@ -119,4 +119,5 @@ These hold across the code base; the tests pin most of them.
 - **Cancellation propagates**: Ctrl+C cancels the command context, which the
   SDK passes down to the HTTP request.
 - **Destructive commands confirm**, accept `--yes` / `$XOA_YES`, and fail
-  instead of prompting when stdin is not a terminal.
+  instead of prompting when stdin is not a terminal; they all go through
+  `cli.Confirm`.
