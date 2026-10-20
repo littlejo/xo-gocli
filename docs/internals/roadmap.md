@@ -19,17 +19,19 @@ Every item below is a command (or a small set of commands) on top of an
 existing, implemented SDK service method — the same pattern as the current
 commands. No SDK work is required.
 
-- — (empty: every SDK v1.20.0 service method that maps to a single CLI command
-  is now exposed; `xo task abort` was the last one to be covered)
+- `xo template tag add|remove` — `Template().AddTag` / `RemoveTag` (since
+  `v1.21.0`). Template ids are strings (the composite `<pool>-<uuid>` id of
+  default templates), so `internal/commands/tags` needs to accept a string id
+  first.
 
 Each item added here reduces the need for `xo rest`.
 
 ## Layer 2 — complete SDK services, no CLI resource yet
 
 Full resources following the usual `list / get / …` shape, built on an
-implemented SDK service (verified in `v1.20.0`):
+implemented SDK service (verified in `v1.21.0`):
 
-- — (empty: every SDK v1.20.0 service now has a matching CLI resource;
+- — (empty: every SDK v1.21.0 service now has a matching CLI resource;
   `xo pbd` was the last one to be covered)
 
 ## Layer 3 — in the REST API, not in the SDK yet

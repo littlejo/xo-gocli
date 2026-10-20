@@ -71,10 +71,7 @@ func newListCommand() *cobra.Command {
 			// the table.
 			var resolver *resolve.Client
 			if format == output.FormatTable && query == "" {
-				resolver, err = cli.NewResolver(cmd, cfg)
-				if err != nil {
-					return err
-				}
+				resolver = resolve.New(xo)
 			}
 			return renderVMs(cmd.OutOrStdout(), cmd.Context(), format, vms, query, resolver)
 		},
@@ -174,6 +171,6 @@ func vmState(vm *payloads.VM) string {
 	case vm.IsStarting():
 		return "Starting"
 	default:
-		return vm.PowerState
+		return string(vm.PowerState)
 	}
 }

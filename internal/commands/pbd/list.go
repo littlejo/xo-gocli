@@ -67,10 +67,7 @@ connect or disconnect it.`,
 			// the table.
 			var resolver *resolve.Client
 			if format == output.FormatTable && query == "" {
-				resolver, err = cli.NewResolver(cmd, cfg)
-				if err != nil {
-					return err
-				}
+				resolver = resolve.New(xo)
 			}
 			return renderPBDs(cmd.OutOrStdout(), cmd.Context(), format, pbds, query, resolver)
 		},

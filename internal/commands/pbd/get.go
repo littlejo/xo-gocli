@@ -72,10 +72,7 @@ machine readable behavior of 'xo pbd get <id> --output json' is unchanged.`,
 				return output.RenderRaw(cmd.OutOrStdout(), format, pbd, query)
 			}
 
-			resolver, err := cli.NewResolver(cmd, cfg)
-			if err != nil {
-				return err
-			}
+			resolver := resolve.New(xo)
 			return renderPBDDetail(cmd.OutOrStdout(), cmd.Context(), pbd, resolver)
 		},
 	}

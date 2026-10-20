@@ -9,6 +9,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/spf13/cobra"
 
@@ -97,6 +98,8 @@ func newActionServer(t *testing.T) *actionServer {
 				_, _ = fmt.Fprint(w, fixtureTaskFailure)
 			case "interrupted":
 				_, _ = fmt.Fprint(w, fixtureTaskInterrupted)
+			case "pending":
+				_, _ = fmt.Fprint(w, strings.Replace(fixtureTaskInterrupted, `"interrupted"`, `"pending"`, 1))
 			default:
 				_, _ = fmt.Fprint(w, fixtureTaskSuccess)
 			}
@@ -212,19 +215,39 @@ func TestPoolRollingUpdateJSON(t *testing.T) {
 	}
 }
 
-// A backing task that the server interrupted is never terminal for the SDK's
-// own wait loop (it stops only on success/failure), so without a bound the
-// command would block until the context dies. With --wait-timeout the wait must
-// end with a concise deadline error instead (S3: bound the unbounded waits).
-func TestPoolRollingUpdateInterruptedTaskIsBoundedByTimeout(t *testing.T) {
+// An interrupted backing task is terminal for the SDK's wait (since v1.21.0):
+// the command fails at once, without waiting for --wait-timeout, and says why
+// in words instead of the SDK's dangling "failed: " line.
+func TestPoolRollingUpdateInterruptedTaskFails(t *testing.T) {
 	server := newActionServer(t)
 	server.taskStatus = "interrupted"
 	defer server.Close()
 	testenv.Isolate(t, server.URL)
 
+	start := time.Now()
+	_, _, err := runActionTest(t, "rolling-update", testPoolID, "--yes", "--wait-timeout", "30s")
+	if err == nil {
+		t.Fatal("expected an error for an interrupted backing task")
+	}
+	if !strings.Contains(err.Error(), "the task ended without success and Xen Orchestra gave no reason") {
+		t.Fatalf("expected an explained failure, got: %v", err)
+	}
+	if elapsed := time.Since(start); elapsed > 10*time.Second {
+		t.Fatalf("an interrupted task must not wait for --wait-timeout (took %s)", elapsed)
+	}
+}
+
+// A task that never ends is bounded by --wait-timeout, with a concise
+// deadline error instead of the SDK's own (S3: bound the unbounded waits).
+func TestPoolRollingUpdateIsBoundedByWaitTimeout(t *testing.T) {
+	server := newActionServer(t)
+	server.taskStatus = "pending"
+	defer server.Close()
+	testenv.Isolate(t, server.URL)
+
 	_, _, err := runActionTest(t, "rolling-update", testPoolID, "--yes", "--wait-timeout", "1s")
 	if err == nil {
-		t.Fatal("expected a timeout error for an interrupted backing task")
+		t.Fatal("expected a timeout error for a task that stays pending")
 	}
 	if !strings.Contains(err.Error(), "did not complete within 1s") {
 		t.Fatalf("expected a concise deadline error, got: %v", err)

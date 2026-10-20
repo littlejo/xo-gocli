@@ -77,10 +77,7 @@ machine readable behavior of 'xo sr get <id> --output json' is unchanged.`,
 				return output.RenderRaw(cmd.OutOrStdout(), format, sr, query)
 			}
 
-			resolver, err := cli.NewResolver(cmd, cfg)
-			if err != nil {
-				return err
-			}
+			resolver := resolve.New(xo)
 			return renderSRDetail(cmd.OutOrStdout(), cmd.Context(), xo, sr, resolver)
 		},
 	}

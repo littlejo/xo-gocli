@@ -18,7 +18,7 @@ SDK bugs found along the way are tracked in the
 ## Module layout
 
 The SDK is a **single Go module** (`github.com/vatesfr/xenorchestra-go-sdk`,
-pinned at `v1.20.0` in `go.mod`) that contains **both** APIs:
+pinned at `v1.21.0` in `go.mod`) that contains **both** APIs:
 
 | Path | API | Used by xo-gocli |
 | ---- | --- | ---------------- |
@@ -30,7 +30,7 @@ pinned at `v1.20.0` in `go.mod`) that contains **both** APIs:
 There is no `v2/go.mod`: `v2` is a plain subdirectory, so the import path
 `github.com/vatesfr/xenorchestra-go-sdk/v2` is a subpackage of the v1 module
 — the `/v2` suffix is a directory name, not a Go major-version path. The
-v1.20.0 version number is the *module* version, not the REST API version
+v1.21.0 version number is the *module* version, not the REST API version
 (the REST API itself is `/rest/v0`).
 
 > **SDK pin history.** The module was briefly `require`d at `v1.19.0` with a
@@ -47,7 +47,7 @@ v1.20.0 version number is the *module* version, not the REST API version
 
 1. **`v2.New(cfg) → library.Library`** — the typed facade. Returns
    `VM()`, `Host()`, `Pool()`, `SR()`, `Network()`, `Task()`, `VDI()`, `VBD()`,
-   `PBD()`. Every service method is a REST call through the internal
+   `PBD()` and, since `v1.21.0`, `Template()`. Every service method is a REST call through the internal
    `v2/client` (`client.TypedGet` & co.), returning `pkg/payloads` structs.
    This is what `internal/cli.NewClient` builds and what most commands use.
 2. **`v2/client.New(cfg) → *client.Client`** — the raw REST client. The SDK
@@ -55,8 +55,7 @@ v1.20.0 version number is the *module* version, not the REST API version
    reach endpoints the SDK does not (yet) wrap. `internal/cli.NewHTTPClient`
    is built on it and powers `xo rest`, `xo token`, `xo template`, `xo task`,
    the VM PATCH in `xo vm update`, `xo vm export` / `import`, the `--wait`
-   poll loop (`internal/taskwait`) and the name resolver (for
-   `vm-templates`). That is the documented escape hatch, not a second REST
+   poll loop (`internal/taskwait`). That is the documented escape hatch, not a second REST
    client.
 
    Most of these calls go through the SDK's `client.TypedGet` & co. Four
@@ -124,8 +123,9 @@ v1.20.0 version number is the *module* version, not the REST API version
 | --- | -------------- |
 | `VM().Update` returns `not yet implemented` | `xo vm update` sends the PATCH itself via the exported `*client.Client` (documented in `vm/update.go`; to contribute upstream) |
 | No typed VM XVA/OVA import/export | `xo vm export` / `xo vm import` stream through the exported `*client.Client` against `GET /vms/<id>.<format>` and `POST /pools/<pool>/vms` (documented in `vm/xva.go`; to contribute upstream) |
-| No typed service for `vm-templates`, tasks or user tokens | `TypedGet` directly (`xo template`, `xo task`, `xo token`) |
-| `Task().Wait` / `WaitWithTimeout` unmarshal into `payloads.Task`, whose `Result` is a struct — but XO sometimes returns a task `result` as a **plain string** (see `TestTaskGetStringResult`), so `Get` (and therefore `Wait`) fails to unmarshal such tasks and loops to the deadline; `Wait` also does not treat `interrupted` as terminal (a server-side interruption makes the poll loop spin forever — filed as [vatesfr/xenorchestra-go-sdk#121](https://github.com/vatesfr/xenorchestra-go-sdk/issues/121)) | `xo task wait` polls with `client.TypedGet` (the same single SDK boundary as `task get`) and stops on `success`/`failure`/`interrupted` (documented in `task/wait.go`; the SDK result type should be contributed upstream). The pool-maintenance commands go through the SDK's synchronous wait, so they inherit the hang until #121 lands; they bound it with a `--wait-timeout` flag and Ctrl+C |
+| No typed service for tasks (beyond `Task()`, see below) or user tokens | `TypedGet` directly (`xo task`, `xo token`) |
+| The typed `Template()` service (since `v1.21.0`) returns `payloads.Template`, which keeps only the fields it models | the name resolver uses it; `xo template list` / `get` still read the raw `vm-templates` objects with `TypedGet`, so their JSON keeps every field XO returns |
+| `Task().Wait` / `WaitWithTimeout` unmarshal into `payloads.Task`, whose `Result` is a struct — but XO sometimes returns a task `result` as a **plain string** (see `TestTaskGetStringResult`), so `Get` (and therefore `Wait`) fails to unmarshal such tasks and loops to the deadline. (`Wait` treats `interrupted` as terminal since `v1.21.0`, [vatesfr/xenorchestra-go-sdk#122](https://github.com/vatesfr/xenorchestra-go-sdk/pull/122), which closed [#121](https://github.com/vatesfr/xenorchestra-go-sdk/issues/121).) | `xo task wait` and `--wait` poll with `client.TypedGet` (the same single SDK boundary as `task get`) and stop on `success`/`failure`/`interrupted` (documented in `internal/taskwait`; the SDK result type should be contributed upstream). The pool-maintenance commands go through the SDK's synchronous wait: an interrupted task now fails them at once, and the SDK's empty `<action> failed: ` message is completed by the CLI's error translation; `--wait-timeout` and Ctrl+C bound a task that stays pending |
 | `users/me` 307-redirects to the user id | handled by `net/http` following the redirect; `doTokensRequest` relies on 307 body replay for POST |
 | `v2` package `init()` runs `gotenv.Load()` (reads a `.env` in the CWD) | harmless: we build the config with `NewWithValues`, which reads no env vars |
 | Server XO version is not exposed by the REST API (v0) — `GET /ping` only returns `{result, timestamp}` and the `xoa` REST controller has no version route | `xo version` prints the **CLI** version offline (like `aws version`); the server version exists only as the legacy JSON-RPC `getServerVersion` method, which the CLI never calls (v1 is forbidden by [AGENTS.md](../../AGENTS.md)) |

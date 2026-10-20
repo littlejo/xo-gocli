@@ -6,9 +6,10 @@
 // The polling deliberately does not use the SDK's typed Task().Wait: that
 // unmarshals into payloads.Task, whose Result is a struct — but XO sometimes
 // returns a task "result" as a plain string (a documented XO quirk), so the
-// typed wait fails to unmarshal such tasks, and it does not treat
-// "interrupted" as terminal. Instead we poll with the SDK's own REST client
-// (client.TypedGet), the same single API boundary as 'xo task get'.
+// typed wait fails to unmarshal such tasks (it treats "interrupted" as
+// terminal since SDK v1.21.0, which was the other reason). Instead we poll
+// with the SDK's own REST client (client.TypedGet), the same single API
+// boundary as 'xo task get'.
 package taskwait
 
 import (

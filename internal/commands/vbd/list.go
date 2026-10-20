@@ -75,10 +75,7 @@ A VBD is the attachment point between a VM and a VDI (virtual disk).`,
 			// the table.
 			var resolver *resolve.Client
 			if format == output.FormatTable && query == "" {
-				resolver, err = cli.NewResolver(cmd, cfg)
-				if err != nil {
-					return err
-				}
+				resolver = resolve.New(xo)
 			}
 			return renderVBDs(cmd.OutOrStdout(), cmd.Context(), format, vbds, query, resolver)
 		},

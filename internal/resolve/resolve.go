@@ -3,10 +3,8 @@
 // relationships by name instead of by UUID.
 //
 // It is the single helper shared by the `get` (and later `list`) commands.
-// Every lookup goes through the SDK v2: the typed `library` services for the
-// resources they expose, and the SDK's own REST client only for the endpoints
-// those services do not wrap yet (vm-templates). It is the same single API
-// boundary as the rest of the CLI, not a second HTTP client.
+// Every lookup goes through the typed SDK v2 `library` services, the same
+// single API boundary as the rest of the CLI.
 //
 // Cost model (the rule the `get` commands rely on to stay free of N+1):
 //   - a single reference (a container, a pool, a master, the SR of a VDI, the
@@ -30,30 +28,21 @@ import (
 
 	"github.com/vatesfr/xenorchestra-go-sdk/pkg/payloads"
 	"github.com/vatesfr/xenorchestra-go-sdk/pkg/services/library"
-	"github.com/vatesfr/xenorchestra-go-sdk/v2/client"
 )
-
-// templatesEndpoint is the REST resource that holds VM templates. The SDK v2
-// does not (yet) expose a typed service for it, so templates are resolved
-// through the SDK's own REST client — the same single API boundary. The
-// missing operation should be contributed upstream.
-const templatesEndpoint = "vm-templates"
 
 // Client resolves resource references into names against one profile.
 type Client struct {
-	xo   library.Library
-	http *client.Client
+	xo library.Library
 
 	cache map[string]string
 }
 
-// New builds a resolver on top of an authenticated SDK v2 client. lib is the
-// typed service facade (vm/host/pool/sr), http is the SDK REST client used for
-// the endpoints lib does not wrap yet (vm-templates).
-func New(lib library.Library, http *client.Client) *Client {
+// New builds a resolver on top of an authenticated SDK v2 client: the typed
+// service facade the command already holds, so resolving names builds no
+// second client.
+func New(lib library.Library) *Client {
 	return &Client{
 		xo:    lib,
-		http:  http,
 		cache: make(map[string]string),
 	}
 }
@@ -144,22 +133,19 @@ func (c *Client) ResolveContainer(ctx context.Context, id uuid.UUID) (string, er
 }
 
 // Template resolves the (composite) VM template id "poolId-templateUuid" to
-// its name_label, or the raw id when the lookup fails. Templates are fetched
-// through the SDK REST client because the typed service is not in the SDK yet.
+// its name_label, or the raw id when the lookup fails.
 func (c *Client) Template(ctx context.Context, id string) (string, error) {
-	if c.http == nil || id == "" {
+	if c.xo == nil || id == "" {
 		return id, nil
 	}
 	if name, ok := c.lookupStr("template", id); ok {
 		return name, nil
 	}
-	var t struct {
-		NameLabel string `json:"name_label"`
-	}
-	if err := client.TypedGet(ctx, c.http, templatesEndpoint+"/"+id, struct{}{}, &t); err != nil {
+	t, err := c.xo.Template().Get(ctx, id)
+	if err != nil {
 		return id, err
 	}
-	if t.NameLabel == "" {
+	if t == nil || t.NameLabel == "" {
 		return id, nil
 	}
 	c.storeStr("template", id, t.NameLabel)
