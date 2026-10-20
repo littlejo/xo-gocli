@@ -35,7 +35,8 @@ exit codes or machine output requires a new major version.
   `sr`, `network` and `vdi` (`xo vm get web-01`); a name shared by several
   objects is an error that lists their ids.
 - Shell completion of object ids (`xo vm start <TAB>`), with names shown
-  beside them where the shell supports descriptions.
+  beside them where the shell supports descriptions; `get` completes names
+  too (`xo vm get web<TAB>`).
 - Static binaries for Linux, macOS and Windows on amd64 and arm64, with
   checksums, and `install.sh` for Linux and macOS.
 

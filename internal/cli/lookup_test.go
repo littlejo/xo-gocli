@@ -56,7 +56,7 @@ func TestLookupIDExactName(t *testing.T) {
 }
 
 func TestLookupIDErrors(t *testing.T) {
-	if _, _, err := lookup(t, "db", []named{{idA, "db-01"}}, nil); err == nil || err.Error() != `VM "db" not found` {
+	if _, _, err := lookup(t, "db", []named{{idA, "db-01"}}, nil); err == nil || err.Error() != `VM "db" not found (no VM has this name)` {
 		t.Fatalf("no match: %v", err)
 	}
 	_, _, err := lookup(t, "web", []named{{idB, "web"}, {idA, "web"}}, nil)

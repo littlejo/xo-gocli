@@ -1,7 +1,6 @@
 package vm
 
 import (
-	"context"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -10,8 +9,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/littlejo/xo-gocli/internal/cli"
 	"github.com/littlejo/xo-gocli/internal/testenv"
+	"github.com/littlejo/xo-gocli/internal/testutil"
 )
 
 // byNameServer answers the name lookup (GET /rest/v0/vms?filter=...) with
@@ -37,19 +36,9 @@ func byNameServer(t *testing.T, list string, filters *[]string) *httptest.Server
 
 func runGetByName(t *testing.T, args ...string) (string, error) {
 	t.Helper()
-	root := &cobra.Command{Use: "xo", SilenceUsage: true, SilenceErrors: true}
-	root.PersistentFlags().String(cli.FlagProfile, "", "")
-	root.PersistentFlags().String(cli.FlagOutput, "table", "")
-	root.PersistentFlags().Bool(cli.FlagJSON, false, "")
 	vmCmd := &cobra.Command{Use: "vm"}
 	vmCmd.AddCommand(newGetCommand())
-	root.AddCommand(vmCmd)
-	var out strings.Builder
-	root.SetOut(&out)
-	root.SetErr(&out)
-	root.SetArgs(args)
-	err := root.ExecuteContext(context.Background())
-	return out.String(), err
+	return testutil.ExecuteCombined(testutil.Root(vmCmd), args...)
 }
 
 func TestGetByName(t *testing.T) {
@@ -83,7 +72,7 @@ func TestGetByNameNotFound(t *testing.T) {
 	byNameServer(t, `[]`, &filters)
 
 	_, err := runGetByName(t, "vm", "get", "nope")
-	if err == nil || err.Error() != `VM "nope" not found` {
+	if err == nil || err.Error() != `VM "nope" not found (no VM has this name)` {
 		t.Fatalf("expected a not-found error, got %v", err)
 	}
 }

@@ -37,7 +37,9 @@ func TestCompleteVMIDs(t *testing.T) {
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = fmt.Fprint(w, `[
 			{"id":"550e8400-e29b-41d4-a716-446655440001","name_label":"web-01"},
-			{"id":"660e8400-e29b-41d4-a716-446655440002","name_label":"db-01"}]`)
+			{"id":"660e8400-e29b-41d4-a716-446655440002","name_label":"db-01"},
+			{"id":"770e8400-e29b-41d4-a716-446655440003","name_label":"twin"},
+			{"id":"880e8400-e29b-41d4-a716-446655440004","name_label":"twin"}]`)
 	}))
 	defer srv.Close()
 	testenv.Isolate(t, srv.URL)
@@ -51,6 +53,21 @@ func TestCompleteVMIDs(t *testing.T) {
 	}
 	if lists != 1 {
 		t.Fatalf("completion made %d list requests, want 1", lists)
+	}
+	lists = 0
+
+	// get takes a name too: names complete as well, the id as description;
+	// a name two VMs share is left out, since get would reject it.
+	out = complete(t, "vm", "get", "we")
+	if !strings.Contains(out, "web-01\t550e8400-e29b-41d4-a716-446655440001") {
+		t.Fatalf("vm get should complete names:\n%s", out)
+	}
+	if out := complete(t, "vm", "get", "tw"); strings.Contains(out, "twin") {
+		t.Fatalf("a shared name must not be completed:\n%s", out)
+	}
+	// start takes an id only: no names.
+	if out := complete(t, "vm", "start", "we"); strings.Contains(out, "web-01") {
+		t.Fatalf("vm start must not complete names:\n%s", out)
 	}
 
 	// Nested commands too, and only the first argument.
