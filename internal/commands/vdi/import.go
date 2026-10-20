@@ -59,7 +59,7 @@ large disks.`,
 			}
 			source := args[1]
 
-			xo, cfg, err := newClient(cmd)
+			xo, cfg, err := cli.LoadClient(cmd)
 			if err != nil {
 				return err
 			}
@@ -76,7 +76,7 @@ large disks.`,
 				name = id.String()
 			}
 
-			confirmed, err := confirm(cmd, fmt.Sprintf("Are you sure you want to overwrite VDI %q with %s?", name, source), cli.SkipConfirm(cmd))
+			confirmed, err := cli.Confirm(cmd, fmt.Sprintf("Are you sure you want to overwrite VDI %q with %s?", name, source), cli.SkipConfirm(cmd))
 			if err != nil {
 				return err
 			}

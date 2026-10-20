@@ -72,7 +72,7 @@ VDI).`,
 // print the resulting task ID (or a plain confirmation when the action is
 // synchronous).
 func runAction(cmd *cobra.Command, idStr string, verb string, perform func(ctx context.Context, xo library.Library, id uuid.UUID) (string, error)) error {
-	xo, cfg, err := newClient(cmd)
+	xo, cfg, err := cli.LoadClient(cmd)
 	if err != nil {
 		return err
 	}

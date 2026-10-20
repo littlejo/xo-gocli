@@ -44,7 +44,7 @@ type tagSpec struct {
 // existence check so failures report a clear "not found" error) and prints a
 // concise confirmation.
 func runTag(cmd *cobra.Command, idStr string, spec tagSpec) error {
-	xo, cfg, err := newClient(cmd)
+	xo, cfg, err := cli.LoadClient(cmd)
 	if err != nil {
 		return err
 	}

@@ -61,7 +61,7 @@ exporting or importing large disks.`,
 				return err
 			}
 
-			xo, cfg, err := newClient(cmd)
+			xo, cfg, err := cli.LoadClient(cmd)
 			if err != nil {
 				return err
 			}

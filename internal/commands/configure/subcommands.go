@@ -1,7 +1,6 @@
 package configure
 
 import (
-	"bufio"
 	"fmt"
 	"io"
 	"strings"
@@ -211,7 +210,7 @@ current falls back to the first remaining profile.`,
 			}
 
 			if !cli.SkipConfirm(cmd) {
-				ok, err := confirm(cmd, fmt.Sprintf("Remove profile %q?", name))
+				ok, err := cli.Confirm(cmd, fmt.Sprintf("Remove profile %q?", name), false)
 				if err != nil {
 					return err
 				}
@@ -237,25 +236,6 @@ current falls back to the first remaining profile.`,
 
 // flagYes skips the interactive confirmation of 'configure remove'.
 const flagYes = "yes"
-
-// confirm asks the user to confirm a destructive operation. When stdin is not
-// a terminal it refuses so that automation never blocks, forcing the caller to
-// pass --yes (or set $XOA_YES).
-func confirm(cmd *cobra.Command, message string) (bool, error) {
-	in := cmd.InOrStdin()
-	if !isTerminal(in) {
-		return false, fmt.Errorf("confirmation required: re-run with --yes to proceed non-interactively")
-	}
-	if _, err := fmt.Fprintf(cmd.ErrOrStderr(), "%s [y/N]: ", message); err != nil {
-		return false, err
-	}
-	line, err := bufio.NewReader(in).ReadString('\n')
-	answer := strings.ToLower(strings.TrimSpace(line))
-	if err != nil && answer == "" {
-		return false, fmt.Errorf("cannot read confirmation: %w", err)
-	}
-	return answer == "y" || answer == "yes", nil
-}
 
 func newUseCommand() *cobra.Command {
 	return &cobra.Command{

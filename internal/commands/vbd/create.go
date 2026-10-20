@@ -83,7 +83,7 @@ kept).`,
 				params.Bootable = &b
 			}
 
-			xo, cfg, err := newClient(cmd)
+			xo, cfg, err := cli.LoadClient(cmd)
 			if err != nil {
 				return err
 			}

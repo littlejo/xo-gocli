@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/gofrs/uuid"
 	"github.com/spf13/cobra"
 	"github.com/vatesfr/xenorchestra-go-sdk/pkg/config"
 	"github.com/vatesfr/xenorchestra-go-sdk/pkg/services/library"
@@ -255,6 +256,31 @@ func NewClient(cmd *cobra.Command, cfg *xoconfig.ClientConfig) (library.Library,
 		return nil, newConnectionError(cfg, err)
 	}
 	return client, nil
+}
+
+// LoadClient loads the selected profile (--profile / $XOA_PROFILE) and builds
+// the typed SDK v2 client from it. The profile is returned too, for the
+// --insecure hints of the error messages.
+func LoadClient(cmd *cobra.Command) (library.Library, *xoconfig.ClientConfig, error) {
+	cfg, err := xoconfig.Load(ProfileName(cmd))
+	if err != nil {
+		return nil, nil, err
+	}
+	xo, err := NewClient(cmd, cfg)
+	if err != nil {
+		return nil, nil, err
+	}
+	return xo, cfg, nil
+}
+
+// ParseID converts a positional identifier into a UUID; kind names the
+// resource in the error ("VM", "host", ...).
+func ParseID(kind, id string) (uuid.UUID, error) {
+	u, err := uuid.FromString(id)
+	if err != nil {
+		return uuid.UUID{}, fmt.Errorf("invalid %s id %q (expected a UUID)", kind, id)
+	}
+	return u, nil
 }
 
 // NewHTTPClient builds the authenticated SDK v2 REST client.

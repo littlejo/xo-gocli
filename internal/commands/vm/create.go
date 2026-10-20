@@ -98,7 +98,7 @@ ends when the task completes, or on Ctrl+C.`,
 				params.Memory = &m
 			}
 
-			xo, cfg, err := newClient(cmd)
+			xo, cfg, err := cli.LoadClient(cmd)
 			if err != nil {
 				return err
 			}

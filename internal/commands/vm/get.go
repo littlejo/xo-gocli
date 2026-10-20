@@ -52,7 +52,7 @@ machine readable behavior of 'xo vm get <id> --output json' is unchanged.`,
 				return err
 			}
 
-			xo, cfg, err := newClient(cmd)
+			xo, cfg, err := cli.LoadClient(cmd)
 			if err != nil {
 				return err
 			}

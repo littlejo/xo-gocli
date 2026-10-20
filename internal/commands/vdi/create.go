@@ -80,7 +80,7 @@ docs/usecases.md, 'Add a disk to a VM').`,
 				params.Sharable = &b
 			}
 
-			xo, cfg, err := newClient(cmd)
+			xo, cfg, err := cli.LoadClient(cmd)
 			if err != nil {
 				return err
 			}

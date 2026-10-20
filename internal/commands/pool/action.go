@@ -1,18 +1,13 @@
 package pool
 
 import (
-	"bufio"
 	"context"
 	"errors"
 	"fmt"
-	"io"
-	"os"
-	"strings"
 	"time"
 
 	"github.com/gofrs/uuid"
 	"github.com/spf13/cobra"
-	"golang.org/x/term"
 
 	"github.com/vatesfr/xenorchestra-go-sdk/pkg/services/library"
 
@@ -77,7 +72,7 @@ func waitDeadlineError(verb, name string, deadline time.Duration, ctxErr error) 
 // HTTP client timeout regardless (--timeout / $XOA_TIMEOUT), so a broken
 // connection cannot hang a single poll forever.
 func runAction(cmd *cobra.Command, idStr string, spec actionSpec) error {
-	xo, cfg, err := newClient(cmd)
+	xo, cfg, err := cli.LoadClient(cmd)
 	if err != nil {
 		return err
 	}
@@ -106,7 +101,7 @@ func runAction(cmd *cobra.Command, idStr string, spec actionSpec) error {
 	}
 
 	if spec.destructive {
-		ok, err := confirm(cmd, fmt.Sprintf("Are you sure you want to %s pool %q?", spec.verb, name), cli.SkipConfirm(cmd))
+		ok, err := cli.Confirm(cmd, fmt.Sprintf("Are you sure you want to %s pool %q?", spec.verb, name), cli.SkipConfirm(cmd))
 		if err != nil {
 			return err
 		}
@@ -145,37 +140,6 @@ func poolNameOf(ctx context.Context, xo library.Library, id uuid.UUID) (string, 
 		return id.String(), nil
 	}
 	return p.NameLabel, nil
-}
-
-// isTerminal reports whether in is connected to a terminal.
-func isTerminal(in io.Reader) bool {
-	file, ok := in.(*os.File)
-	if !ok {
-		return false
-	}
-	return term.IsTerminal(int(file.Fd()))
-}
-
-// confirm asks the user to confirm a destructive operation. When --yes is
-// provided it always proceeds; when stdin is not a terminal it refuses so that
-// automation never blocks, forcing the caller to pass --yes explicitly.
-func confirm(cmd *cobra.Command, message string, yes bool) (bool, error) {
-	if yes {
-		return true, nil
-	}
-	in := cmd.InOrStdin()
-	if !isTerminal(in) {
-		return false, fmt.Errorf("confirmation required: re-run with --yes to proceed non-interactively")
-	}
-	if _, err := fmt.Fprintf(cmd.ErrOrStderr(), "%s [y/N]: ", message); err != nil {
-		return false, err
-	}
-	line, err := bufio.NewReader(in).ReadString('\n')
-	answer := strings.ToLower(strings.TrimSpace(line))
-	if err != nil && answer == "" {
-		return false, fmt.Errorf("cannot read confirmation: %w", err)
-	}
-	return answer == "y" || answer == "yes", nil
 }
 
 // renderActionResult prints the outcome of a pool action: a friendly line for

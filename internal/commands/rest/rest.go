@@ -14,7 +14,6 @@
 package rest
 
 import (
-	"bufio"
 	"bytes"
 	"context"
 	"encoding/json"
@@ -23,12 +22,10 @@ import (
 	"io"
 	"net/http"
 	"net/url"
-	"os"
 	"path"
 	"strings"
 
 	"github.com/spf13/cobra"
-	"golang.org/x/term"
 
 	"github.com/vatesfr/xenorchestra-go-sdk/v2/client"
 
@@ -155,7 +152,7 @@ to read it from stdin.
 			}
 
 			if method == http.MethodDelete && !cli.SkipConfirm(cmd) {
-				ok, err := confirm(cmd, fmt.Sprintf("Are you sure you want to DELETE %s?", endpoint))
+				ok, err := cli.Confirm(cmd, fmt.Sprintf("Are you sure you want to DELETE %s?", endpoint), false)
 				if err != nil {
 					return err
 				}
@@ -372,31 +369,4 @@ func renderInclude(w io.Writer, statusLine string, headers http.Header) error {
 	}
 	_, err := fmt.Fprintln(w)
 	return err
-}
-
-// confirm asks the user to confirm a destructive operation. When stdin is not
-// a terminal it refuses so that automation never blocks, forcing --yes.
-func confirm(cmd *cobra.Command, message string) (bool, error) {
-	in := cmd.InOrStdin()
-	if !isTerminal(in) {
-		return false, fmt.Errorf("confirmation required: re-run with --yes to proceed non-interactively")
-	}
-	if _, err := fmt.Fprintf(cmd.ErrOrStderr(), "%s [y/N]: ", message); err != nil {
-		return false, err
-	}
-	line, err := bufio.NewReader(in).ReadString('\n')
-	answer := strings.ToLower(strings.TrimSpace(line))
-	if err != nil && answer == "" {
-		return false, fmt.Errorf("cannot read confirmation: %v", err)
-	}
-	return answer == "y" || answer == "yes", nil
-}
-
-// isTerminal reports whether in is connected to a terminal.
-func isTerminal(in io.Reader) bool {
-	file, ok := in.(*os.File)
-	if !ok {
-		return false
-	}
-	return term.IsTerminal(int(file.Fd()))
 }
