@@ -161,7 +161,7 @@ jobs:
         # Pinned to the commit SHA of release v1.13.0 (not a mutable tag and
         # not @main): tags can be moved to point at a malicious commit, and
         # this action runs with pull-requests: write on every triggered PR.
-        uses: alibaba/open-code-review@1672852136fc87748249d22bce0819f33419ea79 # v1.13.0
+        uses: alibaba/open-code-review@55450a95e5999dfd00ec2d582c23d76e269922fb # v1.13.2
         with:
           llm_url: https://ai-gateway.vates.tech/v1/chat/completions
           llm_auth_token: ${{ secrets.OCR_LLM_AUTH_TOKEN }}
