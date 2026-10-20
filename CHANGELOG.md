@@ -36,6 +36,15 @@ exit codes or machine output requires a new major version.
 
 ### Changed
 
+- Built on `xenorchestra-go-sdk` v1.21.0. The template name in `xo vm get`
+  is resolved through its new typed `Template()` service, and the `get` and
+  `list` tables reuse the command's SDK client to resolve names: one client
+  instead of three (one login instead of three with a username + password
+  profile).
+- `xo pool rolling-update`, `rolling-reboot` and `emergency-shutdown` fail at
+  once when their task is interrupted, instead of waiting for
+  `--wait-timeout`, and say so instead of ending on an empty `failed:`.
+
 - The wait deadline of `xo task wait` and of the `pool` maintenance commands
   is now `--wait-timeout`. `--timeout` means the per-request HTTP timeout on
   every command. A script that used `task wait --timeout 5m` must switch to

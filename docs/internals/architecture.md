@@ -96,8 +96,9 @@ SRs). Two extra rules apply to lists:
   the listing.
 
 The relationships are resolved by the shared [`internal/resolve`](../../internal/resolve/resolve.go)
-helper (built on the SDK v2 typed services, plus the SDK REST client for the
-endpoints they don't wrap yet, such as `vm-templates`). See the
+helper, built on the SDK v2 typed services: a command passes it the client it
+already holds (`resolve.New(xo)`), so resolving names builds no second client.
+See the
 [command guide](../reference/commands.md) for each resource's detail view and
 example output, and [Performance](performance.md) for how to verify the cost
 model.

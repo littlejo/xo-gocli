@@ -73,10 +73,7 @@ A VDI is a virtual disk that lives on a storage repository (SR). Use
 			// the table.
 			var resolver *resolve.Client
 			if format == output.FormatTable && query == "" {
-				resolver, err = cli.NewResolver(cmd, cfg)
-				if err != nil {
-					return err
-				}
+				resolver = resolve.New(xo)
 			}
 			return renderVDIs(cmd.OutOrStdout(), cmd.Context(), format, vdis, query, resolver)
 		},

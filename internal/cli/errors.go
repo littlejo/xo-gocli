@@ -88,6 +88,12 @@ func translateSDKErrorTail(tail string) (string, bool) {
 	if strings.Contains(tail, "failed to unmarshal response") || strings.HasPrefix(tail, "json: cannot unmarshal") {
 		return "the Xen Orchestra API returned a malformed response", true
 	}
+	// The SDK's synchronous actions ('pool rolling_update', VM creation, …)
+	// report a failed task as "<action> failed: <task message>". An
+	// interrupted task carries no message, which leaves the line hanging.
+	if strings.HasSuffix(strings.TrimRight(tail, " "), " failed:") {
+		return strings.TrimRight(tail, " ") + " the task ended without success and Xen Orchestra gave no reason (it may have been interrupted)", true
+	}
 	switch apiStatusText(tail) {
 	case http.StatusUnauthorized:
 		return "authentication was rejected by the server (401)", true

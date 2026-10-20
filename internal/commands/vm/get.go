@@ -69,10 +69,7 @@ machine readable behavior of 'xo vm get <id> --output json' is unchanged.`,
 				return output.RenderRaw(cmd.OutOrStdout(), format, vm, query)
 			}
 
-			resolver, err := cli.NewResolver(cmd, cfg)
-			if err != nil {
-				return err
-			}
+			resolver := resolve.New(xo)
 			return renderVMDetail(cmd.OutOrStdout(), cmd.Context(), vm, resolver)
 		},
 	}

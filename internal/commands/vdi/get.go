@@ -74,10 +74,7 @@ machine readable behavior of 'xo vdi get <id> --output json' is unchanged.`,
 				return output.RenderRaw(cmd.OutOrStdout(), format, vdi, query)
 			}
 
-			resolver, err := cli.NewResolver(cmd, cfg)
-			if err != nil {
-				return err
-			}
+			resolver := resolve.New(xo)
 			return renderVDIDetail(cmd.OutOrStdout(), cmd.Context(), xo, vdi, resolver)
 		},
 	}

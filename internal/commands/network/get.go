@@ -67,10 +67,7 @@ machine readable behavior of 'xo network get <id> --output json' is unchanged.`,
 				return output.RenderRaw(cmd.OutOrStdout(), format, network, query)
 			}
 
-			resolver, err := cli.NewResolver(cmd, cfg)
-			if err != nil {
-				return err
-			}
+			resolver := resolve.New(xo)
 			return renderNetworkDetail(cmd.OutOrStdout(), cmd.Context(), network, resolver)
 		},
 	}

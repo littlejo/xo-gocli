@@ -73,10 +73,7 @@ machine readable behavior of 'xo vbd get <id> --output json' is unchanged.`,
 				return output.RenderRaw(cmd.OutOrStdout(), format, vbd, query)
 			}
 
-			resolver, err := cli.NewResolver(cmd, cfg)
-			if err != nil {
-				return err
-			}
+			resolver := resolve.New(xo)
 			return renderVBDDetail(cmd.OutOrStdout(), cmd.Context(), xo, vbd, resolver)
 		},
 	}

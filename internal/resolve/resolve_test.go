@@ -14,7 +14,6 @@ import (
 
 	sdkconfig "github.com/vatesfr/xenorchestra-go-sdk/pkg/config"
 	v2 "github.com/vatesfr/xenorchestra-go-sdk/v2"
-	"github.com/vatesfr/xenorchestra-go-sdk/v2/client"
 )
 
 // requestLog records every request path seen by the fake server. The handler
@@ -95,11 +94,7 @@ func newClient(t *testing.T, url string) *Client {
 	if err != nil {
 		t.Fatalf("sdk library: %v", err)
 	}
-	httpClient, err := client.New(cfg)
-	if err != nil {
-		t.Fatalf("sdk rest client: %v", err)
-	}
-	return New(lib, httpClient)
+	return New(lib)
 }
 
 func mustUUID(t *testing.T, s string) uuid.UUID {

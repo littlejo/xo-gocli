@@ -69,10 +69,7 @@ machine readable behavior of 'xo pool get <id> --output json' is unchanged.`,
 				return output.RenderRaw(cmd.OutOrStdout(), format, pool, query)
 			}
 
-			resolver, err := cli.NewResolver(cmd, cfg)
-			if err != nil {
-				return err
-			}
+			resolver := resolve.New(xo)
 			return renderPoolDetail(cmd.OutOrStdout(), cmd.Context(), pool, resolver)
 		},
 	}

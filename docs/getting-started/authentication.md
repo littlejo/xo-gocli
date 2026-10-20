@@ -45,12 +45,11 @@ To list or inspect the tokens of the current user afterwards, see
 **Token profiles are recommended.** A token profile authenticates with the
 cookie XO already issued, so no login request is sent at all. With a
 username + password profile, the SDK logs in once per client it builds
-(`POST /auth/login`), and a command that needs both the typed SDK services
-and the raw REST client (the `list`/`get` tables resolve names, so most of
-them do) builds two of them — two logins per invocation. This is a known
-inefficiency tracked for v1.1 (a single shared client); until then, token
-profiles avoid the duplicate logins and the resulting auth load on the
-server.
+(`POST /auth/login`). Most commands build one client. The commands that also
+need the raw REST client build two, so they log in twice: `xo template
+list` / `get`, `xo task`, `xo vm export` / `import` / `update`, and the
+actions run with `--wait`. Token profiles avoid those extra logins and the
+auth load they put on the server.
 
 A token is also easier to rotate and to scope: create one per machine or per
 CI pipeline, with an expiry, and never put it on the command line in shared

@@ -71,10 +71,7 @@ machine readable behavior of 'xo host get <id> --output json' is unchanged.`,
 				return output.RenderRaw(cmd.OutOrStdout(), format, host, query)
 			}
 
-			resolver, err := cli.NewResolver(cmd, cfg)
-			if err != nil {
-				return err
-			}
+			resolver := resolve.New(xo)
 			return renderHostDetail(cmd.OutOrStdout(), cmd.Context(), host, resolver)
 		},
 	}
