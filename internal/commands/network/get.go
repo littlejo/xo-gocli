@@ -64,7 +64,7 @@ machine readable behavior of 'xo network get <id> --output json' is unchanged.`,
 			// straight from the raw object, exactly as before; only the default
 			// human view is the new detail sheet, which resolves the pool.
 			if format != output.FormatTable || query != "" {
-				return renderNetworkRaw(cmd.OutOrStdout(), format, network, query)
+				return output.RenderRaw(cmd.OutOrStdout(), format, network, query)
 			}
 
 			resolver, err := cli.NewResolver(cmd, cfg)
@@ -88,25 +88,6 @@ func parseID(id string) (uuid.UUID, error) {
 // the raw API error as debug detail.
 func notFound(id string, err error, insecure bool) error {
 	return cli.NotFound("network", "get", id, err, insecure)
-}
-
-// renderNetworkRaw renders the network in the structured formats (json/yaml/text) or
-// as a --query projection. It emits the raw object so machine readable output
-// and the query pipeline are unchanged.
-func renderNetworkRaw(w io.Writer, format output.Format, n *payloads.Network, query string) error {
-	if query != "" {
-		queryResult, err := output.Query(query, n)
-		if err != nil {
-			return err
-		}
-		return output.Render(w, format, output.Table{}, n, queryResult)
-	}
-
-	normalized, err := output.Normalize(n)
-	if err != nil {
-		return err
-	}
-	return output.Render(w, format, output.Table{}, normalized, nil)
 }
 
 // renderNetworkDetail renders the single network as a human readable detail

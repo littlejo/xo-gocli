@@ -66,7 +66,7 @@ machine readable behavior of 'xo pool get <id> --output json' is unchanged.`,
 			// straight from the raw object, exactly as before; only the default
 			// human view is the new detail sheet, which resolves relationships.
 			if format != output.FormatTable || query != "" {
-				return renderPoolRaw(cmd.OutOrStdout(), format, pool, query)
+				return output.RenderRaw(cmd.OutOrStdout(), format, pool, query)
 			}
 
 			resolver, err := cli.NewResolver(cmd, cfg)
@@ -90,25 +90,6 @@ func parseID(id string) (uuid.UUID, error) {
 // the raw API error as debug detail.
 func notFound(id string, err error, insecure bool) error {
 	return cli.NotFound("pool", "get", id, err, insecure)
-}
-
-// renderPoolRaw renders the pool in the structured formats (json/yaml/text) or
-// as a --query projection. It emits the raw object so machine readable output
-// and the query pipeline are unchanged.
-func renderPoolRaw(w io.Writer, format output.Format, p *payloads.Pool, query string) error {
-	if query != "" {
-		queryResult, err := output.Query(query, p)
-		if err != nil {
-			return err
-		}
-		return output.Render(w, format, output.Table{}, p, queryResult)
-	}
-
-	normalized, err := output.Normalize(p)
-	if err != nil {
-		return err
-	}
-	return output.Render(w, format, output.Table{}, normalized, nil)
 }
 
 // renderPoolDetail renders the single pool as a human readable detail sheet.

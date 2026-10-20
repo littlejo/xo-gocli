@@ -68,7 +68,7 @@ machine readable behavior of 'xo host get <id> --output json' is unchanged.`,
 			// straight from the raw object, exactly as before; only the default
 			// human view is the new detail sheet, which resolves relationships.
 			if format != output.FormatTable || query != "" {
-				return renderHostRaw(cmd.OutOrStdout(), format, host, query)
+				return output.RenderRaw(cmd.OutOrStdout(), format, host, query)
 			}
 
 			resolver, err := cli.NewResolver(cmd, cfg)
@@ -92,25 +92,6 @@ func parseID(id string) (uuid.UUID, error) {
 // the raw API error as debug detail.
 func notFound(id string, err error, insecure bool) error {
 	return cli.NotFound("host", "get", id, err, insecure)
-}
-
-// renderHostRaw renders the host in the structured formats (json/yaml/text) or
-// as a --query projection. It emits the raw object so machine readable output
-// and the query pipeline are unchanged.
-func renderHostRaw(w io.Writer, format output.Format, h *payloads.Host, query string) error {
-	if query != "" {
-		queryResult, err := output.Query(query, h)
-		if err != nil {
-			return err
-		}
-		return output.Render(w, format, output.Table{}, h, queryResult)
-	}
-
-	normalized, err := output.Normalize(h)
-	if err != nil {
-		return err
-	}
-	return output.Render(w, format, output.Table{}, normalized, nil)
 }
 
 // renderHostDetail renders the single host as a human readable detail sheet.

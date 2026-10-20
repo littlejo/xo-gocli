@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/gofrs/uuid"
+	"github.com/littlejo/xo-gocli/internal/taskwait"
 	"github.com/spf13/cobra"
 
 	"github.com/vatesfr/xenorchestra-go-sdk/pkg/services/library"
@@ -46,6 +47,6 @@ pin the VM to a specific host; otherwise Xen Orchestra selects one.`,
 	}
 
 	cmd.Flags().StringVar(&hostID, flagHost, "", "host UUID to start the VM on (default: automatic)")
-	addWaitFlag(cmd)
+	taskwait.AddFlag(cmd)
 	return cmd
 }

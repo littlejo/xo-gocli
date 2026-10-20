@@ -66,7 +66,7 @@ machine readable behavior of 'xo vm get <id> --output json' is unchanged.`,
 			// straight from the raw object, exactly as before; only the default
 			// human view is the new detail sheet, which resolves relationships.
 			if format != output.FormatTable || query != "" {
-				return renderVMRaw(cmd.OutOrStdout(), format, vm, query)
+				return output.RenderRaw(cmd.OutOrStdout(), format, vm, query)
 			}
 
 			resolver, err := cli.NewResolver(cmd, cfg)
@@ -79,25 +79,6 @@ machine readable behavior of 'xo vm get <id> --output json' is unchanged.`,
 
 	cmd.Flags().StringVarP(&query, flagQuery, "q", "", "JMESPath expression applied to the result, e.g. 'name_label'")
 	return cmd
-}
-
-// renderVMRaw renders the VM in the structured formats (json/yaml/text) or as
-// a --query projection. It emits the raw object so machine readable output and
-// the query pipeline are unchanged.
-func renderVMRaw(w io.Writer, format output.Format, vm *payloads.VM, query string) error {
-	if query != "" {
-		queryResult, err := output.Query(query, vm)
-		if err != nil {
-			return err
-		}
-		return output.Render(w, format, output.Table{}, vm, queryResult)
-	}
-
-	normalized, err := output.Normalize(vm)
-	if err != nil {
-		return err
-	}
-	return output.Render(w, format, output.Table{}, normalized, nil)
 }
 
 // renderVMDetail renders the single VM as a human readable detail sheet. The

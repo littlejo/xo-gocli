@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/gofrs/uuid"
+	"github.com/littlejo/xo-gocli/internal/taskwait"
 	"github.com/spf13/cobra"
 
 	"github.com/vatesfr/xenorchestra-go-sdk/pkg/services/library"
@@ -48,6 +49,6 @@ ask for confirmation. The VM is referenced by its UUID, as returned by
 	}
 
 	cmd.Flags().BoolVar(&hard, flagHard, false, "power off the VM immediately instead of a clean shutdown")
-	addWaitFlag(cmd)
+	taskwait.AddFlag(cmd)
 	return cmd
 }

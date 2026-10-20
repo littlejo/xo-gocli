@@ -70,7 +70,7 @@ machine readable behavior of 'xo vbd get <id> --output json' is unchanged.`,
 			// straight from the raw object, exactly as before; only the default
 			// human view is the new detail sheet, which resolves relationships.
 			if format != output.FormatTable || query != "" {
-				return renderVBDRaw(cmd.OutOrStdout(), format, vbd, query)
+				return output.RenderRaw(cmd.OutOrStdout(), format, vbd, query)
 			}
 
 			resolver, err := cli.NewResolver(cmd, cfg)
@@ -83,25 +83,6 @@ machine readable behavior of 'xo vbd get <id> --output json' is unchanged.`,
 
 	cmd.Flags().StringVarP(&query, flagQuery, "q", "", "JMESPath expression applied to the result, e.g. 'VDI'")
 	return cmd
-}
-
-// renderVBDRaw renders the VBD in the structured formats (json/yaml/text) or
-// as a --query projection. It emits the raw object so machine readable output
-// and the query pipeline are unchanged.
-func renderVBDRaw(w io.Writer, format output.Format, vbd *payloads.VBD, query string) error {
-	if query != "" {
-		queryResult, err := output.Query(query, vbd)
-		if err != nil {
-			return err
-		}
-		return output.Render(w, format, output.Table{}, vbd, queryResult)
-	}
-
-	normalized, err := output.Normalize(vbd)
-	if err != nil {
-		return err
-	}
-	return output.Render(w, format, output.Table{}, normalized, nil)
 }
 
 // renderVBDDetail renders the single VBD as a human readable detail sheet.

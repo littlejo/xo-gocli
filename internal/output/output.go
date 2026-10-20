@@ -102,6 +102,24 @@ func Render(w io.Writer, format Format, table Table, raw any, query *QueryResult
 	}
 }
 
+// RenderRaw renders one API object in a structured format (json/yaml/text),
+// or its --query projection: the raw object as the API returned it, so the
+// machine output of a 'get' command never depends on its human view.
+func RenderRaw(w io.Writer, format Format, raw any, query string) error {
+	if query != "" {
+		queryResult, err := Query(query, raw)
+		if err != nil {
+			return err
+		}
+		return Render(w, format, Table{}, raw, queryResult)
+	}
+	normalized, err := Normalize(raw)
+	if err != nil {
+		return err
+	}
+	return Render(w, format, Table{}, normalized, nil)
+}
+
 // ValidateQuery checks that the expression compiles. An empty expression is
 // valid.
 func ValidateQuery(expression string) error {

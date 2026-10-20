@@ -11,20 +11,8 @@ import (
 	"github.com/vatesfr/xenorchestra-go-sdk/pkg/services/library"
 
 	"github.com/littlejo/xo-gocli/internal/cli"
-	"github.com/littlejo/xo-gocli/internal/config"
-	"github.com/littlejo/xo-gocli/internal/output"
 	"github.com/littlejo/xo-gocli/internal/taskwait"
 )
-
-// flagWait makes an asynchronous action block until its task completes and
-// render the task, instead of returning right after the action is started.
-const flagWait = "wait"
-
-// addWaitFlag registers the --wait flag on an asynchronous action. The
-// $XOA_WAIT environment variable is an equivalent for scripts (cli.WaitEnabled).
-func addWaitFlag(cmd *cobra.Command) {
-	cmd.Flags().Bool(flagWait, false, "wait for the task to complete before returning, and print it (like 'xo task wait'; or set XOA_WAIT=1)")
-}
 
 // newPlugCommand builds 'xo pbd plug': connect the PBD, attaching the SR to
 // its host (SDK PBD().Plug, asynchronous: returns a task id).
@@ -47,7 +35,7 @@ is asynchronous: the command prints the task id and returns. Track it with
 			})
 		},
 	}
-	addWaitFlag(cmd)
+	taskwait.AddFlag(cmd)
 	return cmd
 }
 
@@ -72,7 +60,7 @@ is asynchronous: the command prints the task id and returns. Track it with
 			})
 		},
 	}
-	addWaitFlag(cmd)
+	taskwait.AddFlag(cmd)
 	return cmd
 }
 
@@ -101,69 +89,15 @@ func runAction(cmd *cobra.Command, idStr string, verb string, perform func(ctx c
 	}
 
 	if cli.WaitEnabled(cmd) && taskID != "" {
-		return waitOnTask(cmd, cfg, ctx, taskID)
+		return taskwait.ForCommand(ctx, cmd, cfg, taskID)
 	}
 
-	return renderActionResult(cmd, verb, describe(pbd), taskID)
-}
-
-// waitOnTask blocks until the action's task reaches a terminal state and
-// renders the completed task (like 'xo task wait'); the returned error
-// reflects the outcome so the exit status does too. Each poll is bounded by
-// the HTTP client timeout (--timeout / $XOA_TIMEOUT); the wait itself ends on
-// a terminal state or Ctrl+C.
-func waitOnTask(cmd *cobra.Command, cfg *config.ClientConfig, ctx context.Context, taskID string) error {
-	format, err := output.ParseFormat(cli.OutputFormat(cmd))
-	if err != nil {
-		return err
-	}
-	httpClient, err := cli.NewHTTPClient(cmd, cfg)
-	if err != nil {
-		return err
-	}
-	return taskwait.Wait(ctx, httpClient, taskwait.Options{
-		Out:    cmd.OutOrStdout(),
-		Stderr: cmd.ErrOrStderr(),
-		ID:     taskID,
-		Format: format,
-		NotFound: func(id string, err error) error {
-			return cli.NotFound("task", "get", id, err, cfg.Insecure)
-		},
-	})
+	label := describe(pbd)
+	return taskwait.RenderStarted(cmd, "pbd", verb, label, label, taskID)
 }
 
 // describe renders a PBD for messages: the PBD has no name_label, so the label
 // links its host and SR.
 func describe(pbd *payloads.PBD) string {
 	return fmt.Sprintf("PBD %s (host %s, SR %s)", pbd.ID.String(), pbd.Host.String(), pbd.SR.String())
-}
-
-// renderActionResult prints the outcome of an async PBD action: a friendly
-// line for the human formats and a small machine document for json/yaml. When
-// the action was synchronous (empty task id), no task id is printed.
-func renderActionResult(cmd *cobra.Command, verb, label, taskID string) error {
-	format, err := output.ParseFormat(cli.OutputFormat(cmd))
-	if err != nil {
-		return err
-	}
-	w := cmd.OutOrStdout()
-	switch format {
-	case output.FormatJSON, output.FormatYAML:
-		doc := map[string]any{"action": verb, "pbd": label}
-		if taskID != "" {
-			doc["task_id"] = taskID
-		}
-		raw, err := output.Normalize(doc)
-		if err != nil {
-			return err
-		}
-		return output.Render(w, format, output.Table{}, raw, nil)
-	default:
-		if taskID == "" {
-			_, err := fmt.Fprintf(w, "Requested %s of %s\n", verb, label)
-			return err
-		}
-		_, err := fmt.Fprintf(w, "Requested %s of %s (task %s)\n", verb, label, taskID)
-		return err
-	}
 }

@@ -71,7 +71,7 @@ unchanged.`,
 			// straight from the raw object, exactly as before; only the default
 			// human view is the new detail sheet, which resolves the pool.
 			if format != output.FormatTable || query != "" {
-				return renderTemplateRaw(cmd.OutOrStdout(), format, template, query)
+				return output.RenderRaw(cmd.OutOrStdout(), format, template, query)
 			}
 
 			resolver, err := cli.NewResolver(cmd, cfg)
@@ -90,25 +90,6 @@ unchanged.`,
 // the raw API error as debug detail.
 func notFound(id string, err error, insecure bool) error {
 	return cli.NotFound("template", "get", id, err, insecure)
-}
-
-// renderTemplateRaw renders the template in the structured formats (json/yaml/text) or
-// as a --query projection. It emits the raw object so machine readable output
-// and the query pipeline are unchanged.
-func renderTemplateRaw(w io.Writer, format output.Format, t map[string]any, query string) error {
-	if query != "" {
-		queryResult, err := output.Query(query, t)
-		if err != nil {
-			return err
-		}
-		return output.Render(w, format, output.Table{}, t, queryResult)
-	}
-
-	normalized, err := output.Normalize(t)
-	if err != nil {
-		return err
-	}
-	return output.Render(w, format, output.Table{}, normalized, nil)
 }
 
 // renderTemplateDetail renders the single template as a human readable detail
