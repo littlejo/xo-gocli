@@ -9,6 +9,10 @@ readable view.
 
 The VM is referenced by its UUID, as returned by 'xo vm list'.
 
+The VM can also be given by its exact name (name_label), at the cost of
+one more request; a name shared by several VMs is an error that lists
+their ids.
+
 The human (default) view is a detail sheet: identity, location (the
 host or pool the VM runs on, shown by name), resources and configuration.
 The relationships are resolved to names by a small number of extra lookups
@@ -19,13 +23,14 @@ shown instead and the command still succeeds.
 machine readable behavior of 'xo vm get <id> --output json' is unchanged.
 
 ```
-xo vm get <id> [flags]
+xo vm get <id|name> [flags]
 ```
 
 ### Examples
 
 ```
   xo vm get 550e8400-e29b-41d4-a716-446655440001
+  xo vm get web-01
   xo vm get <id> --output json
   xo vm get <id> --query 'name_label'
 ```

@@ -8,6 +8,10 @@ Get a pool from Xen Orchestra, as a detailed, human readable view.
 
 The pool is referenced by its UUID, as returned by 'xo pool list'.
 
+The pool can also be given by its exact name (name_label), at the cost of
+one more request; a name shared by several pools is an error that lists
+their ids.
+
 The human (default) view is a detail sheet that resolves the master host and
 the storage repositories (default, suspend and crash-dump) by name, and lists
 the pool's hosts by name (resolved in one batch, never one lookup per host).
@@ -19,13 +23,14 @@ command still succeeds.
 machine readable behavior of 'xo pool get <id> --output json' is unchanged.
 
 ```
-xo pool get <id> [flags]
+xo pool get <id|name> [flags]
 ```
 
 ### Examples
 
 ```
   xo pool get 550e8400-e29b-41d4-a716-446655440001
+  xo pool get pool-prod
   xo pool get <id> --output json
   xo pool get <id> --query 'name_label'
 ```

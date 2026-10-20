@@ -8,6 +8,10 @@ Get a network from Xen Orchestra, as a detailed, human readable view.
 
 The network is referenced by its UUID, as returned by 'xo network list'.
 
+The network can also be given by its exact name (name_label), at the cost of
+one more request; a name shared by several networks is an error that lists
+their ids.
+
 The human (default) view is a detail sheet: the bridge, MTU and type, the pool
 it belongs to (shown by name), and the counts of VIFs and PIFs. The pool
 relationship is resolved by a single lookup; if it cannot be resolved, the raw
@@ -17,13 +21,14 @@ id is shown instead and the command still succeeds.
 machine readable behavior of 'xo network get <id> --output json' is unchanged.
 
 ```
-xo network get <id> [flags]
+xo network get <id|name> [flags]
 ```
 
 ### Examples
 
 ```
   xo network get 11111111-1111-4111-8111-111111111111
+  xo network get lan
   xo network get <id> --output json
   xo network get <id> --query 'name_label'
 ```

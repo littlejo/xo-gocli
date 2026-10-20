@@ -13,6 +13,7 @@ import (
 	"github.com/gofrs/uuid"
 
 	"github.com/vatesfr/xenorchestra-go-sdk/pkg/payloads"
+	"github.com/vatesfr/xenorchestra-go-sdk/pkg/services/library"
 
 	"github.com/littlejo/xo-gocli/internal/cli"
 	"github.com/littlejo/xo-gocli/internal/output"
@@ -23,11 +24,15 @@ func newGetCommand() *cobra.Command {
 	var query string
 
 	cmd := &cobra.Command{
-		Use:   "get <id>",
+		Use:   "get <id|name>",
 		Short: "Get a host",
 		Long: `Get a host from Xen Orchestra, as a detailed, human readable view.
 
 The host is referenced by its UUID, as returned by 'xo host list'.
+
+The host can also be given by its exact name (name_label), at the cost of
+one more request; a name shared by several hosts is an error that lists
+their ids.
 
 The human (default) view is a detail sheet: the address, the pool the host
 belongs to (shown by name), the memory usage, the CPU model and the VMs
@@ -38,14 +43,11 @@ resolved, the raw id is shown instead and the command still succeeds.
 --output json / yaml / text and --query still emit the raw object, so the
 machine readable behavior of 'xo host get <id> --output json' is unchanged.`,
 		Example: `  xo host get 550e8400-e29b-41d4-a716-446655440001
+  xo host get xcp-host-01
   xo host get <id> --output json
   xo host get <id> --query 'name_label'`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			id, err := parseID(args[0])
-			if err != nil {
-				return err
-			}
 			if err := output.ValidateQuery(query); err != nil {
 				return err
 			}
@@ -55,6 +57,10 @@ machine readable behavior of 'xo host get <id> --output json' is unchanged.`,
 			}
 
 			xo, cfg, err := cli.LoadClient(cmd)
+			if err != nil {
+				return err
+			}
+			id, err := lookupID(cmd.Context(), xo, cfg.Insecure, args[0])
 			if err != nil {
 				return err
 			}
@@ -81,11 +87,6 @@ machine readable behavior of 'xo host get <id> --output json' is unchanged.`,
 
 	cmd.Flags().StringVarP(&query, flagQuery, "q", "", "JMESPath expression applied to the result, e.g. 'name_label'")
 	return cmd
-}
-
-// parseID converts a positional host identifier into a UUID.
-func parseID(id string) (uuid.UUID, error) {
-	return cli.ParseID("host", id)
 }
 
 // notFound delegates to cli.NotFound, which reports a 404 concisely and keeps
@@ -199,4 +200,15 @@ func licenseExpiryText(ts int64) string {
 		return fmt.Sprintf("%d", ts)
 	}
 	return time.Unix(ts, 0).UTC().Format("2006-01-02")
+}
+
+// lookupID resolves the host a user referenced by UUID or by exact name
+// (see cli.LookupID).
+func lookupID(ctx context.Context, xo library.Library, insecure bool, ref string) (uuid.UUID, error) {
+	return cli.LookupID(ctx, "host", ref, insecure,
+		func(ctx context.Context, filter string) ([]*payloads.Host, error) {
+			return xo.Host().GetAll(ctx, 0, filter)
+		},
+		func(o *payloads.Host) uuid.UUID { return o.ID },
+		func(o *payloads.Host) string { return o.NameLabel })
 }

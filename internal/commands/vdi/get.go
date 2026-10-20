@@ -24,13 +24,17 @@ func newGetCommand() *cobra.Command {
 	var query string
 
 	cmd := &cobra.Command{
-		Use:   "get <id>",
+		Use:   "get <id|name>",
 		Short: "Get a virtual disk (VDI)",
 		Long: `Get a virtual disk (VDI) from Xen Orchestra, as a detailed,
 human readable view.
 
 The VDI is referenced by its UUID, as returned by 'xo vdi list' or
 'xo vm vdis <id>'.
+
+The VDI can also be given by its exact name (name_label), at the cost of
+one more request; a name shared by several VDIs is an error that lists
+their ids.
 
 The human (default) view is a detail sheet that resolves the SR by name and
 lists the VMs the disk is attached to (resolved in one batch, never one
@@ -41,14 +45,11 @@ command still succeeds.
 --output json / yaml / text and --query still emit the raw object, so the
 machine readable behavior of 'xo vdi get <id> --output json' is unchanged.`,
 		Example: `  xo vdi get 11111111-1111-4111-8111-111111111111
+  xo vdi get data-disk
   xo vdi get <id> --output json
   xo vdi get <id> --query 'name_label'`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			id, err := parseID(args[0])
-			if err != nil {
-				return err
-			}
 			if err := output.ValidateQuery(query); err != nil {
 				return err
 			}
@@ -58,6 +59,10 @@ machine readable behavior of 'xo vdi get <id> --output json' is unchanged.`,
 			}
 
 			xo, cfg, err := cli.LoadClient(cmd)
+			if err != nil {
+				return err
+			}
+			id, err := lookupID(cmd.Context(), xo, cfg.Insecure, args[0])
 			if err != nil {
 				return err
 			}
@@ -182,4 +187,15 @@ func sizeText(bytes int64) string {
 		return "-"
 	}
 	return units.HumanSize(float64(bytes))
+}
+
+// lookupID resolves the VDI a user referenced by UUID or by exact name
+// (see cli.LookupID).
+func lookupID(ctx context.Context, xo library.Library, insecure bool, ref string) (uuid.UUID, error) {
+	return cli.LookupID(ctx, "VDI", ref, insecure,
+		func(ctx context.Context, filter string) ([]*payloads.VDI, error) {
+			return xo.VDI().GetAll(ctx, 0, filter)
+		},
+		func(o *payloads.VDI) uuid.UUID { return o.ID },
+		func(o *payloads.VDI) string { return o.NameLabel })
 }
