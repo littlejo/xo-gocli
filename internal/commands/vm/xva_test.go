@@ -8,6 +8,8 @@ import (
 	"os"
 	"strings"
 	"testing"
+
+	"github.com/littlejo/xo-gocli/internal/testutil"
 )
 
 const fixturePool = `{
@@ -37,9 +39,7 @@ func newXVAServer(t *testing.T) *xvaServer {
 	s.Server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		s.requests = append(s.requests, request{Method: r.Method, Path: r.URL.Path, Query: r.URL.RawQuery})
 
-		if cookie, err := r.Cookie("authenticationToken"); err != nil || cookie.Value != "test-token" {
-			w.WriteHeader(http.StatusUnauthorized)
-			_, _ = fmt.Fprint(w, `{"message":"unauthorized"}`)
+		if !testutil.Authorized(w, r) {
 			return
 		}
 

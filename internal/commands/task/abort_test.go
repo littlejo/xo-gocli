@@ -1,7 +1,6 @@
 package task
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -11,8 +10,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/littlejo/xo-gocli/internal/cli"
 	"github.com/littlejo/xo-gocli/internal/testenv"
+	"github.com/littlejo/xo-gocli/internal/testutil"
 )
 
 type abortRequest struct {
@@ -35,9 +34,7 @@ func newAbortServer(t *testing.T, fixture string, abortResponse int) *abortServe
 	s.Server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		s.requests = append(s.requests, abortRequest{method: r.Method, path: r.URL.Path})
 
-		if cookie, err := r.Cookie("authenticationToken"); err != nil || cookie.Value != "test-token" {
-			w.WriteHeader(http.StatusUnauthorized)
-			_, _ = fmt.Fprint(w, `{"message":"unauthorized"}`)
+		if !testutil.Authorized(w, r) {
 			return
 		}
 
@@ -71,27 +68,12 @@ func (s *abortServer) post() (abortRequest, bool) {
 }
 
 func newAbortTestRoot() *cobra.Command {
-	root := &cobra.Command{
-		Use:           "xo",
-		SilenceUsage:  true,
-		SilenceErrors: true,
-	}
-	root.PersistentFlags().String(cli.FlagProfile, "", "")
-	root.PersistentFlags().String(cli.FlagOutput, "table", "")
-	root.PersistentFlags().Bool(cli.FlagJSON, false, "")
-	root.AddCommand(newAbortCommand())
-	return root
+	return testutil.Root(newAbortCommand())
 }
 
 func runAbortCmd(t *testing.T, args ...string) (string, error) {
 	t.Helper()
-	root := newAbortTestRoot()
-	var out strings.Builder
-	root.SetOut(&out)
-	root.SetErr(&out)
-	root.SetArgs(args)
-	err := root.ExecuteContext(context.Background())
-	return out.String(), err
+	return testutil.ExecuteCombined(newAbortTestRoot(), args...)
 }
 
 func TestTaskAbort(t *testing.T) {

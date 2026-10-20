@@ -11,6 +11,7 @@ import (
 
 	"github.com/littlejo/xo-gocli/internal/output"
 	"github.com/littlejo/xo-gocli/internal/testenv"
+	"github.com/littlejo/xo-gocli/internal/testutil"
 )
 
 const (
@@ -63,9 +64,7 @@ func newMutationServer(t *testing.T) *mutationServer {
 		body, _ := readBody(r)
 		s.requests = append(s.requests, request{Method: r.Method, Path: r.URL.Path, Body: body})
 
-		if cookie, err := r.Cookie("authenticationToken"); err != nil || cookie.Value != "test-token" {
-			w.WriteHeader(http.StatusUnauthorized)
-			_, _ = fmt.Fprint(w, `{"message":"unauthorized"}`)
+		if !testutil.Authorized(w, r) {
 			return
 		}
 		w.Header().Set("Content-Type", "application/json")

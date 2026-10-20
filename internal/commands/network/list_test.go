@@ -1,7 +1,6 @@
 package network
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -11,8 +10,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/littlejo/xo-gocli/internal/cli"
 	"github.com/littlejo/xo-gocli/internal/testenv"
+	"github.com/littlejo/xo-gocli/internal/testutil"
 )
 
 const fixtureNetworks = `[
@@ -61,9 +60,7 @@ func fakeXO(t *testing.T, handler func(w http.ResponseWriter, r *http.Request)) 
 			handler(w, r)
 			return
 		}
-		if cookie, err := r.Cookie("authenticationToken"); err != nil || cookie.Value != "test-token" {
-			w.WriteHeader(http.StatusUnauthorized)
-			_, _ = fmt.Fprint(w, `{"message":"unauthorized"}`)
+		if !testutil.Authorized(w, r) {
 			return
 		}
 		w.Header().Set("Content-Type", "application/json")
@@ -72,27 +69,12 @@ func fakeXO(t *testing.T, handler func(w http.ResponseWriter, r *http.Request)) 
 }
 
 func newTestRoot() *cobra.Command {
-	root := &cobra.Command{
-		Use:           "xo",
-		SilenceUsage:  true,
-		SilenceErrors: true,
-	}
-	root.PersistentFlags().String(cli.FlagProfile, "", "")
-	root.PersistentFlags().String(cli.FlagOutput, "table", "")
-	root.PersistentFlags().Bool(cli.FlagJSON, false, "")
-	root.AddCommand(newListCommand())
-	return root
+	return testutil.Root(newListCommand())
 }
 
 func runList(t *testing.T, args ...string) (string, error) {
 	t.Helper()
-	root := newTestRoot()
-	var out strings.Builder
-	root.SetOut(&out)
-	root.SetErr(&out)
-	root.SetArgs(args)
-	err := root.ExecuteContext(context.Background())
-	return out.String(), err
+	return testutil.ExecuteCombined(newTestRoot(), args...)
 }
 
 func TestNetworkListTable(t *testing.T) {

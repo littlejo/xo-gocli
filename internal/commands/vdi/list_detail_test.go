@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/littlejo/xo-gocli/internal/testenv"
+	"github.com/littlejo/xo-gocli/internal/testutil"
 )
 
 // listTestVDIs all live on the same SR.
@@ -29,9 +30,7 @@ func newListDetailServer(t *testing.T) *listDetailServer {
 	s := &listDetailServer{}
 	s.Server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		s.paths = append(s.paths, r.URL.Path)
-		if cookie, err := r.Cookie("authenticationToken"); err != nil || cookie.Value != "test-token" {
-			w.WriteHeader(http.StatusUnauthorized)
-			_, _ = fmt.Fprint(w, `{"message":"unauthorized"}`)
+		if !testutil.Authorized(w, r) {
 			return
 		}
 		w.Header().Set("Content-Type", "application/json")

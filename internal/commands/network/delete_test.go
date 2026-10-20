@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/littlejo/xo-gocli/internal/testenv"
+	"github.com/littlejo/xo-gocli/internal/testutil"
 )
 
 // deleteNetworkID is the id of fixtureNetwork, served on the existence lookup.
@@ -31,9 +32,7 @@ func newDeleteServer(t *testing.T) *deleteServer {
 	t.Helper()
 	s := &deleteServer{}
 	s.Server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if cookie, err := r.Cookie("authenticationToken"); err != nil || cookie.Value != "test-token" {
-			w.WriteHeader(http.StatusUnauthorized)
-			_, _ = fmt.Fprint(w, `{"message":"unauthorized"}`)
+		if !testutil.Authorized(w, r) {
 			return
 		}
 		w.Header().Set("Content-Type", "application/json")

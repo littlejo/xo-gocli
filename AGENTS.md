@@ -140,6 +140,7 @@ internal/
   taskwait/          the shared --wait flag and poll loop (also used by task
                      wait), and the "action started" output
   testenv/           test isolation from the developer's XOA_* settings
+  testutil/          shared test helpers: root command, runner, fake-server auth
 tools/gendocs/       generates docs/reference/cli (Markdown) and man pages
 ci/                  xo-api-sim cookie-auth patch, perf counting proxy
 ```

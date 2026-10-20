@@ -51,6 +51,7 @@ internal/
                            shared anti-N+1 helper behind every `get` detail view
   taskwait/              shared --wait poll loop (reused by task wait)
   testenv/               test isolation from the developer's XOA_* settings
+  testutil/              shared test helpers: root command, runner, fake-server auth
 tools/gendocs/           generates docs/reference/cli and the man pages
 ci/                      xo-api-sim cookie-auth patch, perf counting proxy
 ```

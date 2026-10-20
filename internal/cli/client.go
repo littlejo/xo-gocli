@@ -258,6 +258,17 @@ func NewClient(cmd *cobra.Command, cfg *xoconfig.ClientConfig) (library.Library,
 	return client, nil
 }
 
+// AddGlobalFlags registers the persistent flags every command reads
+// (--profile, --output, --json, --debug, --timeout) on the root command. The
+// tests build their root commands with it too, so they parse the same flags.
+func AddGlobalFlags(root *cobra.Command) {
+	root.PersistentFlags().StringP(FlagProfile, "p", "", "name of the configuration profile to use (or $XOA_PROFILE)")
+	root.PersistentFlags().StringP(FlagOutput, "o", "table", "output format: table, json, yaml, text (or $XOA_DEFAULT_OUTPUT, or the profile's \"output\" value)")
+	root.PersistentFlags().Bool(FlagJSON, false, "output as JSON (shorthand for --output json)")
+	root.PersistentFlags().BoolP(FlagDebug, "d", false, "show SDK/API error details on failure (or $XOA_DEBUG)")
+	root.PersistentFlags().Duration(FlagTimeout, 0, "HTTP client timeout, e.g. 60s or 2m (default 30s, or $XOA_TIMEOUT)")
+}
+
 // LoadClient loads the selected profile (--profile / $XOA_PROFILE) and builds
 // the typed SDK v2 client from it. The profile is returned too, for the
 // --insecure hints of the error messages.

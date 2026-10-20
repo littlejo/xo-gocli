@@ -12,8 +12,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/littlejo/xo-gocli/internal/cli"
 	"github.com/littlejo/xo-gocli/internal/testenv"
+	"github.com/littlejo/xo-gocli/internal/testutil"
 )
 
 // fixtureTaskSuccess is a finished task as served by GET /rest/v0/tasks/{id}.
@@ -78,9 +78,7 @@ func newActionServer(t *testing.T) *actionServer {
 		body, _ := readActionBody(r)
 		s.requests = append(s.requests, request{Method: r.Method, Path: r.URL.Path, Body: body})
 
-		if cookie, err := r.Cookie("authenticationToken"); err != nil || cookie.Value != "test-token" {
-			w.WriteHeader(http.StatusUnauthorized)
-			_, _ = fmt.Fprint(w, `{"message":"unauthorized"}`)
+		if !testutil.Authorized(w, r) {
 			return
 		}
 
@@ -135,18 +133,7 @@ func readActionBody(r *http.Request) (string, error) {
 }
 
 func newActionTestRoot() *cobra.Command {
-	root := &cobra.Command{
-		Use:           "xo",
-		SilenceUsage:  true,
-		SilenceErrors: true,
-	}
-	root.PersistentFlags().String(cli.FlagProfile, "", "")
-	root.PersistentFlags().String(cli.FlagOutput, "table", "")
-	root.PersistentFlags().Bool(cli.FlagJSON, false, "")
-	root.AddCommand(newRollingUpdateCommand())
-	root.AddCommand(newRollingRebootCommand())
-	root.AddCommand(newEmergencyShutdownCommand())
-	return root
+	return testutil.Root(newRollingUpdateCommand(), newRollingRebootCommand(), newEmergencyShutdownCommand())
 }
 
 // runActionTest executes the command with an explicit non-terminal stdin so
