@@ -17,7 +17,8 @@ import (
 // narrows the result on the server (the XO filter syntax matches substrings,
 // so the exact, case-sensitive comparison is done here); it receives "" when
 // the name cannot be quoted safely, and the whole collection is compared.
-// No match is reported like a 404, several matches list their ids.
+// No match is reported as not found, saying it was looked up as a name;
+// several matches list their ids.
 func LookupID[T any](ctx context.Context, kind, ref string, insecure bool,
 	list func(ctx context.Context, filter string) ([]T, error),
 	idOf func(T) uuid.UUID, nameOf func(T) string,
@@ -48,7 +49,7 @@ func LookupID[T any](ctx context.Context, kind, ref string, insecure bool,
 	}
 	switch len(ids) {
 	case 0:
-		return uuid.UUID{}, fmt.Errorf("%s %q not found", kind, ref)
+		return uuid.UUID{}, fmt.Errorf("%s %q not found (no %s has this name)", kind, ref, kind)
 	case 1:
 		return match, nil
 	default:
