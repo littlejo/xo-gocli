@@ -56,6 +56,8 @@ exit codes or machine output requires a new major version.
 
 ### Fixed
 
+- `xo host|network|pool|sr tag add|remove` show the UUID of an unnamed
+  object instead of `""`, like `xo vm tag` and `xo vdi tag`.
 - An unknown subcommand under a group (`xo vm strat <id>`) now fails with
   exit code 1 and a suggestion, instead of printing the help and exiting 0.
 - `xo configure <typo>` is rejected instead of overwriting the selected

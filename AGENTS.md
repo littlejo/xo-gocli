@@ -126,11 +126,13 @@ the type decides the next version (see
 ```text
 cmd/xo/              main entrypoint; process-level tests + golden files (testdata/)
 internal/
-  cli/               client construction (NewClient, NewHTTPClient), global
-                     flags, error translation, name-resolver factory
+  cli/               client construction (NewClient, LoadClient, NewHTTPClient),
+                     global flags, error translation, name-resolver factory,
+                     shared helpers (Confirm, ParseID)
   commands/          one package per command group:
                      configure, host, network, pbd, pool, rest, sr, task,
-                     template, token, vbd, vdi, vm (+ version.go, commands.go)
+                     template, token, vbd, vdi, vm (+ version.go, commands.go);
+                     tags/ builds the shared '<resource> tag' group
   config/            profiles, XOA_* environment overrides, config file
   output/            table/json/yaml/text rendering, JMESPath (--query),
                      detail-sheet helpers
