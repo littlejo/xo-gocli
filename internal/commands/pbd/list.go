@@ -11,7 +11,6 @@ import (
 	"github.com/vatesfr/xenorchestra-go-sdk/pkg/payloads"
 
 	"github.com/littlejo/xo-gocli/internal/cli"
-	"github.com/littlejo/xo-gocli/internal/config"
 	"github.com/littlejo/xo-gocli/internal/output"
 	"github.com/littlejo/xo-gocli/internal/resolve"
 )
@@ -52,11 +51,7 @@ connect or disconnect it.`,
 				return err
 			}
 
-			cfg, err := config.Load(cli.ProfileName(cmd))
-			if err != nil {
-				return err
-			}
-			xo, err := cli.NewClient(cmd, cfg)
+			xo, cfg, err := cli.LoadClient(cmd)
 			if err != nil {
 				return err
 			}

@@ -41,7 +41,7 @@ given. The VM is referenced by its UUID, as returned by 'xo vm list'.`,
 // It mirrors runAction but without a task id: the SDK's Delete is synchronous
 // and returns only an error.
 func runDelete(cmd *cobra.Command, idStr string, yes bool) error {
-	xo, cfg, err := newClient(cmd)
+	xo, cfg, err := cli.LoadClient(cmd)
 	if err != nil {
 		return err
 	}
@@ -56,7 +56,7 @@ func runDelete(cmd *cobra.Command, idStr string, yes bool) error {
 		return cli.NotFound("VM", "resolve", idStr, err, cfg.Insecure)
 	}
 
-	ok, err := confirm(cmd, fmt.Sprintf("Are you sure you want to delete VM %q?", name), yes)
+	ok, err := cli.Confirm(cmd, fmt.Sprintf("Are you sure you want to delete VM %q?", name), yes)
 	if err != nil {
 		return err
 	}

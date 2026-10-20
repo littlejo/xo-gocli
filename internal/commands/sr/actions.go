@@ -51,7 +51,7 @@ type actionSpec struct {
 // the client, resolve the target SR, run the action, and print the resulting
 // task ID.
 func runAction(cmd *cobra.Command, spec actionSpec) error {
-	xo, cfg, err := newClient(cmd)
+	xo, cfg, err := cli.LoadClient(cmd)
 	if err != nil {
 		return err
 	}

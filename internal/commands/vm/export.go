@@ -8,7 +8,6 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/littlejo/xo-gocli/internal/cli"
-	"github.com/littlejo/xo-gocli/internal/config"
 	"github.com/littlejo/xo-gocli/internal/output"
 )
 
@@ -63,11 +62,7 @@ $XOA_TIMEOUT when exporting or importing large archives.`,
 				return err
 			}
 
-			cfg, err := config.Load(cli.ProfileName(cmd))
-			if err != nil {
-				return err
-			}
-			xo, err := cli.NewClient(cmd, cfg)
+			xo, cfg, err := cli.LoadClient(cmd)
 			if err != nil {
 				return err
 			}

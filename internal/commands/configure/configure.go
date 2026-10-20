@@ -59,7 +59,7 @@ $XOA_PROFILE, or make it current with 'xo configure use <name>'.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			in := cmd.InOrStdin()
 			out := cmd.ErrOrStderr()
-			interactive := isTerminal(in)
+			interactive := cli.IsTerminal(in)
 
 			name, err := selectedProfile(cmd)
 			if err != nil {
@@ -187,14 +187,6 @@ func selectedProfile(cmd *cobra.Command) (string, error) {
 		return "", err
 	}
 	return current, nil
-}
-
-func isTerminal(in io.Reader) bool {
-	file, ok := in.(*os.File)
-	if !ok {
-		return false
-	}
-	return term.IsTerminal(int(file.Fd()))
 }
 
 // prompt reads a value. A non-empty def is the stored value: it is shown in

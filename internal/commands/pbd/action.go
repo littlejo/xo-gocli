@@ -80,7 +80,7 @@ is asynchronous: the command prints the task id and returns. Track it with
 // client, resolve the target PBD (as an existence check), run the action, and
 // print the resulting task ID.
 func runAction(cmd *cobra.Command, idStr string, verb string, perform func(ctx context.Context, xo library.Library, id uuid.UUID) (string, error)) error {
-	xo, cfg, err := newClient(cmd)
+	xo, cfg, err := cli.LoadClient(cmd)
 	if err != nil {
 		return err
 	}

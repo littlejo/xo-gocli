@@ -45,7 +45,7 @@ type tagSpec struct {
 // runTag resolves the target network (as an existence check and to display
 // its name), applies the tag operation, and prints a concise confirmation.
 func runTag(cmd *cobra.Command, idStr string, spec tagSpec) error {
-	xo, cfg, err := newClient(cmd)
+	xo, cfg, err := cli.LoadClient(cmd)
 	if err != nil {
 		return err
 	}

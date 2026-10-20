@@ -288,7 +288,7 @@ func optionalBool(b bool) *bool {
 // action, waits for the backing task and returns the created network id),
 // re-fetch the network, and print the result.
 func runCreate(cmd *cobra.Command, name string, create func(ctx context.Context, xo library.Library) (uuid.UUID, error)) error {
-	xo, cfg, err := newClient(cmd)
+	xo, cfg, err := cli.LoadClient(cmd)
 	if err != nil {
 		return err
 	}
