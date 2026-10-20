@@ -2,7 +2,11 @@
 package vdi
 
 import (
+	"context"
+
+	"github.com/littlejo/xo-gocli/internal/cli"
 	"github.com/spf13/cobra"
+	"github.com/vatesfr/xenorchestra-go-sdk/pkg/services/library"
 )
 
 // NewCommand builds the 'xo vdi' command group.
@@ -27,5 +31,20 @@ VDIs are referenced by their UUID, as printed by 'xo vdi list'.`,
 	cmd.AddCommand(newTagCommand())
 	cmd.AddCommand(newExportCommand())
 	cmd.AddCommand(newImportCommand())
+	cli.CompleteIDs(cmd, listCandidates)
 	return cmd
+}
+
+// listCandidates lists the virtual disks for the shell completion of their ids
+// (see cli.CompleteIDs).
+func listCandidates(ctx context.Context, xo library.Library) ([]cli.Candidate, error) {
+	objects, err := xo.VDI().GetAll(ctx, 0, "")
+	if err != nil {
+		return nil, err
+	}
+	candidates := make([]cli.Candidate, 0, len(objects))
+	for _, o := range objects {
+		candidates = append(candidates, cli.Candidate{ID: o.ID.String(), Name: o.NameLabel})
+	}
+	return candidates, nil
 }

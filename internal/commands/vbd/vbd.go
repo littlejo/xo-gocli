@@ -2,8 +2,12 @@
 package vbd
 
 import (
+	"context"
+
 	"github.com/gofrs/uuid"
 	"github.com/spf13/cobra"
+	"github.com/vatesfr/xenorchestra-go-sdk/pkg/payloads"
+	"github.com/vatesfr/xenorchestra-go-sdk/pkg/services/library"
 
 	"github.com/littlejo/xo-gocli/internal/cli"
 )
@@ -28,6 +32,7 @@ VBDs are referenced by their UUID, as printed by 'xo vbd list'.`,
 	cmd.AddCommand(newDeleteCommand())
 	cmd.AddCommand(newConnectCommand())
 	cmd.AddCommand(newDisconnectCommand())
+	cli.CompleteIDs(cmd, listCandidates)
 	return cmd
 }
 
@@ -40,4 +45,27 @@ func parseID(id string) (uuid.UUID, error) {
 // the raw API error as debug detail.
 func notFound(id string, err error, insecure bool) error {
 	return cli.NotFound("VBD", "get", id, err, insecure)
+}
+
+// listCandidates lists the VBDs for the shell completion of their ids
+// (see cli.CompleteIDs).
+func listCandidates(ctx context.Context, xo library.Library) ([]cli.Candidate, error) {
+	objects, err := xo.VBD().GetAll(ctx, 0, "")
+	if err != nil {
+		return nil, err
+	}
+	candidates := make([]cli.Candidate, 0, len(objects))
+	for _, o := range objects {
+		candidates = append(candidates, cli.Candidate{ID: o.ID.String(), Name: vbdDevice(o)})
+	}
+	return candidates, nil
+}
+
+// vbdDevice is the device name shown beside a VBD id in completions ("xvda"),
+// empty while the VBD is not plugged.
+func vbdDevice(o *payloads.VBD) string {
+	if o.Device == nil {
+		return ""
+	}
+	return *o.Device
 }
