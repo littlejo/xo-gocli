@@ -1,7 +1,6 @@
 package template
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -11,9 +10,9 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/littlejo/xo-gocli/internal/cli"
 	"github.com/littlejo/xo-gocli/internal/output"
 	"github.com/littlejo/xo-gocli/internal/testenv"
+	"github.com/littlejo/xo-gocli/internal/testutil"
 )
 
 const fixtureTemplate = `{
@@ -43,9 +42,7 @@ func fakeXOGet(t *testing.T, handler func(w http.ResponseWriter, r *http.Request
 			handler(w, r)
 			return
 		}
-		if cookie, err := r.Cookie("authenticationToken"); err != nil || cookie.Value != "test-token" {
-			w.WriteHeader(http.StatusUnauthorized)
-			_, _ = fmt.Fprint(w, `{"message":"unauthorized"}`)
+		if !testutil.Authorized(w, r) {
 			return
 		}
 		w.Header().Set("Content-Type", "application/json")
@@ -54,27 +51,12 @@ func fakeXOGet(t *testing.T, handler func(w http.ResponseWriter, r *http.Request
 }
 
 func newGetTestRoot() *cobra.Command {
-	root := &cobra.Command{
-		Use:           "xo",
-		SilenceUsage:  true,
-		SilenceErrors: true,
-	}
-	root.PersistentFlags().String(cli.FlagProfile, "", "")
-	root.PersistentFlags().String(cli.FlagOutput, "table", "")
-	root.PersistentFlags().Bool(cli.FlagJSON, false, "")
-	root.AddCommand(newGetCommand())
-	return root
+	return testutil.Root(newGetCommand())
 }
 
 func runGet(t *testing.T, args ...string) (string, error) {
 	t.Helper()
-	root := newGetTestRoot()
-	var out strings.Builder
-	root.SetOut(&out)
-	root.SetErr(&out)
-	root.SetArgs(args)
-	err := root.ExecuteContext(context.Background())
-	return out.String(), err
+	return testutil.ExecuteCombined(newGetTestRoot(), args...)
 }
 
 // TestTemplateGetDetail checks the human view of `template get`: it is a
@@ -164,9 +146,7 @@ func TestTemplateGetBadID(t *testing.T) {
 // The detail sheet resolves the pool by name.
 func TestTemplateGetDetailResolved(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if cookie, err := r.Cookie("authenticationToken"); err != nil || cookie.Value != "test-token" {
-			w.WriteHeader(http.StatusUnauthorized)
-			_, _ = fmt.Fprint(w, `{"message":"unauthorized"}`)
+		if !testutil.Authorized(w, r) {
 			return
 		}
 		w.Header().Set("Content-Type", "application/json")

@@ -75,6 +75,16 @@ func TestMain(m *testing.M) { testenv.Main(m) }
 CI runs the suite once with hostile `XOA_*` values to catch a package that
 forgets.
 
+### Shared test helpers
+
+`internal/testutil` holds what the command tests share:
+`testutil.Root(cmds...)` builds a root command with the real global flags,
+`testutil.Execute` / `testutil.ExecuteCombined` run it and capture stdout and
+stderr, and a fake server handler starts with
+`if !testutil.Authorized(w, r) { return }` to answer 401 like Xen Orchestra
+when the test token is missing. (`internal/resolve` cannot import it: `cli`
+imports `resolve`.)
+
 ### Integration tests
 
 Integration tests are opt-in and only run when explicitly enabled:

@@ -8,6 +8,8 @@ import (
 	"net/url"
 	"strings"
 	"testing"
+
+	"github.com/littlejo/xo-gocli/internal/testutil"
 )
 
 const fixtureVDIs = `[
@@ -52,9 +54,7 @@ func newVDIServer(t *testing.T) *vdiServer {
 		body, _ := readBody(r)
 		s.requests = append(s.requests, request{Method: r.Method, Path: r.URL.Path, Body: body, Query: r.URL.RawQuery})
 
-		if cookie, err := r.Cookie("authenticationToken"); err != nil || cookie.Value != "test-token" {
-			w.WriteHeader(http.StatusUnauthorized)
-			_, _ = fmt.Fprint(w, `{"message":"unauthorized"}`)
+		if !testutil.Authorized(w, r) {
 			return
 		}
 

@@ -12,9 +12,9 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/littlejo/xo-gocli/internal/cli"
 	"github.com/littlejo/xo-gocli/internal/taskwait"
 	"github.com/littlejo/xo-gocli/internal/testenv"
+	"github.com/littlejo/xo-gocli/internal/testutil"
 )
 
 const fixtureTaskPending = `{
@@ -61,9 +61,7 @@ func fakeWaitXO(t *testing.T, handler func(w http.ResponseWriter, r *http.Reques
 			http.NotFound(w, r)
 			return
 		}
-		if cookie, err := r.Cookie("authenticationToken"); err != nil || cookie.Value != "test-token" {
-			w.WriteHeader(http.StatusUnauthorized)
-			_, _ = fmt.Fprint(w, `{"message":"unauthorized"}`)
+		if !testutil.Authorized(w, r) {
 			return
 		}
 		handler(w, r, &calls)
@@ -71,16 +69,7 @@ func fakeWaitXO(t *testing.T, handler func(w http.ResponseWriter, r *http.Reques
 }
 
 func newWaitTestRoot() *cobra.Command {
-	root := &cobra.Command{
-		Use:           "xo",
-		SilenceUsage:  true,
-		SilenceErrors: true,
-	}
-	root.PersistentFlags().String(cli.FlagProfile, "", "")
-	root.PersistentFlags().String(cli.FlagOutput, "table", "")
-	root.PersistentFlags().Bool(cli.FlagJSON, false, "")
-	root.AddCommand(newWaitCommand())
-	return root
+	return testutil.Root(newWaitCommand())
 }
 
 // runWaitCmd executes the wait command with stdout and stderr captured

@@ -7,22 +7,13 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/littlejo/xo-gocli/internal/cli"
 	"github.com/littlejo/xo-gocli/internal/config"
+	"github.com/littlejo/xo-gocli/internal/testutil"
 )
 
 // newTestRoot mirrors the production root flags that configure relies on.
 func newTestRoot() *cobra.Command {
-	root := &cobra.Command{
-		Use:           "xo",
-		SilenceUsage:  true,
-		SilenceErrors: true,
-	}
-	root.PersistentFlags().String(cli.FlagProfile, "", "")
-	root.PersistentFlags().String(cli.FlagOutput, "table", "")
-	root.PersistentFlags().Bool(cli.FlagJSON, false, "")
-	root.AddCommand(NewCommand())
-	return root
+	return testutil.Root(NewCommand())
 }
 
 func runConfigure(t *testing.T, args ...string) string {

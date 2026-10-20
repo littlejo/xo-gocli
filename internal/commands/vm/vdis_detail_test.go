@@ -6,6 +6,8 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+
+	"github.com/littlejo/xo-gocli/internal/testutil"
 )
 
 // vdisListServer serves the surface a `vm vdis` table uses — the per-VM VDI
@@ -21,9 +23,7 @@ func newVDISListServer(t *testing.T) *vdisListServer {
 	s := &vdisListServer{}
 	s.Server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		s.paths = append(s.paths, r.URL.Path)
-		if cookie, err := r.Cookie("authenticationToken"); err != nil || cookie.Value != "test-token" {
-			w.WriteHeader(http.StatusUnauthorized)
-			_, _ = fmt.Fprint(w, `{"message":"unauthorized"}`)
+		if !testutil.Authorized(w, r) {
 			return
 		}
 		w.Header().Set("Content-Type", "application/json")
