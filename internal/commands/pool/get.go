@@ -10,6 +10,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/vatesfr/xenorchestra-go-sdk/pkg/payloads"
+	"github.com/vatesfr/xenorchestra-go-sdk/pkg/services/library"
 
 	"github.com/littlejo/xo-gocli/internal/cli"
 	"github.com/littlejo/xo-gocli/internal/output"
@@ -20,11 +21,15 @@ func newGetCommand() *cobra.Command {
 	var query string
 
 	cmd := &cobra.Command{
-		Use:   "get <id>",
+		Use:   "get <id|name>",
 		Short: "Get a pool",
 		Long: `Get a pool from Xen Orchestra, as a detailed, human readable view.
 
 The pool is referenced by its UUID, as returned by 'xo pool list'.
+
+The pool can also be given by its exact name (name_label), at the cost of
+one more request; a name shared by several pools is an error that lists
+their ids.
 
 The human (default) view is a detail sheet that resolves the master host and
 the storage repositories (default, suspend and crash-dump) by name, and lists
@@ -36,14 +41,11 @@ command still succeeds.
 --output json / yaml / text and --query still emit the raw object, so the
 machine readable behavior of 'xo pool get <id> --output json' is unchanged.`,
 		Example: `  xo pool get 550e8400-e29b-41d4-a716-446655440001
+  xo pool get pool-prod
   xo pool get <id> --output json
   xo pool get <id> --query 'name_label'`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			id, err := parseID(args[0])
-			if err != nil {
-				return err
-			}
 			if err := output.ValidateQuery(query); err != nil {
 				return err
 			}
@@ -53,6 +55,10 @@ machine readable behavior of 'xo pool get <id> --output json' is unchanged.`,
 			}
 
 			xo, cfg, err := cli.LoadClient(cmd)
+			if err != nil {
+				return err
+			}
+			id, err := lookupID(cmd.Context(), xo, cfg.Insecure, args[0])
 			if err != nil {
 				return err
 			}
@@ -179,4 +185,15 @@ func poolFeatures(p *payloads.Pool) string {
 		f = append(f, fmt.Sprintf("%d HA SRs", len(p.HASRs)))
 	}
 	return strings.Join(f, " ")
+}
+
+// lookupID resolves the pool a user referenced by UUID or by exact name
+// (see cli.LookupID).
+func lookupID(ctx context.Context, xo library.Library, insecure bool, ref string) (uuid.UUID, error) {
+	return cli.LookupID(ctx, "pool", ref, insecure,
+		func(ctx context.Context, filter string) ([]*payloads.Pool, error) {
+			return xo.Pool().GetAll(ctx, 0, filter)
+		},
+		func(o *payloads.Pool) uuid.UUID { return o.ID },
+		func(o *payloads.Pool) string { return o.NameLabel })
 }

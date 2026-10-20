@@ -9,6 +9,10 @@ human readable view.
 
 The SR is referenced by its UUID, as returned by 'xo sr list'.
 
+The SR can also be given by its exact name (name_label), at the cost of
+one more request; a name shared by several SRs is an error that lists
+their ids.
+
 The human (default) view is a detail sheet that resolves the container by
 name, shows the capacity (size, usage, physical usage) and the hosts the SR
 is connected to (resolved in one batch, never one lookup per host). The
@@ -20,13 +24,14 @@ instead and the command still succeeds.
 machine readable behavior of 'xo sr get <id> --output json' is unchanged.
 
 ```
-xo sr get <id> [flags]
+xo sr get <id|name> [flags]
 ```
 
 ### Examples
 
 ```
   xo sr get 11111111-1111-4111-8111-111111111111
+  xo sr get nfs-sr
   xo sr get <id> --output json
   xo sr get <id> --query 'name_label'
 ```

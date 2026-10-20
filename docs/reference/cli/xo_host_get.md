@@ -8,6 +8,10 @@ Get a host from Xen Orchestra, as a detailed, human readable view.
 
 The host is referenced by its UUID, as returned by 'xo host list'.
 
+The host can also be given by its exact name (name_label), at the cost of
+one more request; a name shared by several hosts is an error that lists
+their ids.
+
 The human (default) view is a detail sheet: the address, the pool the host
 belongs to (shown by name), the memory usage, the CPU model and the VMs
 resident on the host (resolved in one batch, never one lookup per VM).
@@ -18,13 +22,14 @@ resolved, the raw id is shown instead and the command still succeeds.
 machine readable behavior of 'xo host get <id> --output json' is unchanged.
 
 ```
-xo host get <id> [flags]
+xo host get <id|name> [flags]
 ```
 
 ### Examples
 
 ```
   xo host get 550e8400-e29b-41d4-a716-446655440001
+  xo host get xcp-host-01
   xo host get <id> --output json
   xo host get <id> --query 'name_label'
 ```

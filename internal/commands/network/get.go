@@ -10,6 +10,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/vatesfr/xenorchestra-go-sdk/pkg/payloads"
+	"github.com/vatesfr/xenorchestra-go-sdk/pkg/services/library"
 
 	"github.com/littlejo/xo-gocli/internal/cli"
 	"github.com/littlejo/xo-gocli/internal/output"
@@ -20,11 +21,15 @@ func newGetCommand() *cobra.Command {
 	var query string
 
 	cmd := &cobra.Command{
-		Use:   "get <id>",
+		Use:   "get <id|name>",
 		Short: "Get a network",
 		Long: `Get a network from Xen Orchestra, as a detailed, human readable view.
 
 The network is referenced by its UUID, as returned by 'xo network list'.
+
+The network can also be given by its exact name (name_label), at the cost of
+one more request; a name shared by several networks is an error that lists
+their ids.
 
 The human (default) view is a detail sheet: the bridge, MTU and type, the pool
 it belongs to (shown by name), and the counts of VIFs and PIFs. The pool
@@ -34,14 +39,11 @@ id is shown instead and the command still succeeds.
 --output json / yaml / text and --query still emit the raw object, so the
 machine readable behavior of 'xo network get <id> --output json' is unchanged.`,
 		Example: `  xo network get 11111111-1111-4111-8111-111111111111
+  xo network get lan
   xo network get <id> --output json
   xo network get <id> --query 'name_label'`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			id, err := parseID(args[0])
-			if err != nil {
-				return err
-			}
 			if err := output.ValidateQuery(query); err != nil {
 				return err
 			}
@@ -51,6 +53,10 @@ machine readable behavior of 'xo network get <id> --output json' is unchanged.`,
 			}
 
 			xo, cfg, err := cli.LoadClient(cmd)
+			if err != nil {
+				return err
+			}
+			id, err := lookupID(cmd.Context(), xo, cfg.Insecure, args[0])
 			if err != nil {
 				return err
 			}
@@ -139,4 +145,15 @@ func renderNetworkDetail(w io.Writer, ctx context.Context, n *payloads.Network, 
 
 	_, err := fmt.Fprintln(w, strings.Join(lines, "\n"))
 	return err
+}
+
+// lookupID resolves the network a user referenced by UUID or by exact name
+// (see cli.LookupID).
+func lookupID(ctx context.Context, xo library.Library, insecure bool, ref string) (uuid.UUID, error) {
+	return cli.LookupID(ctx, "network", ref, insecure,
+		func(ctx context.Context, filter string) ([]*payloads.Network, error) {
+			return xo.Network().GetAll(ctx, 0, filter)
+		},
+		func(o *payloads.Network) uuid.UUID { return o.ID },
+		func(o *payloads.Network) string { return o.NameLabel })
 }
