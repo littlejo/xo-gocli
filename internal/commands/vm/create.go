@@ -104,7 +104,7 @@ ends when the task completes, or on Ctrl+C.`,
 			}
 			vm, err := xo.VM().Create(cmd.Context(), pool, params)
 			if err != nil {
-				return cli.InsecureHint(fmt.Sprintf("cannot create VM %q: %v", args[0], err), cfg.Insecure)
+				return cli.APIError(err, cfg.Insecure, "cannot create VM %q", args[0])
 			}
 
 			return renderCreatedVM(cmd, vm)

@@ -90,13 +90,13 @@ $XOA_TIMEOUT when exporting or importing large archives.`,
 			resp, err := xvRequest(cmd.Context(), httpClient, "GET", "vms/"+id.String()+"."+format, query, nil, "", -1)
 			if err != nil {
 				w.Abort()
-				return cli.InsecureHint(fmt.Sprintf("cannot export VM %q: %v", vm.NameLabel, err), cfg.Insecure)
+				return cli.APIError(err, cfg.Insecure, "cannot export VM %q", vm.NameLabel)
 			}
 			if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 				apiErr := xvaAPIError(resp)
 				_ = resp.Body.Close()
 				w.Abort()
-				return cli.InsecureHint(fmt.Sprintf("cannot export VM %q: %v", vm.NameLabel, apiErr), cfg.Insecure)
+				return cli.APIError(apiErr, cfg.Insecure, "cannot export VM %q", vm.NameLabel)
 			}
 
 			n, err := io.Copy(w, resp.Body)
@@ -105,7 +105,7 @@ $XOA_TIMEOUT when exporting or importing large archives.`,
 			}
 			if err != nil {
 				w.Abort()
-				return cli.InsecureHint(fmt.Sprintf("cannot export VM %q: %v", vm.NameLabel, err), cfg.Insecure)
+				return cli.APIError(err, cfg.Insecure, "cannot export VM %q", vm.NameLabel)
 			}
 			if err := w.Commit(); err != nil {
 				return err

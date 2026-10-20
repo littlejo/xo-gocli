@@ -108,7 +108,7 @@ performed through the SDK's own REST client against PATCH /vms/<id>.`,
 			}
 
 			if err := patchVM(cmd.Context(), httpClient, id.String(), encoded); err != nil {
-				return cli.InsecureHint(fmt.Sprintf("cannot update VM %q: %v", args[0], err), cfg.Insecure)
+				return cli.APIError(err, cfg.Insecure, "cannot update VM %q", args[0])
 			}
 
 			// Re-fetch through the typed SDK service so the output reflects the
@@ -119,7 +119,7 @@ performed through the SDK's own REST client against PATCH /vms/<id>.`,
 			}
 			vm, err := xo.VM().GetByID(cmd.Context(), id)
 			if err != nil {
-				return cli.InsecureHint(fmt.Sprintf("cannot get updated VM %q: %v", args[0], err), cfg.Insecure)
+				return cli.APIError(err, cfg.Insecure, "cannot get updated VM %q", args[0])
 			}
 
 			return renderUpdatedVM(cmd, format, vm)

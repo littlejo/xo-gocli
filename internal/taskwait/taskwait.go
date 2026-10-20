@@ -194,7 +194,7 @@ func defaultNotFound(id string, err error) error {
 	if err != nil && cli.APIStatus(err) == http.StatusNotFound {
 		return fmt.Errorf("task %q not found", id)
 	}
-	return cli.InsecureHint(fmt.Sprintf("cannot get task %q: %v", id, err), false)
+	return cli.APIError(err, false, "cannot get task %q", id)
 }
 
 // messageText extracts a human readable message from the task result, which

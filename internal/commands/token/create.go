@@ -73,7 +73,7 @@ new one.`,
 
 			respBody, err := doTokensRequest(cmd.Context(), httpClient, "POST", tokensEndpoint, encoded, nil)
 			if err != nil {
-				return cli.InsecureHint(fmt.Sprintf("cannot create token: %v", err), cfg.Insecure)
+				return cli.APIError(err, cfg.Insecure, "cannot create token")
 			}
 
 			var resp struct {

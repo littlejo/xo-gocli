@@ -86,7 +86,7 @@ func runDelete(cmd *cobra.Command, idStr string, yes bool) error {
 	}
 
 	if err := xo.Network().Delete(ctx, id); err != nil {
-		return cli.InsecureHint(fmt.Sprintf("cannot delete network %q: %v", name, err), cfg.Insecure)
+		return cli.APIError(err, cfg.Insecure, "cannot delete network %q", name)
 	}
 
 	return renderDeleted(cmd, name)

@@ -87,7 +87,7 @@ func runDelete(cmd *cobra.Command, idStr string, yes bool) error {
 	}
 
 	if err := xo.VDI().Delete(ctx, id); err != nil {
-		return cli.InsecureHint(fmt.Sprintf("cannot delete VDI %q: %v", name, err), cfg.Insecure)
+		return cli.APIError(err, cfg.Insecure, "cannot delete VDI %q", name)
 	}
 
 	return renderDeleted(cmd, name)

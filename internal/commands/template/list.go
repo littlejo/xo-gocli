@@ -84,7 +84,7 @@ collection, which is why 'xo vm list' does not show them.`,
 
 			var templates []map[string]any
 			if err := client.TypedGet(cmd.Context(), httpClient, templatesEndpoint, params, &templates); err != nil {
-				return cli.InsecureHint(fmt.Sprintf("cannot list templates: %v", err), cfg.Insecure)
+				return cli.APIError(err, cfg.Insecure, "cannot list templates")
 			}
 
 			// Names (instead of raw UUIDs) are only shown in the human table;

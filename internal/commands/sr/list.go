@@ -62,7 +62,7 @@ func newListCommand() *cobra.Command {
 
 			srs, err := xo.SR().GetAll(cmd.Context(), limit, filter)
 			if err != nil {
-				return cli.InsecureHint(fmt.Sprintf("cannot list storage repositories: %v", err), cfg.Insecure)
+				return cli.APIError(err, cfg.Insecure, "cannot list storage repositories")
 			}
 
 			// Names (instead of raw UUIDs) are only shown in the human table;

@@ -68,7 +68,7 @@ reference.`,
 
 			taskID, err := xo.VDI().Migrate(ctx, id, sr)
 			if err != nil {
-				return cli.InsecureHint(fmt.Sprintf("cannot migrate VDI %q: %v", name, err), cfg.Insecure)
+				return cli.APIError(err, cfg.Insecure, "cannot migrate VDI %q", name)
 			}
 
 			return renderMigrated(cmd, name, taskID)

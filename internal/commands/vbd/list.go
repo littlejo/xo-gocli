@@ -66,7 +66,7 @@ A VBD is the attachment point between a VM and a VDI (virtual disk).`,
 
 			vbds, err := xo.VBD().GetAll(cmd.Context(), limit, filter)
 			if err != nil {
-				return cli.InsecureHint(fmt.Sprintf("cannot list VBDs: %v", err), cfg.Insecure)
+				return cli.APIError(err, cfg.Insecure, "cannot list VBDs")
 			}
 
 			// Names (instead of raw UUIDs) are only shown in the human table;

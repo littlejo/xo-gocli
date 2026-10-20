@@ -93,7 +93,7 @@ exporting or importing large disks.`,
 			})
 			if err != nil {
 				w.Abort()
-				return cli.InsecureHint(fmt.Sprintf("cannot export VDI %q: %v", name, err), cfg.Insecure)
+				return cli.APIError(err, cfg.Insecure, "cannot export VDI %q", name)
 			}
 			if err := w.Commit(); err != nil {
 				return err

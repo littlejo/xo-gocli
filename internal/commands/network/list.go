@@ -54,7 +54,7 @@ func newListCommand() *cobra.Command {
 
 			networks, err := xo.Network().GetAll(cmd.Context(), limit, "")
 			if err != nil {
-				return cli.InsecureHint(fmt.Sprintf("cannot list networks: %v", err), cfg.Insecure)
+				return cli.APIError(err, cfg.Insecure, "cannot list networks")
 			}
 
 			// Names (instead of raw UUIDs) are only shown in the human table;

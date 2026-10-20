@@ -113,6 +113,10 @@ These hold across the code base; the tests pin most of them.
   stderr with an `Error: ` prefix; the exit status is `0` or `1`
   ([Exit codes](../reference/exit-codes.md)). The JSON and YAML shape is the
   public API ([The JSON and YAML contract](../reference/output-and-query.md#the-json-and-yaml-contract)).
+- **Errors keep their cause.** A failed SDK call is reported with
+  `cli.APIError(err, insecure, "cannot list VMs")` (or `cli.NotFound` for a
+  lookup): the message is translated and concise, and the SDK error stays in
+  the chain for `errors.Is` / `errors.As`. `fmt.Errorf` wraps with `%w`.
 - **Queries run on structured data**, never on rendered tables: SDK response →
   structured data → `--query` → formatter.
 - **Constant request cost** for the human views, and exactly one request for

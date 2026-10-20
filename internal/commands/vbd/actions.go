@@ -2,7 +2,6 @@ package vbd
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/gofrs/uuid"
 	"github.com/spf13/cobra"
@@ -78,7 +77,7 @@ func runAction(cmd *cobra.Command, idStr string, verb string, perform func(ctx c
 
 	taskID, err := perform(ctx, xo, id)
 	if err != nil {
-		return cli.InsecureHint(fmt.Sprintf("cannot %s VBD %s: %v", verb, label, err), cfg.Insecure)
+		return cli.APIError(err, cfg.Insecure, "cannot %s VBD %s", verb, label)
 	}
 
 	if cli.WaitEnabled(cmd) && taskID != "" {

@@ -71,7 +71,7 @@ The VM is referenced by its UUID, as returned by 'xo vm list'.`,
 
 			vdis, err := xo.VM().GetVDIs(cmd.Context(), id, limit, filter)
 			if err != nil {
-				return cli.InsecureHint(fmt.Sprintf("cannot list VDIs of VM %q: %v", args[0], err), cfg.Insecure)
+				return cli.APIError(err, cfg.Insecure, "cannot list VDIs of VM %q", args[0])
 			}
 
 			// Names (instead of raw UUIDs) are only shown in the human table;
