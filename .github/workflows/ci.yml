@@ -123,7 +123,7 @@ jobs:
 
       - uses: actions/setup-node@v7
         with:
-          node-version: 24
+          node-version: 26
 
       # Pinned to the commit the cookie-auth patch was generated against.
       - name: Fetch xo-api-sim and apply the cookie-auth patch
