@@ -42,11 +42,15 @@ exit codes or machine output requires a new major version.
 
 ### Changed
 
-- Built on `xenorchestra-go-sdk` v1.21.0. The template name in `xo vm get`
+- Built on `xenorchestra-go-sdk` v1.22.0. The template name in `xo vm get`
   is resolved through its new typed `Template()` service, and the `get` and
   `list` tables reuse the command's SDK client to resolve names: one client
   instead of three (one login instead of three with a username + password
   profile).
+- An API error shows the Xen Orchestra error message instead of the raw JSON
+  body (`API error: 500 Internal Server Error - <message>`); `--debug` still
+  shows the full body. The HTTP status is read from the SDK's typed error
+  rather than parsed from its text.
 - `xo pool rolling-update`, `rolling-reboot` and `emergency-shutdown` fail at
   once when their task is interrupted, instead of waiting for
   `--wait-timeout`, and say so instead of ending on an empty `failed:`.

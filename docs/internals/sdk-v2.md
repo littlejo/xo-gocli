@@ -18,7 +18,7 @@ SDK bugs found along the way are tracked in the
 ## Module layout
 
 The SDK is a **single Go module** (`github.com/vatesfr/xenorchestra-go-sdk`,
-pinned at `v1.21.0` in `go.mod`) that contains **both** APIs:
+pinned at `v1.22.0` in `go.mod`) that contains **both** APIs:
 
 | Path | API | Used by xo-gocli |
 | ---- | --- | ---------------- |
@@ -26,11 +26,12 @@ pinned at `v1.21.0` in `go.mod`) that contains **both** APIs:
 | `v2/` | v2: REST client + typed services | **yes — the only API layer** |
 | `pkg/config/` | shared config type | yes (via `v2`) |
 | `pkg/payloads/` | shared REST response types | yes (returned by the typed services) |
+| `pkg/apierror/` | typed error of a non-2xx REST answer (since `v1.22.0`) | yes (`internal/cli/errors.go`) |
 
 There is no `v2/go.mod`: `v2` is a plain subdirectory, so the import path
 `github.com/vatesfr/xenorchestra-go-sdk/v2` is a subpackage of the v1 module
 — the `/v2` suffix is a directory name, not a Go major-version path. The
-v1.21.0 version number is the *module* version, not the REST API version
+v1.22.0 version number is the *module* version, not the REST API version
 (the REST API itself is `/rest/v0`).
 
 > **SDK pin history.** The module was briefly `require`d at `v1.19.0` with a
@@ -66,7 +67,9 @@ v1.21.0 version number is the *module* version, not the REST API version
    `internal/commands/vm/update.go` (the PATCH) and
    `internal/commands/token/token.go` (token endpoints, POST replayed over a
    307). They still use the SDK's base URL, authentication cookie and TLS
-   settings.
+   settings, and report a non-2xx answer as the SDK's own `*apierror.Error`
+   (`cli.ResponseError`), like a typed service. `xo rest` is the exception: as
+   the raw escape hatch it keeps the full response body in its error.
 
 ## Authentication & transport
 
@@ -107,9 +110,12 @@ v1.21.0 version number is the *module* version, not the REST API version
 - Partial update: `PATCH /<resource>/<id>` with **camelCase** JSON fields
   (`nameLabel`, `nameDescription`, …) — responses, in contrast, use
   snake_case.
-- Non-2xx responses surface as `API error: <status> - <body>`; the CLI maps
-  a 404 (checked on the actual HTTP status carried by the error, not a
-  substring) to a concise "not found" message, and translates the well-known
+- Non-2xx responses surface as an `*apierror.Error` (`pkg/apierror`, since
+  `v1.22.0`) whose text is `API error: <status> - <body>`. The CLI reads the
+  HTTP status on that type (`cli.APIStatus`; the text is only a fallback for
+  `xo rest`), maps a 404 to a concise "not found" message, replaces a Xen
+  Orchestra JSON body (`{"error": …, "data": …}`) by its message — plus its
+  `data` unless it only names the missing object — and translates the well-known
   SDK/Go transport and parsing errors — timeout, unreachable endpoint,
   malformed API response, 401/403 — into concise messages (see
   `internal/cli/errors.go`). In every case the raw error is kept behind

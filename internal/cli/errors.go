@@ -1,11 +1,15 @@
 package cli
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"regexp"
 	"strconv"
 	"strings"
+
+	"github.com/vatesfr/xenorchestra-go-sdk/pkg/apierror"
 )
 
 // The SDK (and the Go standard library it builds on) reports transport and
@@ -124,8 +128,10 @@ func unreachableEndpoint(s string) string {
 	return fmt.Sprintf("cannot reach %s: %s", addr, reason)
 }
 
-// APIStatus returns the HTTP status code carried by an SDK error in the
-// "API error: <status> …" form, or 0 when the error carries none.
+// APIStatus returns the HTTP status code carried by an SDK error, or 0 when
+// the error carries none. It reads the status of the *apierror.Error in the
+// chain (every SDK v2 service and ResponseError return one) and falls back to
+// the "API error: <status> …" text for errors that lost the type ('xo rest').
 //
 // It is the status-based replacement for matching the "404" substring
 // anywhere in an error string: the body of a 500 response may itself contain
@@ -134,7 +140,59 @@ func APIStatus(err error) int {
 	if err == nil {
 		return 0
 	}
+	if e, ok := apierror.As(err); ok {
+		return e.StatusCode
+	}
 	return apiStatusText(err.Error())
+}
+
+// ResponseError reports a non-2xx response read by one of the sanctioned raw
+// requests (AGENTS.md) as the SDK's own *apierror.Error, so it is handled
+// exactly like a failure of a typed service: APIStatus reads its status and
+// APIError shortens its message.
+func ResponseError(resp *http.Response, body []byte) error {
+	method, rawURL := "", ""
+	if resp.Request != nil && resp.Request.URL != nil {
+		method, rawURL = resp.Request.Method, resp.Request.URL.String()
+	}
+	return apierror.NewFromResponse(method, rawURL, resp.StatusCode, resp.Status, bytes.TrimSpace(body))
+}
+
+// conciseAPIError shortens, inside msg, the "API error: <status> - <body>"
+// text of the *apierror.Error in cause's chain. When the body is a Xen
+// Orchestra JSON error, only its message is kept, followed by its data unless
+// that merely repeats the requested object (the "no such object" form); an
+// empty body leaves "API error: <status>". Any other body (HTML from a proxy,
+// plain text, …) is left as is. The full body stays in the --debug detail.
+func conciseAPIError(msg string, cause error) string {
+	e, ok := apierror.As(cause)
+	if !ok {
+		return msg
+	}
+	full := e.Error()
+	if !strings.Contains(msg, full) {
+		return msg
+	}
+	short := "API error: " + e.Status
+	switch {
+	case len(bytes.TrimSpace(e.Body)) == 0:
+	case e.Message != "":
+		short += " - " + e.Message
+		if _, isNoSuchObject := e.NoSuchObject(); !isNoSuchObject && len(e.Data) > 0 {
+			short += ": " + compactJSON(e.Data)
+		}
+	default:
+		return msg
+	}
+	return strings.Replace(msg, full, short, 1)
+}
+
+func compactJSON(raw json.RawMessage) string {
+	var buf bytes.Buffer
+	if err := json.Compact(&buf, raw); err != nil {
+		return string(raw)
+	}
+	return buf.String()
 }
 
 func apiStatusText(msg string) int {

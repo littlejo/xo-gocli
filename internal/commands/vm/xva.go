@@ -2,14 +2,14 @@ package vm
 
 import (
 	"context"
-	"fmt"
 	"io"
 	"net/http"
 	"net/url"
 	"path"
-	"strings"
 
 	"github.com/vatesfr/xenorchestra-go-sdk/v2/client"
+
+	"github.com/littlejo/xo-gocli/internal/cli"
 )
 
 // xva.go holds the raw REST plumbing shared by 'xo vm export' and
@@ -53,9 +53,9 @@ func xvRequest(ctx context.Context, c *client.Client, method, endpoint string, q
 	return c.HttpClient.Do(req)
 }
 
-// xvaAPIError turns a non-2xx response into the concise "API error: ..."
-// form used across the CLI (the caller still closes resp.Body).
+// xvaAPIError turns a non-2xx response into the SDK's *apierror.Error, like
+// a typed service failure (the caller still closes resp.Body).
 func xvaAPIError(resp *http.Response) error {
 	body, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
-	return fmt.Errorf("API error: %s - %s", resp.Status, strings.TrimSpace(string(body)))
+	return cli.ResponseError(resp, body)
 }

@@ -3,10 +3,14 @@ package cli
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/vatesfr/xenorchestra-go-sdk/pkg/apierror"
 )
 
 // setClientTimeout makes Timeout report (and remember) the given duration,
@@ -254,5 +258,92 @@ func TestExecuteRevealsRawErrorBehindTranslation(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "cannot reach 127.0.0.1:8901: connection refused") {
 		t.Errorf("the concise message must still be the error: %v", err)
+	}
+}
+
+// xoError builds the error an SDK v2 service returns for a non-2xx answer.
+func xoError(status int, body string) error {
+	return apierror.NewFromResponse(http.MethodGet, "https://xoa.test/rest/v0/vms?fields=id", status, "", []byte(body))
+}
+
+// The status is read from the SDK's typed error, wrapped or not, before any
+// text: a 500 whose body quotes "API error: 404" stays a 500.
+func TestAPIStatusTypedError(t *testing.T) {
+	err := fmt.Errorf("cannot get VM: %w", xoError(http.StatusInternalServerError, `{"error":"API error: 404 upstream"}`))
+	if got := APIStatus(err); got != http.StatusInternalServerError {
+		t.Fatalf("APIStatus = %d, want 500", got)
+	}
+}
+
+func TestAPIErrorShortensXOErrorBody(t *testing.T) {
+	cases := []struct {
+		name   string
+		status int
+		body   string
+		want   string
+	}{
+		{"message only", http.StatusInternalServerError, `{"error":"boom","data":null}`,
+			`cannot list VMs: API error: 500 Internal Server Error - boom`},
+		{"data kept", http.StatusBadRequest, `{"error":"invalid parameters","data":{"errors": [ {"instancePath":"/name_label"} ]}}`,
+			`cannot list VMs: API error: 400 Bad Request - invalid parameters: {"errors":[{"instancePath":"/name_label"}]}`},
+		{"no such object data dropped", http.StatusNotFound, `{"error":"no such VM abc","data":{"id":"abc","type":"VM"}}`,
+			`cannot list VMs: API error: 404 Not Found - no such VM abc`},
+		{"empty body", http.StatusInternalServerError, "", `cannot list VMs: API error: 500 Internal Server Error`},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			cause := xoError(c.status, c.body)
+			err := APIError(cause, false, "cannot list VMs")
+			if err.Error() != c.want {
+				t.Fatalf("got  %q\nwant %q", err.Error(), c.want)
+			}
+			if d := Detail(err); d != "cannot list VMs: "+cause.Error() {
+				t.Fatalf("the raw body must be kept as the debug detail, got: %q", d)
+			}
+			if !errors.Is(err, cause) {
+				t.Fatal("the SDK error must stay in the chain")
+			}
+		})
+	}
+}
+
+// A body that is not a Xen Orchestra JSON error (an HTML page from a proxy,
+// plain text) is the only information there is: it is kept as is.
+func TestAPIErrorKeepsNonXOBody(t *testing.T) {
+	cause := xoError(http.StatusBadGateway, "<html>bad gateway</html>")
+	err := APIError(cause, false, "cannot list VMs")
+	if err.Error() != "cannot list VMs: "+cause.Error() {
+		t.Fatalf("a non-XO body must not be rewritten: %q", err)
+	}
+	if Detail(err) != "" {
+		t.Fatalf("an unchanged error must not carry a hidden detail: %q", Detail(err))
+	}
+}
+
+// A typed 401 is still translated, and --debug shows the full raw body.
+func TestAPIErrorTyped401(t *testing.T) {
+	cause := xoError(http.StatusUnauthorized, `{"error":"invalid token"}`)
+	err := APIError(cause, false, "cannot list VMs")
+	if !strings.Contains(err.Error(), "authentication was rejected by the server (401)") {
+		t.Fatalf("401 not translated: %v", err)
+	}
+	if d := Detail(err); !strings.Contains(d, `{"error":"invalid token"}`) {
+		t.Fatalf("the raw body must be kept as the debug detail, got: %q", d)
+	}
+}
+
+func TestResponseError(t *testing.T) {
+	req := httptest.NewRequest(http.MethodPatch, "https://xoa.test/rest/v0/vms/abc", nil)
+	resp := &http.Response{StatusCode: http.StatusBadRequest, Status: "400 Bad Request", Request: req}
+	err := ResponseError(resp, []byte("  {\"error\":\"bad\"}\n"))
+	e, ok := apierror.As(err)
+	if !ok {
+		t.Fatalf("ResponseError must return an *apierror.Error, got %T", err)
+	}
+	if e.StatusCode != http.StatusBadRequest || e.Message != "bad" || e.Method != http.MethodPatch {
+		t.Fatalf("unexpected error: %+v", e)
+	}
+	if got := err.Error(); got != `API error: 400 Bad Request - {"error":"bad"}` {
+		t.Fatalf("the body must be trimmed: %q", got)
 	}
 }

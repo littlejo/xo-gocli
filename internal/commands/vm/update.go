@@ -181,7 +181,7 @@ func patchVM(ctx context.Context, c *client.Client, id string, body []byte) erro
 		return err
 	}
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return fmt.Errorf("API error: %s - %s", resp.Status, strings.TrimSpace(string(respBody)))
+		return cli.ResponseError(resp, respBody)
 	}
 	return nil
 }
