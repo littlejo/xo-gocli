@@ -139,3 +139,26 @@ func TestVMList500With404InBodyIsNotNotFound(t *testing.T) {
 		t.Fatalf("the 500 status should remain visible: %v", err)
 	}
 }
+
+// A Xen Orchestra JSON error is shown by its message only; --debug keeps the
+// raw body.
+func TestVMListXOErrorShowsMessage(t *testing.T) {
+	server := fakeXO(t, func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusInternalServerError)
+		_, _ = w.Write([]byte(`{"error":"XAPI is not reachable","data":null}`))
+	})
+	defer server.Close()
+	testenv.Isolate(t, server.URL)
+
+	_, err := runList(t, "list")
+	if err == nil {
+		t.Fatal("expected a 500 error")
+	}
+	if !strings.HasSuffix(err.Error(), "API error: 500 Internal Server Error - XAPI is not reachable") {
+		t.Fatalf("the XO message is expected without the raw JSON: %v", err)
+	}
+	if d := cli.Detail(err); !strings.Contains(d, `{"error":"XAPI is not reachable","data":null}`) {
+		t.Fatalf("the raw body must be kept as the debug detail, got: %q", d)
+	}
+}

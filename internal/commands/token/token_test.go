@@ -11,6 +11,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/littlejo/xo-gocli/internal/cli"
 	"github.com/littlejo/xo-gocli/internal/testenv"
 	"github.com/littlejo/xo-gocli/internal/testutil"
 )
@@ -200,7 +201,7 @@ func TestTokenListLimit(t *testing.T) {
 func TestTokenListAPIError(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
-		_, _ = fmt.Fprint(w, `{"message":"boom"}`)
+		_, _ = fmt.Fprint(w, `{"error":"boom"}`)
 	}))
 	defer server.Close()
 	testenv.Isolate(t, server.URL)
@@ -211,6 +212,14 @@ func TestTokenListAPIError(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "cannot list tokens") {
 		t.Fatalf("unexpected error: %v", err)
+	}
+	// The raw request reports the SDK's typed error: its status is read
+	// without parsing text, and the XO message replaces the raw JSON.
+	if cli.APIStatus(err) != http.StatusInternalServerError {
+		t.Fatalf("the typed status must be readable: %v", err)
+	}
+	if !strings.HasSuffix(err.Error(), "API error: 500 Internal Server Error - boom") {
+		t.Fatalf("the XO message is expected without the raw JSON: %v", err)
 	}
 }
 

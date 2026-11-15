@@ -20,10 +20,11 @@ import (
 	"io"
 	"net/http"
 	"path"
-	"strings"
 	"time"
 
 	"github.com/vatesfr/xenorchestra-go-sdk/v2/client"
+
+	"github.com/littlejo/xo-gocli/internal/cli"
 )
 
 // tokensEndpoint is the REST resource holding the current user's
@@ -76,7 +77,7 @@ func doTokensRequest(ctx context.Context, c *client.Client, method, endpoint str
 		return nil, err
 	}
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return nil, fmt.Errorf("API error: %s - %s", resp.Status, strings.TrimSpace(string(respBody)))
+		return nil, cli.ResponseError(resp, respBody)
 	}
 	return respBody, nil
 }

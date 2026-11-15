@@ -29,9 +29,9 @@ Each item added here reduces the need for `xo rest`.
 ## Layer 2 — complete SDK services, no CLI resource yet
 
 Full resources following the usual `list / get / …` shape, built on an
-implemented SDK service (verified in `v1.21.0`):
+implemented SDK service (verified in `v1.22.0`):
 
-- — (empty: every SDK v1.21.0 service now has a matching CLI resource;
+- — (empty: every SDK v1.22.0 service now has a matching CLI resource;
   `xo pbd` was the last one to be covered)
 
 ## Layer 3 — in the REST API, not in the SDK yet

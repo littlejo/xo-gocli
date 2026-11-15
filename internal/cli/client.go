@@ -339,6 +339,10 @@ func newConnectionError(cfg *xoconfig.ClientConfig, err error) error {
 // known form (including local I/O errors and "API error: 5xx" lines carrying
 // the server's own body) are returned unchanged.
 //
+// APIError additionally shortens the body of an SDK *apierror.Error to the
+// Xen Orchestra error message (see conciseAPIError), keeping the raw body as
+// the debug detail.
+//
 // Prefer APIError when the message wraps an error: it keeps that error in the
 // chain for errors.Is / errors.As.
 func InsecureHint(msg string, alreadyInsecure bool) error {
@@ -357,11 +361,18 @@ func APIError(err error, alreadyInsecure bool, format string, args ...any) error
 // set, is what the returned error unwraps to.
 func hint(msg string, cause error, alreadyInsecure bool) error {
 	msg = cleanSDKArtifact(msg)
-	if translated, raw := translateSDKError(msg); translated != "" {
+	raw := msg
+	msg = conciseAPIError(msg, cause)
+	if translated, _ := translateSDKError(msg); translated != "" {
 		return &detailError{err: &causeError{msg: translated, cause: cause}, detail: raw}
 	}
+	shortened := msg != raw
 	if !alreadyInsecure && isTLSVerifyError(msg) {
 		msg += "\n\nthe server certificate could not be verified; if this is a self-signed or internal certificate, retry with 'xo configure --insecure' (or set XOA_INSECURE=1)"
+	}
+	if shortened {
+		// conciseAPIError dropped the raw body: keep it for --debug.
+		return &detailError{err: &causeError{msg: msg, cause: cause}, detail: raw}
 	}
 	return &causeError{msg: msg, cause: cause}
 }
