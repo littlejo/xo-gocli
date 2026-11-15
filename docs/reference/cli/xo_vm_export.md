@@ -39,20 +39,20 @@ xo vm export <id> [flags]
 ### Options
 
 ```
-      --compress        compress the archive (xva only) (default true)
-      --file string     destination file (default: stdout; use - to be explicit)
-      --format string   archive format: xva or ova (default "xva")
-  -h, --help            help for export
+      --compress[=true|false]   compress the archive (xva only) (default true)
+      --file string             destination file (default: stdout; use - to be explicit)
+      --format string           archive format: xva or ova (default "xva")
+  -h, --help[=true|false]       help for export
 ```
 
 ### Options inherited from parent commands
 
 ```
-  -d, --debug              show SDK/API error details on failure (or $XOA_DEBUG)
-      --json               output as JSON (shorthand for --output json)
-  -o, --output string      output format: table, json, yaml, text (or $XOA_DEFAULT_OUTPUT, or the profile's "output" value) (default "table")
-  -p, --profile string     name of the configuration profile to use (or $XOA_PROFILE)
-      --timeout duration   HTTP client timeout, e.g. 60s or 2m (default 30s, or $XOA_TIMEOUT)
+  -d, --debug[=true|false]   show SDK/API error details on failure (or $XOA_DEBUG)
+      --json[=true|false]    output as JSON (shorthand for --output json)
+  -o, --output string        output format: table, json, yaml, text (or $XOA_DEFAULT_OUTPUT, or the profile's "output" value) (default "table")
+  -p, --profile string       name of the configuration profile to use (or $XOA_PROFILE)
+      --timeout duration     HTTP client timeout, e.g. 60s or 2m (default 30s, or $XOA_TIMEOUT)
 ```
 
 ### SEE ALSO

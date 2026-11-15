@@ -34,19 +34,19 @@ xo pool emergency-shutdown <id> [flags]
 ### Options
 
 ```
-  -h, --help                    help for emergency-shutdown
+  -h, --help[=true|false]       help for emergency-shutdown
       --wait-timeout duration   wait at most this long for the operation to complete, e.g. 30m (default: wait until it completes or Ctrl+C)
-      --yes                     do not ask for confirmation (or set XOA_YES=1)
+      --yes[=true|false]        do not ask for confirmation (or set XOA_YES=1)
 ```
 
 ### Options inherited from parent commands
 
 ```
-  -d, --debug              show SDK/API error details on failure (or $XOA_DEBUG)
-      --json               output as JSON (shorthand for --output json)
-  -o, --output string      output format: table, json, yaml, text (or $XOA_DEFAULT_OUTPUT, or the profile's "output" value) (default "table")
-  -p, --profile string     name of the configuration profile to use (or $XOA_PROFILE)
-      --timeout duration   HTTP client timeout, e.g. 60s or 2m (default 30s, or $XOA_TIMEOUT)
+  -d, --debug[=true|false]   show SDK/API error details on failure (or $XOA_DEBUG)
+      --json[=true|false]    output as JSON (shorthand for --output json)
+  -o, --output string        output format: table, json, yaml, text (or $XOA_DEFAULT_OUTPUT, or the profile's "output" value) (default "table")
+  -p, --profile string       name of the configuration profile to use (or $XOA_PROFILE)
+      --timeout duration     HTTP client timeout, e.g. 60s or 2m (default 30s, or $XOA_TIMEOUT)
 ```
 
 ### SEE ALSO

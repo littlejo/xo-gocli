@@ -40,22 +40,22 @@ xo configure [flags]
 ### Options
 
 ```
-      --endpoint string   Xen Orchestra endpoint, e.g. https://xo.example.com
-  -h, --help              help for configure
-  -k, --insecure          skip TLS certificate verification
-      --password string   password (alternative to --token)
-      --token string      authentication token (or use --username/--password)
-      --username string   username (alternative to --token)
+      --endpoint string         Xen Orchestra endpoint, e.g. https://xo.example.com
+  -h, --help[=true|false]       help for configure
+  -k, --insecure[=true|false]   skip TLS certificate verification
+      --password string         password (alternative to --token)
+      --token string            authentication token (or use --username/--password)
+      --username string         username (alternative to --token)
 ```
 
 ### Options inherited from parent commands
 
 ```
-  -d, --debug              show SDK/API error details on failure (or $XOA_DEBUG)
-      --json               output as JSON (shorthand for --output json)
-  -o, --output string      output format: table, json, yaml, text (or $XOA_DEFAULT_OUTPUT, or the profile's "output" value) (default "table")
-  -p, --profile string     name of the configuration profile to use (or $XOA_PROFILE)
-      --timeout duration   HTTP client timeout, e.g. 60s or 2m (default 30s, or $XOA_TIMEOUT)
+  -d, --debug[=true|false]   show SDK/API error details on failure (or $XOA_DEBUG)
+      --json[=true|false]    output as JSON (shorthand for --output json)
+  -o, --output string        output format: table, json, yaml, text (or $XOA_DEFAULT_OUTPUT, or the profile's "output" value) (default "table")
+  -p, --profile string       name of the configuration profile to use (or $XOA_PROFILE)
+      --timeout duration     HTTP client timeout, e.g. 60s or 2m (default 30s, or $XOA_TIMEOUT)
 ```
 
 ### SEE ALSO

@@ -30,20 +30,20 @@ xo network create-internal <name> [flags]
 
 ```
       --description string   description for the network
-  -h, --help                 help for create-internal
+  -h, --help[=true|false]    help for create-internal
       --mtu int              network MTU (0 for the XenServer default, 1500)
-      --nbd                  allow NBD access to the network
+      --nbd[=true|false]     allow NBD access to the network
       --pool string          pool UUID to create the network in (required, see 'xo pool list')
 ```
 
 ### Options inherited from parent commands
 
 ```
-  -d, --debug              show SDK/API error details on failure (or $XOA_DEBUG)
-      --json               output as JSON (shorthand for --output json)
-  -o, --output string      output format: table, json, yaml, text (or $XOA_DEFAULT_OUTPUT, or the profile's "output" value) (default "table")
-  -p, --profile string     name of the configuration profile to use (or $XOA_PROFILE)
-      --timeout duration   HTTP client timeout, e.g. 60s or 2m (default 30s, or $XOA_TIMEOUT)
+  -d, --debug[=true|false]   show SDK/API error details on failure (or $XOA_DEBUG)
+      --json[=true|false]    output as JSON (shorthand for --output json)
+  -o, --output string        output format: table, json, yaml, text (or $XOA_DEFAULT_OUTPUT, or the profile's "output" value) (default "table")
+  -p, --profile string       name of the configuration profile to use (or $XOA_PROFILE)
+      --timeout duration     HTTP client timeout, e.g. 60s or 2m (default 30s, or $XOA_TIMEOUT)
 ```
 
 ### SEE ALSO

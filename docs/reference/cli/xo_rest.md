@@ -42,23 +42,23 @@ xo rest <method> <path> [flags]
 ### Options
 
 ```
-      --data string      JSON request body for post/put/patch ('-' reads stdin)
-      --header strings   extra request header KEY: VALUE (repeatable)
-  -h, --help             help for rest
-  -i, --include          print the status line and response headers on stderr
-      --param strings    query parameter KEY=VALUE (repeatable)
-  -q, --query string     JMESPath expression applied to the result, e.g. '[].name_label'
-      --yes              do not ask for confirmation (or set XOA_YES=1)
+      --data string            JSON request body for post/put/patch ('-' reads stdin)
+      --header strings         extra request header KEY: VALUE (repeatable)
+  -h, --help[=true|false]      help for rest
+  -i, --include[=true|false]   print the status line and response headers on stderr
+      --param strings          query parameter KEY=VALUE (repeatable)
+  -q, --query string           JMESPath expression applied to the result, e.g. '[].name_label'
+      --yes[=true|false]       do not ask for confirmation (or set XOA_YES=1)
 ```
 
 ### Options inherited from parent commands
 
 ```
-  -d, --debug              show SDK/API error details on failure (or $XOA_DEBUG)
-      --json               output as JSON (shorthand for --output json)
-  -o, --output string      output format: table, json, yaml, text (or $XOA_DEFAULT_OUTPUT, or the profile's "output" value) (default "table")
-  -p, --profile string     name of the configuration profile to use (or $XOA_PROFILE)
-      --timeout duration   HTTP client timeout, e.g. 60s or 2m (default 30s, or $XOA_TIMEOUT)
+  -d, --debug[=true|false]   show SDK/API error details on failure (or $XOA_DEBUG)
+      --json[=true|false]    output as JSON (shorthand for --output json)
+  -o, --output string        output format: table, json, yaml, text (or $XOA_DEFAULT_OUTPUT, or the profile's "output" value) (default "table")
+  -p, --profile string       name of the configuration profile to use (or $XOA_PROFILE)
+      --timeout duration     HTTP client timeout, e.g. 60s or 2m (default 30s, or $XOA_TIMEOUT)
 ```
 
 ### SEE ALSO
